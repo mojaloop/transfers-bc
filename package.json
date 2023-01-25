@@ -1,0 +1,57 @@
+{
+  "name": "@mojaloop/transfers-bc",
+  "version": "0.0.1",
+  "description": "Mojaloop vNext Transfers Bounded Context Monorepo",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/mojaloop/transfers-bc",
+  "private": true,
+  "bugs": {
+    "url": "https://github.com/mojaloop/transfers-bc/issues#readme"
+  },
+  "contributors": [
+    "Pedro Sousa Barreto <pedrosousabarreto@gmail.com>"
+  ],
+  "scripts": {
+    "prepare": "husky install",
+    "start": "npm -ws run start",
+    "start:example-svc": "npm -w packages/example-svc run start",
+    "build": "npm -ws run build",
+    "watch": "npm -ws run watch",
+    "clean": "rm -Rf dist; npm run clean:dist",
+    "clean:npm": "rm -Rf node_modules; npm -ws run clean:npm",
+    "clean:dist": "rm -Rf dist; npm -ws run clean",
+    "lint": "npm -ws run lint",
+    "lint:fix": "npm -ws run lint:fix",
+    "test": "npm run test:unit",
+    "test:unit": "npm -ws --if-present run test:unit",
+    "posttest": "npm run coverage:merge && npm run coverage:gen-report",
+    "coverage:merge": "nyc merge ./coverage/ ./coverage/coverage.json",
+    "coverage:gen-report": "nyc report --reporter=lcov --temp-dir=./coverage",
+    "test:integration": "jest --passWithNoTests --testMatch '**/test/integration/**/*.test.ts'",
+    "audit:check": "npm audit",
+    "audit:resolve": "npm audit fix",
+    "dep:check": "ncu -e 2; npm -ws run dep:check",
+    "dep:update": "ncu -e 2 -u; npm -ws run dep:update"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.2.5",
+    "@types/node": "^18.11.18",
+    "@typescript-eslint/eslint-plugin": "^5.48.2",
+    "@typescript-eslint/parser": "^5.48.2",
+    "eslint": "^8.32.0",
+    "husky": "^8.0.3",
+    "jest": "^29.3.1",
+    "npm-check-updates": "^16.6.2",
+    "nyc": "^15.1.0",
+    "ts-jest": "^29.0.5",
+    "typescript": "^4.9.4"
+  },
+  "workspaces": [
+    "packages/public-types-lib",
+    "packages/domain-lib",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.13.0"
+  }
+}
