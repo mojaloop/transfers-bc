@@ -49,6 +49,9 @@
   "workspaces": [
     "packages/public-types-lib",
     "packages/domain-lib",
+    "packages/implementations",
+    "packages/event-handler-svc",
+    "packages/command-handler-svc",
     "packages/*"
   ],
   "engines": {

@@ -33,16 +33,25 @@
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {IMessageProducer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import { TransferPreparedEvt, TransferPreparedEvtPayload, TransferPrepareRequestedEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {PrepareTransferCmdPayload, PrepareTransferCmd} from "@mojaloop/transfers-bc-domain-lib";
-import {ITransfersRepository} from "./interfaces";
+import { InvalidMessageTypeError, InvalidParticipantIdError, NoSuchParticipantError, RequiredParticipantIsNotActive, UnableToProcessMessageError } from "./errors";
+import {IParticipantService, ITransfersRepository} from "./interfaces/infrastructure";
+import { ITransfer } from "./types";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
 	private _auditClient: IAuditClient;
-	private _repo: ITransfersRepository;
+	private _transfersRepo: ITransfersRepository;
 	private _messageProducer: IMessageProducer;
+	private readonly _participantService: IParticipantService;
 
-	constructor() {
+	constructor(
+		logger: ILogger,
+		participantService: IParticipantService
+	) {
+		this._logger = logger.createChild(this.constructor.name);
+		this._participantService = participantService;
 	}
 
 	async init():Promise<void>{
@@ -51,6 +60,90 @@ export class TransfersAggregate{
 
 	async processCommand(command: CommandMsg){
 		// switch command type and call specific private method
+		
+		let eventToPublish = null;
+
+		switch(command.msgName){
+			case PrepareTransferCmd.name:
+				eventToPublish = await this.transferPreparedReceivedEvt(command as TransferPrepareRequestedEvt);
+				break;
+			default:				
+				this._logger.error(`message type has invalid format or value ${command.msgName}`);
+				throw new InvalidMessageTypeError();
+			}
+
+		if(eventToPublish){
+			if(Array.isArray(eventToPublish)){
+				for await (const event of eventToPublish){
+					await this._messageProducer.send(event);
+				}
+			}else {
+				await this._messageProducer.send(eventToPublish);
+			}
+		}else{
+			throw new UnableToProcessMessageError();
+		}
+
 	}
 
+	private async transferPreparedReceivedEvt(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
+		this._logger.debug(`Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
+
+		await this.validateParticipant(message.payload.payeeFsp);
+		await this.validateParticipant(message.payload.payerFsp);
+
+		const transfer: ITransfer = {
+			transferId: message.payload.transferId,
+			payeeFsp: message.payload.transferId,
+			payerFsp: message.payload.transferId,
+			amount: message.payload.transferId,
+			ilpPacket: message.payload.transferId,
+			condition: message.payload.transferId,
+			expiration: message.payload.expiration,
+			extensionList: message.payload.extensionList
+		};
+
+		await this._transfersRepo.addTransfer(transfer);
+
+		const payload : TransferPreparedEvtPayload = {
+			transferId: message.payload.transferId,
+			payeeFsp: message.payload.transferId,
+			payerFsp: message.payload.transferId,
+			amount: message.payload.transferId,
+			ilpPacket: message.payload.transferId,
+			condition: message.payload.transferId,
+			expiration: message.payload.expiration,
+			extensionList: message.payload.extensionList
+		};
+
+		const event = new TransferPreparedEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+		return event;
+
+	}
+
+	private async validateParticipant(participantId: string | null):Promise<void>{
+		if(participantId){
+			const participant = await this._participantService.getParticipantInfo(participantId);
+
+			if(!participant) {
+				this._logger.debug(`No participant found`);
+				throw new NoSuchParticipantError();
+			}
+
+			if(participant.id !== participantId){
+				this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
+				throw new InvalidParticipantIdError();
+			}
+
+			if(!participant.isActive) {
+				this._logger.debug(`${participant.id} is not active`);
+				throw new RequiredParticipantIsNotActive();
+			}
+		}
+
+		return;
+	}
 }

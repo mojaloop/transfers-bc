@@ -42,7 +42,7 @@ export class TransfersCommandHandler{
 	private _messageConsumer: IMessageConsumer;
 	private _transfersAgg: TransfersAggregate;
 
-	constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, transfersAgg: TransfersAggregate) {
+    constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, transfersAgg: TransfersAggregate) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._auditClient = auditClient;
 		this._messageConsumer = messageConsumer;
@@ -66,7 +66,7 @@ export class TransfersCommandHandler{
 				switch (message.msgName) {
 					case PrepareTransferCmd.name:
 						// send to aggregate handler
-						await this._transfersAgg.processCommand(message);
+						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
 
 					default: {
@@ -85,4 +85,5 @@ export class TransfersCommandHandler{
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}
+
 }

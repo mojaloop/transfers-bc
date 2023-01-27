@@ -17,6 +17,8 @@
     "/dist"
   ],
   "scripts": {
+    "start": "tsc && npm run service",
+    "service": "node dist/index.js",
     "build": "tsc",
     "watch": "tsc -w",
     "clean:npm": "rm -Rf node_modules",

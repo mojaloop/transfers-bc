@@ -31,6 +31,8 @@
 "use strict";
 
 
+import { TransfersAggregate, IParticipantService }  from "@mojaloop/transfers-bc-domain-lib";
+import { ParticipantAdapter } from "@mojaloop/transfers-bc-implementations";
 import {TransfersEventHandler} from "@mojaloop/transfers-bc-event-handler-svc/dist/handler";
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
@@ -52,6 +54,7 @@ import {TransfersCommandHandler} from "./handler";
 
 /* import configs - other imports stay above */
 import configClient from "./config";
+import path from "path";
 const BC_NAME = configClient.boundedContextName;
 const APP_NAME = configClient.applicationName;
 const APP_VERSION = configClient.applicationVersion;
@@ -62,7 +65,7 @@ const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
+const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file");
 
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
 	kafkaBrokerList: KAFKA_URL,
@@ -75,19 +78,25 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 
 let globalLogger: ILogger;
 
-
+// Participant service
+const PARTICIPANT_SVC_BASEURL = process.env["PARTICIPANT_SVC_BASEURL"] || "http://localhost:3010";
+const fixedToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Iml2SC1pVUVDRHdTVnVGS0QtRzdWc0MzS0pnLXN4TFgteWNvSjJpOTFmLTgifQ.eyJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1iYy11aSIsInJvbGVzIjpbIjI2ODBjYTRhLTRhM2EtNGU5YS1iMWZhLTY1MDAyMjkyMTAwOSJdLCJpYXQiOjE2NzE1MzYyNTYsImV4cCI6MTY3MjE0MTA1NiwiYXVkIjoibW9qYWxvb3Audm5leHQuZGVmYXVsdF9hdWRpZW5jZSIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzIwMS8iLCJzdWIiOiJ1c2VyOjp1c2VyIiwianRpIjoiMWYxMzhkZjctMjg1OC00MWNmLThkYTctYTRiYTNhZTZkMGZlIn0.WSn0M73nMXRQhZ1nzpc2YEOBcV5uUupR5aMvxhiAHKylGChzB_gEtikijnUFDw2o5tVYVeiyeKe2_CRPOQ5KTt3VxCBXheMIxekmNE6U9pZY5fsUrphfMb5j886IMiiR-ai25-MplCoaKmsbd1M4HFT8bcjongiXFVkSUmKgG4Q1YyrjnROxH5-xMjDGL1icZNlTjRxYC5BbfiTfw8TSgfdrBVY_v7tE-MRdoI6bVaMfwib_bNfpTHMLt0tx2ca90WKU0IuXOqNMuZv0s-AwmstVA0qiM10Jc4p5A7nQjnLH3cX_X17Gz6lFd8hpDzl7gtSJGD-YvCg-xQn_cGAO0g";
 export class Service {
 	static logger: ILogger;
 	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
 	static handler: TransfersCommandHandler;
+	static aggregate: TransfersAggregate;
+	static participantService: IParticipantService;
 
 	static async start(
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		messageConsumer?: IMessageConsumer,
-		messageProducer?: IMessageProducer
+		messageProducer?: IMessageProducer,
+		participantService?: IParticipantService,
+		aggregate?: TransfersAggregate
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
 
@@ -141,8 +150,22 @@ export class Service {
 		}
 		this.messageProducer = messageProducer;
 
+		if (!participantService) {
+			const participantLogger = logger.createChild("participantLogger");
+			participantLogger.setLogLevel(LogLevel.INFO);
+			participantService = new ParticipantAdapter(participantLogger, PARTICIPANT_SVC_BASEURL, fixedToken);
+		}
+		this.participantService = participantService;
+
+		if (!aggregate) {
+			const producerLogger = logger.createChild("producerLogger");
+			producerLogger.setLogLevel(LogLevel.INFO);
+			aggregate = new TransfersAggregate(logger, participantService);
+		}
+		this.aggregate = aggregate;
+
 		// create handler and start it
-		this.handler = new TransfersCommandHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer);
+		this.handler = new TransfersCommandHandler(this.logger, this.auditClient, this.messageConsumer, this.aggregate);
 		await this.handler.start();
 
 		this.logger.info("Service started");
