@@ -37,25 +37,29 @@ import { ParticipantsHttpClient} from "@mojaloop/participants-bc-client-lib";
 import { Participant } from "@mojaloop/participant-bc-public-types-lib";
 import { IParticipantService } from "@mojaloop/transfers-bc-domain-lib";
 import { ILocalCache, LocalCache } from "../local_cache";
+import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-client-lib";
 
 export class ParticipantAdapter implements IParticipantService {
 	private readonly _logger: ILogger;
 	private readonly _localCache: ILocalCache;
 	private readonly _clientBaseUrl: string;
 	private readonly _externalParticipantClient :ParticipantsHttpClient;
-	private token: string;
+	private readonly _authRequester :IAuthenticatedHttpRequester;
+	private readonly _timeoutMs :number;
 	private validateStatus = (status: number): boolean => status === 200;
 
 	constructor(
 		logger: ILogger,
 		clientBaseUrl: string,
-		token: string,
-		localCache?: ILocalCache
+		authRequester: IAuthenticatedHttpRequester,
+		timeoutMs: number,
+		localCache?: ILocalCache,
 	) {
 		this._logger = logger;
-		this.token = token;
 		this._clientBaseUrl = clientBaseUrl;
-		this._externalParticipantClient = new ParticipantsHttpClient(this._logger, this._clientBaseUrl);
+		this._authRequester = authRequester;
+		this._timeoutMs = timeoutMs;
+		this._externalParticipantClient = new ParticipantsHttpClient(this._logger, this._clientBaseUrl, this._authRequester, this._timeoutMs);
 		this._localCache = localCache ?? new LocalCache(logger);
 	}
 

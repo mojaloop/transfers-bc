@@ -31,8 +31,8 @@
 "use strict";
 
 
-import { TransfersAggregate, IParticipantService }  from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter } from "@mojaloop/transfers-bc-implementations";
+import { TransfersAggregate, IParticipantService, ITransfersRepository }  from "@mojaloop/transfers-bc-domain-lib";
+import { ParticipantAdapter, MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations";
 import {TransfersEventHandler} from "@mojaloop/transfers-bc-event-handler-svc/dist/handler";
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
@@ -51,6 +51,10 @@ import {
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersCommandHandler} from "./handler";
+import {
+	AuthenticatedHttpRequester,
+	IAuthenticatedHttpRequester
+} from "@mojaloop/security-bc-client-lib";
 
 /* import configs - other imports stay above */
 import configClient from "./config";
@@ -89,6 +93,7 @@ export class Service {
 	static handler: TransfersCommandHandler;
 	static aggregate: TransfersAggregate;
 	static participantService: IParticipantService;
+	static transfersRepo: ITransfersRepository;
 
 	static async start(
 		logger?: ILogger,
@@ -96,6 +101,7 @@ export class Service {
 		messageConsumer?: IMessageConsumer,
 		messageProducer?: IMessageProducer,
 		participantService?: IParticipantService,
+		transfersRepo?: ITransfersRepository,
 		aggregate?: TransfersAggregate
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
@@ -147,20 +153,45 @@ export class Service {
 			const producerLogger = logger.createChild("producerLogger");
 			producerLogger.setLogLevel(LogLevel.INFO);
 			messageProducer = new MLKafkaJsonProducer(kafkaProducerOptions, producerLogger);
+			await messageProducer.connect();
 		}
 		this.messageProducer = messageProducer;
 
+		if (!transfersRepo) {
+			const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
+			const DB_NAME_TRANSFERS = process.env.TRANSFERS_DB_NAME ?? "transfers";
+
+			transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
+
+			await transfersRepo.init();
+			logger.info("Quote Registry Repo Initialized");
+		}
+		this.transfersRepo = transfersRepo;
+
+
+
 		if (!participantService) {
 			const participantLogger = logger.createChild("participantLogger");
+
+			const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
+			const USERNAME = "user";                
+			const PASSWORD = "superPass";          
+			const CLIENT_ID = "security-bc-ui";    
+			const PARTICIPANTS_BASE_URL: string = "http://localhost:3010";
+			const HTTP_CLIENT_TIMEOUT_MS: number = 10_000;
+
+			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_TOKEN_ENPOINT);
+
+			authRequester.setUserCredentials(CLIENT_ID, USERNAME, PASSWORD);
 			participantLogger.setLogLevel(LogLevel.INFO);
-			participantService = new ParticipantAdapter(participantLogger, PARTICIPANT_SVC_BASEURL, fixedToken);
+			participantService = new ParticipantAdapter(participantLogger, PARTICIPANTS_BASE_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
 		}
 		this.participantService = participantService;
 
 		if (!aggregate) {
 			const producerLogger = logger.createChild("producerLogger");
 			producerLogger.setLogLevel(LogLevel.INFO);
-			aggregate = new TransfersAggregate(logger, participantService);
+			aggregate = new TransfersAggregate(logger, transfersRepo, participantService, messageProducer);
 		}
 		this.aggregate = aggregate;
 

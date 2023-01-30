@@ -48,14 +48,19 @@ export class TransfersAggregate{
 
 	constructor(
 		logger: ILogger,
-		participantService: IParticipantService
+		transfersRepo:ITransfersRepository,
+		participantService: IParticipantService,
+		messageProducer: IMessageProducer
 	) {
 		this._logger = logger.createChild(this.constructor.name);
+		this._transfersRepo = transfersRepo;
 		this._participantService = participantService;
+		this._messageProducer = messageProducer;
 	}
 
 	async init():Promise<void>{
 		// TODO
+		this._messageProducer.connect();
 	}
 
 	async processCommand(command: CommandMsg){
@@ -125,24 +130,24 @@ export class TransfersAggregate{
 	}
 
 	private async validateParticipant(participantId: string | null):Promise<void>{
-		if(participantId){
-			const participant = await this._participantService.getParticipantInfo(participantId);
+		// if(participantId){
+		// 	const participant = await this._participantService.getParticipantInfo(participantId);
 
-			if(!participant) {
-				this._logger.debug(`No participant found`);
-				throw new NoSuchParticipantError();
-			}
+		// 	if(!participant) {
+		// 		this._logger.debug(`No participant found`);
+		// 		throw new NoSuchParticipantError();
+		// 	}
 
-			if(participant.id !== participantId){
-				this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
-				throw new InvalidParticipantIdError();
-			}
+		// 	if(participant.id !== participantId){
+		// 		this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
+		// 		throw new InvalidParticipantIdError();
+		// 	}
 
-			if(!participant.isActive) {
-				this._logger.debug(`${participant.id} is not active`);
-				throw new RequiredParticipantIsNotActive();
-			}
-		}
+		// 	if(!participant.isActive) {
+		// 		this._logger.debug(`${participant.id} is not active`);
+		// 		throw new RequiredParticipantIsNotActive();
+		// 	}
+		// }
 
 		return;
 	}
