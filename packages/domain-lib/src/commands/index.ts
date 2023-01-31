@@ -68,3 +68,37 @@ export class PrepareTransferCmd extends CommandMsg {
 		// TODO
 	}
 }
+
+export type TransferFulfilCommittedCmdPayload = {
+	transferId: string;
+	transferState: string,
+	fulfilment: number | null,
+	completedTimestamp: number | null,
+	extensionList: {
+        extension: {
+            key: string;
+            value: string;
+        }[]
+    } | null;
+}
+
+
+export class TransferFulfilCommittedCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: TransferFulfilCommittedCmdPayload;
+
+	constructor(payload: TransferFulfilCommittedCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}

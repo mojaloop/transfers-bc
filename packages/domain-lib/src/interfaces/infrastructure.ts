@@ -33,10 +33,12 @@
 import { Participant } from "@mojaloop/participant-bc-public-types-lib";
 import { ITransfer } from "../types";
 
-export interface ITransfersRepository{
+export interface ITransfersRepository {
     init(): Promise<void>;
 	destroy(): Promise<void>;
     addTransfer(transfer: ITransfer):Promise<string>;
+    updateTransfer(transfer: ITransfer):Promise<void>;
+    getTransferById(id:string):Promise<ITransfer|null>;
 }
 
 export interface IParticipantService {

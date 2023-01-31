@@ -35,7 +35,7 @@
 import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError } from '../errors';
+import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError } from '../errors';
 import { randomUUID } from 'crypto';
 
 export class MongoTransfersRepo implements ITransfersRepository {
@@ -93,6 +93,34 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return transferToAdd.transferId;
 	}
 
+	async getTransferById(transferId:string):Promise<ITransfer|null>{
+		const transfer = await this.transfers.findOne({transferId: transferId }).catch((e: any) => {
+			this._logger.error(`Unable to get transfer by id: ${e.message}`);
+			throw new UnableToGetTransferError();
+		});
+
+		if(!transfer){
+			return null;
+		}
+		return this.mapToTransfer(transfer);
+	}
+
+	async updateTransfer(transfer: ITransfer): Promise<void> {
+		const existingTransfer = await this.getTransferById(transfer.transferId);
+
+		if(!existingTransfer || !existingTransfer.transferId) {
+			throw new NoSuchTransferError();
+		}
+
+		const updatedTransfer: ITransfer = {...existingTransfer, ...transfer};
+		updatedTransfer.transferId = existingTransfer.transferId;
+
+		await this.transfers.updateOne({transferId: transfer.transferId, }, { $set: updatedTransfer }).catch((e: any) => {
+			this._logger.error(`Unable to insert transfer: ${e.message}`);
+			throw new UnableToUpdateTransferError();
+		});
+	}
+
 	private async checkIfTransferExists(transfer: ITransfer) {
 		const transferAlreadyPresent: WithId<Document> | null = await this.transfers.findOne(
 			{
@@ -117,8 +145,12 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			ilpPacket: transfer.ilpPacket ?? null,
 			condition: transfer.condition ?? null,
 			expiration: transfer.expiration ?? null,
-			extensionList: transfer.extensionList ?? null
+			transferState: transfer.transferState ?? null,
+			fulfilment: transfer.fulfilment ?? null,
+			completedTimestamp: transfer.completedTimestamp ?? null,
+			extensionList: transfer.extensionList ?? null,
 		};
+		
 		return transferMapped;
 	}
 }

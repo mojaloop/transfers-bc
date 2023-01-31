@@ -53,6 +53,16 @@ export class TransferAlreadyExistsError extends Error {
         super(message || 'Transfer already registered');
     }
 }
+export class UnableToUpdateTransferError extends Error {
+    constructor(message?: string) {
+        super(message || "Unable to update transfer");
+    }
+}
+export class NoSuchTransferError extends Error {
+    constructor(message?: string) {
+        super(message||"No such transfer");
+    }
+}
 
 // Cache
 export class LocalCacheError extends Error {

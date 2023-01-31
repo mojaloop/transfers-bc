@@ -32,6 +32,14 @@
 
 "use strict";
 
+export enum TransferState {
+    RECEIVED = "RECEIVED",
+    PENDING = "PENDING",
+    REJECTED = "REJECTED",
+    ACCEPTED = "ACCEPTED",
+    EXPIRED = "EXPIRED"
+}
+
 export interface ITransfer {
 	transferId: string;
 	payeeFsp: string;
@@ -40,6 +48,9 @@ export interface ITransfer {
 	ilpPacket: string;
 	condition: string;
 	expiration: number;
+	transferState: TransferState,
+	fulfilment: number | null,
+	completedTimestamp: number | null,
 	extensionList: {
         extension: {
             key: string;

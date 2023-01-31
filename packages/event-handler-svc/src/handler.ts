@@ -34,9 +34,10 @@ import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {IMessage,IMessageConsumer, IMessageProducer, DomainEventMsg, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
 	TransfersBCTopics,
-	TransferPrepareRequestedEvt
+	TransferPrepareRequestedEvt,
+	TransferFulfilCommittedRequestedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, PrepareTransferCmdPayload} from "@mojaloop/transfers-bc-domain-lib";
+import {PrepareTransferCmd, PrepareTransferCmdPayload, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersEventHandler{
 	private _logger: ILogger;
@@ -75,6 +76,13 @@ export class TransfersEventHandler{
 					case TransferPrepareRequestedEvt.name:
 						//const payload: PrepareTransferCmdPayload = message.payload;
 						transferCmd = new PrepareTransferCmd(message.payload);
+						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
+						break;
+
+					case TransferFulfilCommittedRequestedEvt.name:
+						//const payload: PrepareTransferCmdPayload = message.payload;
+						transferCmd = new TransferFulfilCommittedCmd(message.payload);
+						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
 						break;
 
 					default: {

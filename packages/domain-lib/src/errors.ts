@@ -44,6 +44,11 @@ export class UnableToProcessMessageError extends Error {
         super(message || "Unable to process message");
     }
 }
+export class NoSuchTransferError extends Error {
+    constructor(message?: string) {
+        super(message||"No such transfer");
+    }
+}
 
 // Message Producer
 export class InvalidMessagePayloadError extends Error {

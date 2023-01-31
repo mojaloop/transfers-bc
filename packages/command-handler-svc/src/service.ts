@@ -164,7 +164,7 @@ export class Service {
 			transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
 
 			await transfersRepo.init();
-			logger.info("Quote Registry Repo Initialized");
+			logger.info("Transfer Registry Repo Initialized");
 		}
 		this.transfersRepo = transfersRepo;
 

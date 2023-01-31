@@ -25,6 +25,10 @@
  * Crosslake
  - Pedro Sousa Barreto <pedrob@crosslaketech.com>
 
+ * Arg Software
+ - José Antunes <jose.antunes@arg.software>
+ - Rui Rocha <rui.rocha@arg.software>
+
  --------------
  ******/
 
@@ -33,11 +37,11 @@
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {IMessageProducer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { TransferPreparedEvt, TransferPreparedEvtPayload, TransferPrepareRequestedEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmdPayload, PrepareTransferCmd} from "@mojaloop/transfers-bc-domain-lib";
-import { InvalidMessageTypeError, InvalidParticipantIdError, NoSuchParticipantError, RequiredParticipantIsNotActive, UnableToProcessMessageError } from "./errors";
+import { TransferPreparedEvt, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferFulfilCommittedRequestedEvt, TransferCommittedFulfiledEvt, TransferCommittedFulfiledEvtPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { PrepareTransferCmdPayload, PrepareTransferCmd, TransferFulfilCommittedCmd } from "@mojaloop/transfers-bc-domain-lib";
+import { InvalidMessageTypeError, InvalidParticipantIdError, NoSuchParticipantError, RequiredParticipantIsNotActive, UnableToProcessMessageError, NoSuchTransferError } from "./errors";
 import {IParticipantService, ITransfersRepository} from "./interfaces/infrastructure";
-import { ITransfer } from "./types";
+import { ITransfer, TransferState } from "./types";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -72,6 +76,9 @@ export class TransfersAggregate{
 			case PrepareTransferCmd.name:
 				eventToPublish = await this.transferPreparedReceivedEvt(command as TransferPrepareRequestedEvt);
 				break;
+			case TransferFulfilCommittedCmd.name:
+				eventToPublish = await this.transferFulfilCommittedEvt(command as TransferFulfilCommittedRequestedEvt);
+				break;
 			default:				
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
 				throw new InvalidMessageTypeError();
@@ -99,12 +106,15 @@ export class TransfersAggregate{
 
 		const transfer: ITransfer = {
 			transferId: message.payload.transferId,
-			payeeFsp: message.payload.transferId,
-			payerFsp: message.payload.transferId,
-			amount: message.payload.transferId,
-			ilpPacket: message.payload.transferId,
-			condition: message.payload.transferId,
+			payeeFsp: message.payload.payeeFsp,
+			payerFsp: message.payload.payerFsp,
+			amount: message.payload.amount,
+			ilpPacket: message.payload.ilpPacket,
+			condition: message.payload.condition,
 			expiration: message.payload.expiration,
+			transferState: TransferState.RECEIVED,
+			fulfilment: null,
+			completedTimestamp: null,
 			extensionList: message.payload.extensionList
 		};
 
@@ -112,11 +122,11 @@ export class TransfersAggregate{
 
 		const payload : TransferPreparedEvtPayload = {
 			transferId: message.payload.transferId,
-			payeeFsp: message.payload.transferId,
-			payerFsp: message.payload.transferId,
-			amount: message.payload.transferId,
-			ilpPacket: message.payload.transferId,
-			condition: message.payload.transferId,
+			payeeFsp: message.payload.payeeFsp,
+			payerFsp: message.payload.payerFsp,
+			amount: message.payload.amount,
+			ilpPacket: message.payload.ilpPacket,
+			condition: message.payload.condition,
 			expiration: message.payload.expiration,
 			extensionList: message.payload.extensionList
 		};
@@ -129,25 +139,62 @@ export class TransfersAggregate{
 
 	}
 
+	private async transferFulfilCommittedEvt(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
+		this._logger.debug(`Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
+
+		// await this.validateParticipant(message.payload.payeeFsp);
+		// await this.validateParticipant(message.payload.payerFsp);
+
+		const transfer = await this._transfersRepo.getTransferById(message.payload.transferId);
+
+		if(!transfer){
+			throw new NoSuchTransferError();
+		}
+
+
+		await this._transfersRepo.updateTransfer({ 
+			...transfer, 
+			transferState: message.payload.transferState as TransferState,
+			fulfilment: message.payload.fulfilment,
+			completedTimestamp: message.payload.completedTimestamp,
+			extensionList: message.payload.extensionList
+		});
+
+		const payload : TransferCommittedFulfiledEvtPayload = {
+			transferId: message.payload.transferId,
+			transferState: message.payload.transferState,
+			fulfilment: message.payload.fulfilment,
+			completedTimestamp: message.payload.completedTimestamp,
+			extensionList: message.payload.extensionList
+		};
+
+		const event = new TransferCommittedFulfiledEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+		return event;
+
+	}
+	
 	private async validateParticipant(participantId: string | null):Promise<void>{
-		// if(participantId){
-		// 	const participant = await this._participantService.getParticipantInfo(participantId);
+		if(participantId){
+			const participant = await this._participantService.getParticipantInfo(participantId);
 
-		// 	if(!participant) {
-		// 		this._logger.debug(`No participant found`);
-		// 		throw new NoSuchParticipantError();
-		// 	}
+			if(!participant) {
+				this._logger.debug(`No participant found`);
+				throw new NoSuchParticipantError();
+			}
 
-		// 	if(participant.id !== participantId){
-		// 		this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
-		// 		throw new InvalidParticipantIdError();
-		// 	}
+			if(participant.id !== participantId){
+				this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
+				throw new InvalidParticipantIdError();
+			}
 
-		// 	if(!participant.isActive) {
-		// 		this._logger.debug(`${participant.id} is not active`);
-		// 		throw new RequiredParticipantIsNotActive();
-		// 	}
-		// }
+			if(!participant.isActive) {
+				this._logger.debug(`${participant.id} is not active`);
+				throw new RequiredParticipantIsNotActive();
+			}
+		}
 
 		return;
 	}
