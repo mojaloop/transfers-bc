@@ -34,7 +34,7 @@ import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {IMessage,IMessageConsumer, IMessageProducer, DomainEventMsg, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransferPrepareRequestedEvt, TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
-import {PrepareTransferCmd, PrepareTransferCmdPayload, TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
+import {PrepareTransferCmd, PrepareTransferCmdPayload, TransfersAggregate, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
 	private _logger: ILogger;
@@ -68,7 +68,10 @@ export class TransfersCommandHandler{
 						// send to aggregate handler
 						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
-
+					case TransferFulfilCommittedCmd.name:
+						// send to aggregate handler
+						await this._transfersAgg.processCommand(message as CommandMsg);
+						break;
 					default: {
 						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} (name:key:id)`);
 					}
