@@ -48,18 +48,21 @@ export class TransfersAggregate{
 	private _auditClient: IAuditClient;
 	private _transfersRepo: ITransfersRepository;
 	private _messageProducer: IMessageProducer;
-	private readonly _participantService: IParticipantService;
+	private _participantService: IParticipantService;
 
+	constructor(logger: ILogger, transfersRepo:ITransfersRepository);
 	constructor(
 		logger: ILogger,
 		transfersRepo:ITransfersRepository,
-		participantService: IParticipantService,
-		messageProducer: IMessageProducer
+		participantService?: IParticipantService,
+		messageProducer?: IMessageProducer
 	) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._transfersRepo = transfersRepo;
-		this._participantService = participantService;
-		this._messageProducer = messageProducer;
+		if(participantService && messageProducer){
+			this._participantService = participantService;
+			this._messageProducer = messageProducer;
+		}
 	}
 
 	async init():Promise<void>{
@@ -69,7 +72,7 @@ export class TransfersAggregate{
 
 	async processCommand(command: CommandMsg){
 		// switch command type and call specific private method
-		
+
 		let eventToPublish = null;
 
 		switch(command.msgName){
@@ -79,7 +82,7 @@ export class TransfersAggregate{
 			case TransferFulfilCommittedCmd.name:
 				eventToPublish = await this.transferFulfilCommittedEvt(command as TransferFulfilCommittedRequestedEvt);
 				break;
-			default:				
+			default:
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
 				throw new InvalidMessageTypeError();
 			}
@@ -152,8 +155,8 @@ export class TransfersAggregate{
 		}
 
 
-		await this._transfersRepo.updateTransfer({ 
-			...transfer, 
+		await this._transfersRepo.updateTransfer({
+			...transfer,
 			transferState: message.payload.transferState as TransferState,
 			fulfilment: message.payload.fulfilment,
 			completedTimestamp: message.payload.completedTimestamp,
@@ -175,7 +178,7 @@ export class TransfersAggregate{
 		return event;
 
 	}
-	
+
 	private async validateParticipant(participantId: string | null):Promise<void>{
 		if(participantId){
 			const participant = await this._participantService.getParticipantInfo(participantId);
@@ -198,4 +201,24 @@ export class TransfersAggregate{
 
 		return;
 	}
+
+	//#region Transfers Admin Endpoints
+
+	public async getTransferById(id: string):Promise<ITransfer | null> {
+		if(!id){
+			throw new Error("Invalid transfer id");
+		}
+
+		const transfer = await this._transfersRepo.getTransferById(id);
+
+		return transfer;
+	}
+
+	public async getTransfers():Promise<ITransfer[]> {
+		const transfers = await this._transfersRepo.getTransfers();
+		return transfers;
+	}
+
+	//#endregion
+
 }

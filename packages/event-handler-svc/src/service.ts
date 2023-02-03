@@ -30,7 +30,6 @@
 
 "use strict";
 
-
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
@@ -52,6 +51,7 @@ import {TransfersEventHandler} from "./handler";
 /* import configs - other imports stay above */
 import configClient from "./config";
 import path from "path";
+
 const BC_NAME = configClient.boundedContextName;
 const APP_NAME = configClient.applicationName;
 const APP_VERSION = configClient.applicationVersion;
@@ -74,7 +74,6 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 };
 
 let globalLogger: ILogger;
-
 
 export class Service {
 	static logger: ILogger;

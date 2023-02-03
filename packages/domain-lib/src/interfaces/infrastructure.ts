@@ -39,6 +39,7 @@ export interface ITransfersRepository {
     addTransfer(transfer: ITransfer):Promise<string>;
     updateTransfer(transfer: ITransfer):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
+    getTransfers():Promise<ITransfer[]>;
 }
 
 export interface IParticipantService {

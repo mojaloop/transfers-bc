@@ -168,15 +168,13 @@ export class Service {
 		}
 		this.transfersRepo = transfersRepo;
 
-
-
 		if (!participantService) {
 			const participantLogger = logger.createChild("participantLogger");
 
 			const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
-			const USERNAME = "user";                
-			const PASSWORD = "superPass";          
-			const CLIENT_ID = "security-bc-ui";    
+			const USERNAME = "user";
+			const PASSWORD = "superPass";
+			const CLIENT_ID = "security-bc-ui";
 			const PARTICIPANTS_BASE_URL: string = "http://localhost:3010";
 			const HTTP_CLIENT_TIMEOUT_MS: number = 10_000;
 

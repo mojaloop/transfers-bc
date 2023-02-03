@@ -105,6 +105,17 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return this.mapToTransfer(transfer);
 	}
 
+	async getTransfers():Promise<ITransfer[]>{
+		const transfers = await this.transfers.find({}).toArray().catch((e: any) => {
+			this._logger.error(`Unable to get transfers: ${e.message}`);
+			throw new UnableToGetTransferError();
+		});
+
+		const mappedTransfers = transfers.map(this.mapToTransfer);
+
+		return mappedTransfers
+	}
+
 	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 
@@ -150,7 +161,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			completedTimestamp: transfer.completedTimestamp ?? null,
 			extensionList: transfer.extensionList ?? null,
 		};
-		
+
 		return transferMapped;
 	}
 }
