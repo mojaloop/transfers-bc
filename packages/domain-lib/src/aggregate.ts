@@ -50,7 +50,6 @@ export class TransfersAggregate{
 	private _messageProducer: IMessageProducer;
 	private _participantService: IParticipantService;
 
-	constructor(logger: ILogger, transfersRepo:ITransfersRepository);
 	constructor(
 		logger: ILogger,
 		transfersRepo:ITransfersRepository,
