@@ -32,6 +32,8 @@
     "dep:update": "ncu -u"
   },
   "dependencies": {
+    "@mojaloop/security-bc-client-lib": "~0.1.11",
+    "@mojaloop/transfers-bc-domain-lib": "*",
     "@mojaloop/logging-bc-client-lib": "^0.1.15",
     "@mojaloop/platform-configuration-bc-client-lib": "^0.1.15",
     "express": "^4.18.2"

@@ -30,7 +30,7 @@
 
 "use strict";
 
-import { Participant } from "@mojaloop/participant-bc-public-types-lib";
+import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
 import { ITransfer } from "../types";
 
 export interface ITransfersRepository {
@@ -42,6 +42,6 @@ export interface ITransfersRepository {
     getTransfers():Promise<ITransfer[]>;
 }
 
-export interface IParticipantService {
-    getParticipantInfo(fspId: string): Promise<Participant| null>;
+export interface IParticipantsServiceAdapter {
+    getParticipantInfo(fspId: string): Promise<IParticipant| null>;
 }

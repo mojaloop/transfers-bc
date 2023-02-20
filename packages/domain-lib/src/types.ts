@@ -32,24 +32,28 @@
 
 "use strict";
 
-export enum TransferState {
-    RECEIVED = "RECEIVED",
-    PENDING = "PENDING",
-    REJECTED = "REJECTED",
-    ACCEPTED = "ACCEPTED",
-    EXPIRED = "EXPIRED"
+
+
+export declare const enum TransferState {
+    RECEIVED = "RECEIVED", 		// initial state
+	RESERVED = "RESERVED", 		// after prepare
+	REJECTED = "REJECTED", 		// could not prepare (ex: no liquidity)
+    COMMITTED = "COMMITTED", 	// after fulfil (final state of successful transfer)
+    ABORTED = "ABORTED", 		// this should not be called like this
+    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
 export interface ITransfer {
 	transferId: string;
-	payeeFsp: string;
-	payerFsp: string;
+	payeeFspId: string;
+	payerFspId: string;
 	amount: string;
-	ilpPacket: string;
-	condition: string;
-	expiration: number;
+	currencyCode: string;
+	ilpPacket: string;				// move to opaque object
+	condition: string;				// move to opaque object
+	fulfilment: number | null,		// move to opaque object
+	expirationTimestamp: number;
 	transferState: TransferState,
-	fulfilment: number | null,
 	completedTimestamp: number | null,
 	extensionList: {
         extension: {

@@ -33,13 +33,13 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { ParticipantsHttpClient} from "@mojaloop/participants-bc-client-lib";
-import { Participant } from "@mojaloop/participant-bc-public-types-lib";
-import { IParticipantService } from "@mojaloop/transfers-bc-domain-lib";
+import {ParticipantsHttpClient} from "@mojaloop/participants-bc-client-lib";
+import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
+import {IParticipantsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
 import { ILocalCache, LocalCache } from "../local_cache";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-client-lib";
 
-export class ParticipantAdapter implements IParticipantService {
+export class ParticipantAdapter implements IParticipantsServiceAdapter {
 	private readonly _logger: ILogger;
 	private readonly _localCache: ILocalCache;
 	private readonly _clientBaseUrl: string;
@@ -63,8 +63,8 @@ export class ParticipantAdapter implements IParticipantService {
 		this._localCache = localCache ?? new LocalCache(logger);
 	}
 
-	async getParticipantInfo(fspId: string): Promise<Participant| null> {
-		const result = this._localCache.get("getParticipantInfo", fspId) as Participant;
+	async getParticipantInfo(fspId: string): Promise<IParticipant| null> {
+		const result = this._localCache.get("getParticipantInfo", fspId) as IParticipant;
 
 		if (result) {
 			this._logger.debug(`getParticipantInfo: returning cached result for fspId: ${fspId}`);
@@ -78,17 +78,17 @@ export class ParticipantAdapter implements IParticipantService {
 			}
 			return result;
 		} catch (e: unknown) {
-			this._logger.error(`getParticipantInfo: error getting participant info for fspId: ${fspId} - ${e}`);
+			this._logger.error(e,`getParticipantInfo: error getting participant info for fspId: ${fspId} - ${e}`);
 			return null;
 		}
 	}
 
-	async getParticipantsInfo(fspIds: string[]): Promise<Participant[]|null> {
-		let result: Participant[] = [];
+	async getParticipantsInfo(fspIds: string[]): Promise<IParticipant[]|null> {
+		let result: IParticipant[] = [];
 		const missingFspIds: string[] = [];
 
 		for (const fspId of fspIds) {
-			const cachedResult = this._localCache.get("getParticipantInfo", fspId) as Participant;
+			const cachedResult = this._localCache.get("getParticipantInfo", fspId) as IParticipant;
 			if (cachedResult) {
 				result.push(cachedResult);
 			} else {
@@ -104,13 +104,13 @@ export class ParticipantAdapter implements IParticipantService {
 		try {
 			const participants = await this._externalParticipantClient.getParticipantsByIds(missingFspIds);
 			if(participants) {
-				participants.forEach((participant:Participant) => this._localCache.set(participant, "getParticipantInfo", participant.id));
+				participants.forEach((participant: IParticipant) => this._localCache.set(participant, "getParticipantInfo", participant.id));
 				result = result.concat(participants);
 			}
 			return result;
 
 		} catch (e: unknown) {
-			this._logger.error(`getParticipantInfo: error getting participants info for fspIds: ${fspIds} - ${e}`);
+			this._logger.error(e,`getParticipantInfo: error getting participants info for fspIds: ${fspIds} - ${e}`);
 			return null;
 		}
 	}

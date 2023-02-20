@@ -31,9 +31,17 @@
 "use strict";
 
 
-import { TransfersAggregate, IParticipantService, ITransfersRepository }  from "@mojaloop/transfers-bc-domain-lib";
+import {
+	TransfersAggregate,
+	IParticipantsServiceAdapter,
+	ITransfersRepository,
+	IAccountsBalancesAdapter
+} from "@mojaloop/transfers-bc-domain-lib";
 import { ParticipantAdapter, MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations";
 import {TransfersEventHandler} from "@mojaloop/transfers-bc-event-handler-svc/dist/handler";
+import {
+	GrpcAccountsAndBalancesAdapter
+} from "@mojaloop/transfers-bc-implementations/dist/external_adapters/grpc_acc_bal_adapter";
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
@@ -50,10 +58,12 @@ import {
 	MLKafkaJsonProducerOptions
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import process from "process";
 import {TransfersCommandHandler} from "./handler";
 import {
 	AuthenticatedHttpRequester,
-	IAuthenticatedHttpRequester
+	IAuthenticatedHttpRequester,
+    LoginHelper
 } from "@mojaloop/security-bc-client-lib";
 
 /* import configs - other imports stay above */
@@ -71,6 +81,20 @@ const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
 const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file");
 
+const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
+const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
+
+// const AUTH_N_TOKEN_ISSUER_NAME = process.env["AUTH_N_TOKEN_ISSUER_NAME"] || "http://localhost:3201/";
+// const AUTH_N_TOKEN_AUDIENCE = process.env["AUTH_N_TOKEN_AUDIENCE"] || "mojaloop.vnext.default_audience";
+// const AUTH_N_SVC_JWKS_URL = process.env["AUTH_N_SVC_JWKS_URL"] || `${AUTH_N_SVC_BASEURL}/.well-known/jwks.json`;
+//
+// const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
+
+const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
+
+const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
+const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
 	kafkaBrokerList: KAFKA_URL,
 	kafkaGroupId: `${BC_NAME}_${APP_NAME}`
@@ -83,8 +107,8 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 let globalLogger: ILogger;
 
 // Participant service
-const PARTICIPANT_SVC_BASEURL = process.env["PARTICIPANT_SVC_BASEURL"] || "http://localhost:3010";
-const fixedToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Iml2SC1pVUVDRHdTVnVGS0QtRzdWc0MzS0pnLXN4TFgteWNvSjJpOTFmLTgifQ.eyJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1iYy11aSIsInJvbGVzIjpbIjI2ODBjYTRhLTRhM2EtNGU5YS1iMWZhLTY1MDAyMjkyMTAwOSJdLCJpYXQiOjE2NzE1MzYyNTYsImV4cCI6MTY3MjE0MTA1NiwiYXVkIjoibW9qYWxvb3Audm5leHQuZGVmYXVsdF9hdWRpZW5jZSIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzIwMS8iLCJzdWIiOiJ1c2VyOjp1c2VyIiwianRpIjoiMWYxMzhkZjctMjg1OC00MWNmLThkYTctYTRiYTNhZTZkMGZlIn0.WSn0M73nMXRQhZ1nzpc2YEOBcV5uUupR5aMvxhiAHKylGChzB_gEtikijnUFDw2o5tVYVeiyeKe2_CRPOQ5KTt3VxCBXheMIxekmNE6U9pZY5fsUrphfMb5j886IMiiR-ai25-MplCoaKmsbd1M4HFT8bcjongiXFVkSUmKgG4Q1YyrjnROxH5-xMjDGL1icZNlTjRxYC5BbfiTfw8TSgfdrBVY_v7tE-MRdoI6bVaMfwib_bNfpTHMLt0tx2ca90WKU0IuXOqNMuZv0s-AwmstVA0qiM10Jc4p5A7nQjnLH3cX_X17Gz6lFd8hpDzl7gtSJGD-YvCg-xQn_cGAO0g";
+const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
+
 export class Service {
 	static logger: ILogger;
 	static auditClient: IAuditClient;
@@ -92,16 +116,18 @@ export class Service {
 	static messageProducer: IMessageProducer;
 	static handler: TransfersCommandHandler;
 	static aggregate: TransfersAggregate;
-	static participantService: IParticipantService;
+	static participantService: IParticipantsServiceAdapter;
 	static transfersRepo: ITransfersRepository;
+	static accountAndBalancesAdapter: IAccountsBalancesAdapter;
 
 	static async start(
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		messageConsumer?: IMessageConsumer,
 		messageProducer?: IMessageProducer,
-		participantService?: IParticipantService,
+		participantService?: IParticipantsServiceAdapter,
 		transfersRepo?: ITransfersRepository,
+		accountAndBalancesAdapter?: IAccountsBalancesAdapter,
 		aggregate?: TransfersAggregate
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
@@ -172,24 +198,33 @@ export class Service {
 			const participantLogger = logger.createChild("participantLogger");
 
 			const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
-			const USERNAME = "user";
-			const PASSWORD = "superPass";
-			const CLIENT_ID = "security-bc-ui";
+			const CLIENT_ID = SVC_CLIENT_ID;
+			const CLIENT_SECRET = SVC_CLIENT_SECRET;
 			const PARTICIPANTS_BASE_URL: string = "http://localhost:3010";
 			const HTTP_CLIENT_TIMEOUT_MS: number = 10_000;
 
 			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_TOKEN_ENPOINT);
 
-			authRequester.setUserCredentials(CLIENT_ID, USERNAME, PASSWORD);
+			authRequester.setAppCredentials(CLIENT_ID, CLIENT_SECRET);
 			participantLogger.setLogLevel(LogLevel.INFO);
 			participantService = new ParticipantAdapter(participantLogger, PARTICIPANTS_BASE_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
 		}
 		this.participantService = participantService;
 
+		if(!accountAndBalancesAdapter) {
+			// TODO put these credentials in env var
+			const loginHelper = new LoginHelper(AUTH_N_SVC_TOKEN_URL, logger);
+			loginHelper.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+
+			accountAndBalancesAdapter = new GrpcAccountsAndBalancesAdapter(ACCOUNTS_BALANCES_COA_SVC_URL, loginHelper, logger);
+			await accountAndBalancesAdapter.init();
+		}
+		this.accountAndBalancesAdapter = accountAndBalancesAdapter;
+
 		if (!aggregate) {
 			const producerLogger = logger.createChild("producerLogger");
 			producerLogger.setLogLevel(LogLevel.INFO);
-			aggregate = new TransfersAggregate(logger, transfersRepo, participantService, messageProducer);
+			aggregate = new TransfersAggregate(logger, transfersRepo, participantService, messageProducer, this.accountAndBalancesAdapter);
 		}
 		this.aggregate = aggregate;
 

@@ -50,6 +50,8 @@ export class NoSuchTransferError extends Error {
     }
 }
 
+export class CheckLiquidityAndReserveFailedError extends Error{}
+
 // Message Producer
 export class InvalidMessagePayloadError extends Error {
     constructor(message?: string) {

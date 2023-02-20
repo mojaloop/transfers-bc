@@ -150,12 +150,13 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	private mapToTransfer(transfer: WithId<Document>): ITransfer {
 		const transferMapped: ITransfer = {
 			transferId: transfer.transferId ?? null,
-			payeeFsp: transfer.payeeFsp ?? null,
-			payerFsp: transfer.payerFsp ?? null,
+			payeeFspId: transfer.payeeFsp ?? null,
+			payerFspId: transfer.payerFsp ?? null,
 			amount: transfer.amount ?? null,
+			currencyCode: transfer.currencyCode ?? null,
 			ilpPacket: transfer.ilpPacket ?? null,
 			condition: transfer.condition ?? null,
-			expiration: transfer.expiration ?? null,
+			expirationTimestamp: transfer.expiration ?? null,
 			transferState: transfer.transferState ?? null,
 			fulfilment: transfer.fulfilment ?? null,
 			completedTimestamp: transfer.completedTimestamp ?? null,

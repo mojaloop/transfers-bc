@@ -87,14 +87,12 @@ let transferAdminRoutes: TransferAdminExpressRoutes;
 export class Service {
   static logger: ILogger;
   static auditClient: IAuditClient;
-  static aggregate: TransfersAggregate;
   static transfersRepo: ITransfersRepository;
 
   static async start(
     logger?: ILogger,
     auditClient?: IAuditClient,
-    transfersRepo?: ITransfersRepository,
-    aggregate?: TransfersAggregate
+    transfersRepo?: ITransfersRepository
   ): Promise<void> {
     console.log(`Service starting with PID: ${process.pid}`);
 
@@ -166,21 +164,13 @@ export class Service {
     }
     this.transfersRepo = transfersRepo;
 
-    // Start the aggregate
-    if (!aggregate) {
-      const producerLogger = logger.createChild("producerLogger");
-      producerLogger.setLogLevel(LogLevel.INFO);
-      aggregate = new TransfersAggregate(logger, transfersRepo);
-    }
-    this.aggregate = aggregate;
-
     // Start express server
     expressApp = express();
     expressApp.use(express.json()); // for parsing application/json
     expressApp.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 
     // Add admin and client http routes
-    transferAdminRoutes = new TransferAdminExpressRoutes(aggregate, logger);
+    transferAdminRoutes = new TransferAdminExpressRoutes(transfersRepo, logger);
     expressApp.use("", transferAdminRoutes.mainRouter);
 
     expressApp.use((req, res) => {

@@ -40,7 +40,7 @@
 
 "use strict";
 
-import { TransfersAggregate } from "@mojaloop/transfers-bc-domain-lib";
+import {ITransfersRepository, TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import express from "express";
 import { validationResult } from "express-validator";
@@ -48,12 +48,12 @@ import { validationResult } from "express-validator";
 export abstract class BaseRoutes {
   private readonly _mainRouter: express.Router;
   private readonly _logger: ILogger;
-  private readonly _transfersAggregate: TransfersAggregate;
+  private readonly _repo: ITransfersRepository;
 
-  constructor(logger: ILogger, transfersAggregate: TransfersAggregate) {
+  constructor(logger: ILogger, repo: ITransfersRepository) {
     this._mainRouter = express.Router();
     this._logger = logger;
-    this._transfersAggregate = transfersAggregate;
+    this._repo = repo;
   }
 
   public get logger(): ILogger {
@@ -64,8 +64,8 @@ export abstract class BaseRoutes {
     return this._mainRouter;
   }
 
-  get transfersAggregate(): TransfersAggregate {
-    return this._transfersAggregate;
+  get repo(): ITransfersRepository {
+    return this._repo;
   }
 
   public validateRequest(

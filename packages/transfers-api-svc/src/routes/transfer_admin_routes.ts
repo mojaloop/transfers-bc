@@ -42,13 +42,13 @@
 
 import express from "express";
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import { TransfersAggregate } from "@mojaloop/transfers-bc-domain-lib";
+import {ITransfersRepository, TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
 import { check } from "express-validator";
 import { BaseRoutes } from "./base/base_routes";
 
 export class TransferAdminExpressRoutes extends BaseRoutes {
-  constructor(transfersAggregate: TransfersAggregate, logger: ILogger) {
-    super(logger, transfersAggregate);
+  constructor(repository: ITransfersRepository, logger: ILogger) {
+    super(logger, repository);
     this.logger.createChild(this.constructor.name);
 
     this.mainRouter.get(
@@ -72,7 +72,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
   ) {
     this.logger.debug("Fetching all transfers");
     try {
-      const fetched = await this.transfersAggregate.getTransfers();
+      const fetched = await this.repo.getTransfers();
       res.send(fetched);
     } catch (err: any) {
       this.logger.error(err);
@@ -96,7 +96,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
     this.logger.debug("Fetching transfer by id " + id);
 
     try {
-      const fetched = await this.transfersAggregate.getTransferById(id);
+      const fetched = await this.repo.getTransferById(id);
       if (!fetched) {
         res.status(404).json({
           status: "error",

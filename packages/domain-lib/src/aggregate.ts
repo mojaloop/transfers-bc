@@ -34,34 +34,54 @@
 
 "use strict";
 
+const HUB_ID = "hub"; // move to shared lib
+
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IMessageProducer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { TransferPreparedEvt, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferFulfilCommittedRequestedEvt, TransferCommittedFulfiledEvt, TransferCommittedFulfiledEvtPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import { PrepareTransferCmdPayload, PrepareTransferCmd, TransferFulfilCommittedCmd } from "@mojaloop/transfers-bc-domain-lib";
-import { InvalidMessageTypeError, InvalidParticipantIdError, NoSuchParticipantError, RequiredParticipantIsNotActive, UnableToProcessMessageError, NoSuchTransferError } from "./errors";
-import {IParticipantService, ITransfersRepository} from "./interfaces/infrastructure";
-import { ITransfer, TransferState } from "./types";
+import {CommandMsg, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+	TransferCommittedFulfiledEvt,
+	TransferCommittedFulfiledEvtPayload,
+	TransferFulfilCommittedRequestedEvt,
+	TransferPreparedEvt,
+	TransferPreparedEvtPayload,
+	TransferPrepareRequestedEvt
+} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {IAccountsBalancesAdapter} from "./interfaces/iparticipant_account_balances_adapter";
+import {
+	CheckLiquidityAndReserveFailedError,
+	InvalidMessageTypeError,
+	InvalidParticipantIdError,
+	NoSuchParticipantError,
+	NoSuchTransferError,
+	RequiredParticipantIsNotActive,
+	UnableToProcessMessageError
+} from "./errors";
+import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
+import {ITransfer, TransferState} from "./types";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
 	private _auditClient: IAuditClient;
 	private _transfersRepo: ITransfersRepository;
 	private _messageProducer: IMessageProducer;
-	private _participantService: IParticipantService;
+	private _participantAdapter: IParticipantsServiceAdapter;
+	private _accountAndBalancesAdapter: IAccountsBalancesAdapter;
 
 	constructor(
 		logger: ILogger,
 		transfersRepo:ITransfersRepository,
-		participantService?: IParticipantService,
-		messageProducer?: IMessageProducer
+		participantsServiceAdapter: IParticipantsServiceAdapter,
+		messageProducer: IMessageProducer,
+		accountAndBalancesAdapter: IAccountsBalancesAdapter
 	) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._transfersRepo = transfersRepo;
-		if(participantService && messageProducer){
-			this._participantService = participantService;
-			this._messageProducer = messageProducer;
-		}
+		this._participantAdapter = participantsServiceAdapter;
+		this._messageProducer = messageProducer;
+		this._accountAndBalancesAdapter = accountAndBalancesAdapter;
+
 	}
 
 	async init():Promise<void>{
@@ -103,17 +123,39 @@ export class TransfersAggregate{
 	private async transferPreparedReceivedEvt(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
 		this._logger.debug(`Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		await this.validateParticipant(message.payload.payeeFsp);
-		await this.validateParticipant(message.payload.payerFsp);
+		// TODO get all participants in a single call with participantsClient.getParticipantsByIds()
+		const payerFsp = await this._participantAdapter.getParticipantInfo(message.payload.payerFsp);
+		const payeeFsp = await this._participantAdapter.getParticipantInfo(message.payload.payeeFsp);
+		const hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
+
+		if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new Error("Cannot get hub participant information");
+			this._logger.error(err);
+			throw err;
+		}
+
+		if(!payerFsp || !payeeFsp){//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new NoSuchParticipantError("Payer or payee participant not found");
+			this._logger.error(err);
+			throw err;
+		}
+		// TODO reactivate participant.isActive check
+		// if (!payerFsp.isActive || !payerFsp.approved || !payeeFsp.isActive || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
+		if (!payerFsp.approved || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new RequiredParticipantIsNotActive("Payer or payee participants are not active and approved");
+			this._logger.error(err);
+			throw err;
+		}
 
 		const transfer: ITransfer = {
 			transferId: message.payload.transferId,
-			payeeFsp: message.payload.payeeFsp,
-			payerFsp: message.payload.payerFsp,
+			payeeFspId: message.payload.payeeFsp,
+			payerFspId: message.payload.payerFsp,
 			amount: message.payload.amount,
+			currencyCode: message.payload.currencyCode,
 			ilpPacket: message.payload.ilpPacket,
 			condition: message.payload.condition,
-			expiration: message.payload.expiration,
+			expirationTimestamp: message.payload.expiration,
 			transferState: TransferState.RECEIVED,
 			fulfilment: null,
 			completedTimestamp: null,
@@ -121,6 +163,46 @@ export class TransfersAggregate{
 		};
 
 		await this._transfersRepo.addTransfer(transfer);
+
+		// TODO call the settlements lib to get the correct settlement model
+		// export function obtainSettlementModelFrom(
+		// 	transferAmount: bigint,
+		// 	debitAccountCurrency: string,
+		// 	creditAccountCurrency: string
+		// ): Promise<string> {
+
+
+		const hubJokeAccount = hub.participantAccounts.find(value => value.type === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode);
+		const payerPosAccount = payerFsp.participantAccounts.find(value => value.type === "POSITION" && value.currencyCode === transfer.currencyCode);
+		const payerLiqAccount = payerFsp.participantAccounts.find(value => value.type === "SETTLEMENT" && value.currencyCode === transfer.currencyCode);
+
+		// TODO put net debit cap in the participant struct
+		const payerNdc = "0";
+
+		if(!hubJokeAccount || !payerPosAccount || !payerLiqAccount){
+			const err = new Error("Could not get hub or payer accounts from participant");
+			this._logger.error(err);
+			throw err;
+		}
+
+		try{
+			await this._accountAndBalancesAdapter.checkLiquidAndReserve(
+				payerPosAccount.id, payerLiqAccount.id, hubJokeAccount.id,
+				transfer.amount, transfer.currencyCode, payerNdc, transfer.transferId
+			);
+		}catch (error){
+			const err = new CheckLiquidityAndReserveFailedError("checkLiquidAndReserve failed");
+			this._logger.error(err);
+
+			// update the state of the transfer in the repo
+			transfer.transferState = TransferState.REJECTED;
+			await this._transfersRepo.updateTransfer(transfer);
+
+			throw err;
+		}
+
+		transfer.transferState = TransferState.RESERVED;
+		await this._transfersRepo.updateTransfer(transfer);
 
 		const payload : TransferPreparedEvtPayload = {
 			transferId: message.payload.transferId,
@@ -137,8 +219,9 @@ export class TransfersAggregate{
 
 		event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-		return event;
+		this._logger.debug("transferPreparedReceivedEvt completed for transferId: "+transfer.transferId);
 
+		return event;
 	}
 
 	private async transferFulfilCommittedEvt(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
@@ -147,22 +230,33 @@ export class TransfersAggregate{
 		// await this.validateParticipant(message.payload.payeeFsp);
 		// await this.validateParticipant(message.payload.payerFsp);
 
-		const transfer = await this._transfersRepo.getTransferById(message.payload.transferId);
+		let retEvent: TransferCommittedFulfiledEvt;
 
-		if(!transfer){
-			throw new NoSuchTransferError();
+		try {
+			const transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
+			if (!transferRec) {
+				throw new NoSuchTransferError();
+			}
+
+			// TODO call the CoA to request the cancelReservationAndCommit()
+
+			transferRec.transferState = TransferState.COMMITTED;
+
+			await this._transfersRepo.updateTransfer({
+				...transferRec,
+				transferState: message.payload.transferState as TransferState,
+				fulfilment: message.payload.fulfilment,
+				completedTimestamp: message.payload.completedTimestamp,
+				extensionList: message.payload.extensionList
+			});
+
+
+		}catch(err){
+			// log and revert
+			// TODO revert the reservation we did in the prepare step
 		}
 
-
-		await this._transfersRepo.updateTransfer({
-			...transfer,
-			transferState: message.payload.transferState as TransferState,
-			fulfilment: message.payload.fulfilment,
-			completedTimestamp: message.payload.completedTimestamp,
-			extensionList: message.payload.extensionList
-		});
-
-		const payload : TransferCommittedFulfiledEvtPayload = {
+		const payload: TransferCommittedFulfiledEvtPayload = {
 			transferId: message.payload.transferId,
 			transferState: message.payload.transferState,
 			fulfilment: message.payload.fulfilment,
@@ -170,26 +264,20 @@ export class TransfersAggregate{
 			extensionList: message.payload.extensionList
 		};
 
-		const event = new TransferCommittedFulfiledEvt(payload);
+		retEvent = new TransferCommittedFulfiledEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
+		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
 
-		return event;
-
+		return retEvent;
 	}
 
 	private async validateParticipant(participantId: string | null):Promise<void>{
 		if(participantId){
-			const participant = await this._participantService.getParticipantInfo(participantId);
+			const participant = await this._participantAdapter.getParticipantInfo(participantId);
 
 			if(!participant) {
 				this._logger.debug(`No participant found`);
 				throw new NoSuchParticipantError();
-			}
-
-			if(participant.id !== participantId){
-				this._logger.debug(`Participant id mismatch ${participant.id} ${participantId}`);
-				throw new InvalidParticipantIdError();
 			}
 
 			if(!participant.isActive) {
