@@ -50,7 +50,7 @@ export type PrepareTransferCmdPayload = {
 }
 
 export class PrepareTransferCmd extends CommandMsg {
-	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
@@ -84,7 +84,7 @@ export type TransferFulfilCommittedCmdPayload = {
 
 
 export class TransferFulfilCommittedCmd extends CommandMsg {
-	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;

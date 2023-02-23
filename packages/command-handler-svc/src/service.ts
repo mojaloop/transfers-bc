@@ -200,8 +200,8 @@ export class Service {
 			const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
 			const CLIENT_ID = SVC_CLIENT_ID;
 			const CLIENT_SECRET = SVC_CLIENT_SECRET;
-			const PARTICIPANTS_BASE_URL: string = "http://localhost:3010";
-			const HTTP_CLIENT_TIMEOUT_MS: number = 10_000;
+			const PARTICIPANTS_BASE_URL = "http://localhost:3010";
+			const HTTP_CLIENT_TIMEOUT_MS = 10_000;
 
 			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_TOKEN_ENPOINT);
 

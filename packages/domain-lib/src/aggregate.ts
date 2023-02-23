@@ -232,37 +232,27 @@ export class TransfersAggregate{
 		// await this.validateParticipant(message.payload.payerFsp);
 
 		let retEvent: TransferCommittedFulfiledEvt;
+		const transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
 
-		try {
-			const transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
-			if (!transferRec) {
-				throw new NoSuchTransferError();
-			}
-		}catch(err){
-			// log and revert
-			// TODO revert the reservation we did in the prepare step
-			await this._accountAndBalancesAdapter.cancelReservation()
+		if (!transferRec) {
+			throw new NoSuchTransferError();
 		}
 
-		try{
-			// TODO call the CoA to request the cancelReservationAndCommit()
-			await this._accountAndBalancesAdapter.cancelReservationAndCommit();
-
-			transferRec.transferState = TransferState.COMMITTED;
-
-			await this._transfersRepo.updateTransfer({
-				...transferRec,
-				transferState: message.payload.transferState as TransferState,
-				fulfilment: message.payload.fulfilment,
-				completedTimestamp: message.payload.completedTimestamp,
-				extensionList: message.payload.extensionList
-			});
+		transferRec.transferState = TransferState.COMMITTED;
 
 
-		}catch(err){
+		await this._transfersRepo.updateTransfer({
+			...transferRec,
+			transferState: message.payload.transferState as TransferState,
+			fulfilment: message.payload.fulfilment,
+			completedTimestamp: message.payload.completedTimestamp,
+			extensionList: message.payload.extensionList
+		}).catch(err => {
 			// log and revert
-			// TODO revert the reservation after we try to cancelReservationAndCommit
-		}
+			// TODO revert the reservation after we try to cancelReservationAndC
+			this._logger.error(err);
+			throw err;
+		});
 
 		const payload: TransferCommittedFulfiledEvtPayload = {
 			transferId: message.payload.transferId,
@@ -272,11 +262,11 @@ export class TransfersAggregate{
 			extensionList: message.payload.extensionList
 		};
 
-		retEvent = new TransferCommittedFulfiledEvt(payload);
+		const event = new TransferCommittedFulfiledEvt(payload);
 
-		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-		return retEvent;
+		return event;
 	}
 
 	private async validateParticipant(participantId: string | null):Promise<void>{

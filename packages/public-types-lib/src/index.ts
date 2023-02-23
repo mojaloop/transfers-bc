@@ -30,6 +30,4 @@
 
 "use strict";
 
-export type Transfer = {
-
-}
+export type Transfer = object;

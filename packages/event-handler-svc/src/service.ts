@@ -62,7 +62,7 @@ const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file")
+const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file");
 
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
 	kafkaBrokerList: KAFKA_URL,

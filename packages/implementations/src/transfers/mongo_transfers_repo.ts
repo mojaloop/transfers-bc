@@ -113,7 +113,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 		const mappedTransfers = transfers.map(this.mapToTransfer);
 
-		return mappedTransfers
+		return mappedTransfers;
 	}
 
 	async updateTransfer(transfer: ITransfer): Promise<void> {
