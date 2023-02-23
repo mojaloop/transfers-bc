@@ -172,9 +172,9 @@ export class TransfersAggregate{
 		// ): Promise<string> {
 
 
-		const hubJokeAccount = hub.participantAccounts.find(value => value.type === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode);
-		const payerPosAccount = payerFsp.participantAccounts.find(value => value.type === "POSITION" && value.currencyCode === transfer.currencyCode);
-		const payerLiqAccount = payerFsp.participantAccounts.find(value => value.type === "SETTLEMENT" && value.currencyCode === transfer.currencyCode);
+		const hubJokeAccount = hub.participantAccounts.find((value: any) => value.type === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode);
+		const payerPosAccount = payerFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transfer.currencyCode);
+		const payerLiqAccount = payerFsp.participantAccounts.find((value: any) => value.type === "SETTLEMENT" && value.currencyCode === transfer.currencyCode);
 
 		// TODO put net debit cap in the participant struct
 		const payerNdc = "0";
@@ -228,25 +228,67 @@ export class TransfersAggregate{
 	private async transferFulfilCommittedEvt(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
 		this._logger.debug(`Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
-		// await this.validateParticipant(message.payload.payeeFsp);
-		// await this.validateParticipant(message.payload.payerFsp);
-
 		let retEvent: TransferCommittedFulfiledEvt;
 
+		let payerFsp: any;
+		let payeeFsp: any;
+		let hub: any;
+
+		let hubJokeAccount: any;
+		let payerPosAccount: any;
+		let payerLiqAccount: any;
+		
+		let payeePosAccount: any;
+
+		let transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
+		
 		try {
-			const transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
 			if (!transferRec) {
 				throw new NoSuchTransferError();
+			}
+
+			 payerFsp = await this._participantAdapter.getParticipantInfo(transferRec.payerFspId);
+			 payeeFsp = await this._participantAdapter.getParticipantInfo(transferRec.payeeFspId);
+			 hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
+	
+			if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
+				const err = new Error("Cannot get hub participant information");
+				this._logger.error(err);
+				throw err;
+			}
+	
+			if(!payerFsp || !payeeFsp){//} || !payerFsp.isActive || !payerFsp.approved){
+				const err = new NoSuchParticipantError("Payer or payee participant not found");
+				this._logger.error(err);
+				throw err;
+			}
+
+			hubJokeAccount = hub.participantAccounts.find((value: any) => value.type === "HUB_RECONCILIATION" && value.currencyCode === transferRec?.currencyCode);
+			payerPosAccount = payerFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transferRec?.currencyCode);
+			payerLiqAccount = payerFsp.participantAccounts.find((value: any) => value.type === "SETTLEMENT" && value.currencyCode === transferRec?.currencyCode);
+			
+			payeePosAccount = payeeFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transferRec?.currencyCode);
+
+			if(!hubJokeAccount || !payerPosAccount || !payerLiqAccount){
+				const err = new Error("Could not get hub or payer accounts from participant");
+				this._logger.error(err);
+				throw err;
 			}
 		}catch(err){
 			// log and revert
 			// TODO revert the reservation we did in the prepare step
-			await this._accountAndBalancesAdapter.cancelReservation()
+			// await this._accountAndBalancesAdapter.cancelReservation()
 		}
 
 		try{
-			// TODO call the CoA to request the cancelReservationAndCommit()
-			await this._accountAndBalancesAdapter.cancelReservationAndCommit();
+			if (!transferRec) {
+				throw new NoSuchTransferError();
+			}
+
+			await this._accountAndBalancesAdapter.cancelReservationAndCommit(
+				payerPosAccount.id,payeePosAccount.id,hubJokeAccount.id,
+				transferRec.amount, transferRec.currencyCode, transferRec.transferId,
+			);
 
 			transferRec.transferState = TransferState.COMMITTED;
 
@@ -259,9 +301,12 @@ export class TransfersAggregate{
 			});
 
 
-		}catch(err){
+		}catch(error){
 			// log and revert
 			// TODO revert the reservation after we try to cancelReservationAndCommit
+			const err = new Error("Cannot get hub participant information");
+			this._logger.error(err);
+			throw err;
 		}
 
 		const payload: TransferCommittedFulfiledEvtPayload = {
