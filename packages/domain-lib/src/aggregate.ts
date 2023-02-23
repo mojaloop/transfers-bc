@@ -209,6 +209,7 @@ export class TransfersAggregate{
 			payeeFsp: message.payload.payeeFsp,
 			payerFsp: message.payload.payerFsp,
 			amount: message.payload.amount,
+			currencyCode: message.payload.currencyCode,
 			ilpPacket: message.payload.ilpPacket,
 			condition: message.payload.condition,
 			expiration: message.payload.expiration,
@@ -237,8 +238,15 @@ export class TransfersAggregate{
 			if (!transferRec) {
 				throw new NoSuchTransferError();
 			}
+		}catch(err){
+			// log and revert
+			// TODO revert the reservation we did in the prepare step
+			await this._accountAndBalancesAdapter.cancelReservation()
+		}
 
+		try{
 			// TODO call the CoA to request the cancelReservationAndCommit()
+			await this._accountAndBalancesAdapter.cancelReservationAndCommit();
 
 			transferRec.transferState = TransferState.COMMITTED;
 
@@ -253,7 +261,7 @@ export class TransfersAggregate{
 
 		}catch(err){
 			// log and revert
-			// TODO revert the reservation we did in the prepare step
+			// TODO revert the reservation after we try to cancelReservationAndCommit
 		}
 
 		const payload: TransferCommittedFulfiledEvtPayload = {

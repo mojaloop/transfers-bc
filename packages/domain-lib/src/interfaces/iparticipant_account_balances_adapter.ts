@@ -32,22 +32,37 @@
 
 import {
     AccountsAndBalancesAccount,
-    AccountsAndBalancesJournalEntry
+    AccountsAndBalancesJournalEntry,
+    AccountsAndBalancesAccountType
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
 export class TransferWouldExceedCreditsError extends Error{}
 export class TransferWouldExceedDebitsError extends Error{}
 
 export interface IAccountsBalancesAdapter {
-    init(): Promise<void>;
+	init(): Promise<void>;
+	destroy(): Promise<void>;
 
-    createAccount(account: AccountsAndBalancesAccount): Promise<string>;
-    getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
-    getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
+	setToken(accessToken: string): void;
+	setUserCredentials(client_id: string, username: string, password: string): void;
+	setAppCredentials(client_id: string, client_secret: string): void;
 
-    getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
+	createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string>;
+	getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
+	getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
+	getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
 
-    createJournalEntry(entry: AccountsAndBalancesJournalEntry): Promise<string>;
+	createJournalEntry(
+		requestedId: string,
+		ownerId: string,
+		currencyCode: string,
+		amount: string,
+		pending: boolean,
+		debitedAccountId: string,
+		creditedAccountId: string
+	): Promise<string>;
+
+	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
 
     // high level
     checkLiquidAndReserve(
@@ -64,10 +79,4 @@ export interface IAccountsBalancesAdapter {
         payerPositionAccountId: string, hubJokeAccountId: string,
         transferAmount: string, currencyCode: string, transferId: string
     ): Promise<void>;
-
-    setToken(accessToken: string): void;
-    setUserCredentials(client_id: string, username: string, password: string): void;
-    setAppCredentials(client_id: string, client_secret: string): void;
-
-    destroy(): Promise<void>;
 }
