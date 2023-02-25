@@ -61,8 +61,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			this.mongoClient = new MongoClient(this._connectionString);
 			this.mongoClient.connect();
 			this.transfers = this.mongoClient.db(this._dbName).collection(this._collectionName);
-		} catch (e: any) {
-			this._logger.error(`Unable to connect to the database: ${e.message}`);
+		} catch (e: unknown) {
+			this._logger.error(`Unable to connect to the database: ${(e as Error).message}`);
 			throw new UnableToInitTransferRegistryError();
 		}
 	}
@@ -71,8 +71,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		try{
 			await this.mongoClient.close();
 		}
-		catch(e: any){
-			this._logger.error(`Unable to close the database connection: ${e.message}`);
+		catch(e: unknown){
+			this._logger.error(`Unable to close the database connection: ${(e as Error).message}`);
 			throw new UnableToCloseDatabaseConnectionError();
 		}
 	}
@@ -84,8 +84,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		}
 
 		transferToAdd.transferId = transferToAdd.transferId || randomUUID();
-		await this.transfers.insertOne(transferToAdd).catch((e: any) => {
-			this._logger.error(`Unable to insert transfer: ${e.message}`);
+		await this.transfers.insertOne(transferToAdd).catch((e: unknown) => {
+			this._logger.error(`Unable to insert transfer: ${(e as Error).message}`);
 			throw new UnableToAddTransferError();
 
 		});
@@ -94,8 +94,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async getTransferById(transferId:string):Promise<ITransfer|null>{
-		const transfer = await this.transfers.findOne({transferId: transferId }).catch((e: any) => {
-			this._logger.error(`Unable to get transfer by id: ${e.message}`);
+		const transfer = await this.transfers.findOne({transferId: transferId }).catch((e: unknown) => {
+			this._logger.error(`Unable to get transfer by id: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
 		});
 
@@ -106,8 +106,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async getTransfers():Promise<ITransfer[]>{
-		const transfers = await this.transfers.find({}).toArray().catch((e: any) => {
-			this._logger.error(`Unable to get transfers: ${e.message}`);
+		const transfers = await this.transfers.find({}).toArray().catch((e: unknown) => {
+			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
 		});
 
@@ -126,8 +126,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		const updatedTransfer: ITransfer = {...existingTransfer, ...transfer};
 		updatedTransfer.transferId = existingTransfer.transferId;
 
-		await this.transfers.updateOne({transferId: transfer.transferId, }, { $set: updatedTransfer }).catch((e: any) => {
-			this._logger.error(`Unable to insert transfer: ${e.message}`);
+		await this.transfers.updateOne({transferId: transfer.transferId, }, { $set: updatedTransfer }).catch((e: unknown) => {
+			this._logger.error(`Unable to insert transfer: ${(e as Error).message}`);
 			throw new UnableToUpdateTransferError();
 		});
 	}
@@ -137,8 +137,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			{
 				transferId: transfer.transferId
 			}
-		).catch((e: any) => {
-			this._logger.error(`Unable to add transfer: ${e.message}`);
+		).catch((e: unknown) => {
+			this._logger.error(`Unable to add transfer: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
 		});
 

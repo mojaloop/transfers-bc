@@ -94,7 +94,7 @@
              }]
          };
  
-         const createdIds = await this._client.createAccounts(req).catch((reason: any) => {
+         const createdIds = await this._client.createAccounts(req).catch((reason: unknown) => {
              this._logger.error(reason);
              if(reason instanceof Error && reason.constructor.name === "UnauthorizedError"){
                  throw new UnauthorizedError(reason.message);
@@ -103,6 +103,7 @@
              throw new Error("Could not create account in remote system: "+reason);
          });
  
+         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
          return createdIds.grpcIdArray![0].grpcId!;
      }
  
@@ -122,14 +123,16 @@
              }]
          };
  
-         const createdId = await this._client.createJournalEntries(req).catch((reason: any) => {
+         const createdId = await this._client.createJournalEntries(req).catch((reason: unknown) => {
              this._logger.error(reason);
              throw new Error("Could not create journalEntry in remote system: "+reason);
          });
+         
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
          return createdId.grpcIdArray![0].grpcId!;
      }
  
-     async getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
+     async getJournalEntriesByAccountId(_accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
          // TODO @pedro, please complete:
          return Promise.resolve([]);
      }

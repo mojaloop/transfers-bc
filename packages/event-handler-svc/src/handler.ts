@@ -31,13 +31,13 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IMessage,IMessageConsumer, IMessageProducer, DomainEventMsg, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {IMessage,IMessageConsumer, IMessageProducer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
 	TransfersBCTopics,
 	TransferPrepareRequestedEvt,
 	TransferFulfilCommittedRequestedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, PrepareTransferCmdPayload, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersEventHandler{
 	private _logger: ILogger;
@@ -65,6 +65,7 @@ export class TransfersEventHandler{
 	}
 
 	private async _msgHandler(message: IMessage): Promise<void>{
+		// eslint-disable-next-line no-async-promise-executor
 		return await new Promise<void>(async (resolve) => {
 			//this._logger.debug(`Got message in handler: ${JSON.stringify(message, null, 2)}`);
 			console.log("Got message in handler");
@@ -98,8 +99,8 @@ export class TransfersEventHandler{
 					console.log("TransfersEventHandler - publishing cmd Finished");
 					// this._logger.info(`TransfersEventHandler - publishing cmd Finished - ${message?.msgName}:${message?.msgKey}:${message?.msgId}`);
 				}
-			}catch(err:any){
-				this._logger.error(err, `TransfersEventHandler - processing event - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${err?.message?.toString()}`);
+			}catch(err: unknown){
+				this._logger.error(err, `TransfersEventHandler - processing event - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
 			}finally {
 				resolve();
 			}

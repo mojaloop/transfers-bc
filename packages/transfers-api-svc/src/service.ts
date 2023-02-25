@@ -48,10 +48,7 @@ import { Server } from "net";
 /* import configs - other imports stay above */
 import configClient from "./config";
 import path from "path";
-import {
-  ITransfersRepository,
-  TransfersAggregate,
-} from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { TransferAdminExpressRoutes } from "./routes/transfer_admin_routes";
 
 const BC_NAME = configClient.boundedContextName;
@@ -208,7 +205,7 @@ async function _handle_int_and_term_signals(
 ): Promise<void> {
   console.info(`Service - ${signal} received - cleaning up...`);
   let clean_exit = false;
-  setTimeout((args) => {
+  setTimeout(() => {
     clean_exit || process.abort();
   }, 5000);
 

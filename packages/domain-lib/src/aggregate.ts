@@ -52,14 +52,14 @@ import {IAccountsBalancesAdapter} from "./interfaces/iparticipant_account_balanc
 import {
 	CheckLiquidityAndReserveFailedError,
 	InvalidMessageTypeError,
-	InvalidParticipantIdError,
 	NoSuchParticipantError,
 	NoSuchTransferError,
 	RequiredParticipantIsNotActive,
 	UnableToProcessMessageError
 } from "./errors";
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
-import {ITransfer, TransferState} from "./types";
+import {ITransfer, ITransferAccounts, TransferState} from "./types";
+import { IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -123,30 +123,6 @@ export class TransfersAggregate{
 	private async transferPreparedReceivedEvt(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
 		this._logger.debug(`Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		// TODO get all participants in a single call with participantsClient.getParticipantsByIds()
-		const payerFsp = await this._participantAdapter.getParticipantInfo(message.payload.payerFsp);
-		const payeeFsp = await this._participantAdapter.getParticipantInfo(message.payload.payeeFsp);
-		const hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
-
-		if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
-			const err = new Error("Cannot get hub participant information");
-			this._logger.error(err);
-			throw err;
-		}
-
-		if(!payerFsp || !payeeFsp){//} || !payerFsp.isActive || !payerFsp.approved){
-			const err = new NoSuchParticipantError("Payer or payee participant not found");
-			this._logger.error(err);
-			throw err;
-		}
-		// TODO reactivate participant.isActive check
-		// if (!payerFsp.isActive || !payerFsp.approved || !payeeFsp.isActive || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
-		if (!payerFsp.approved || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
-			const err = new RequiredParticipantIsNotActive("Payer or payee participants are not active and approved");
-			this._logger.error(err);
-			throw err;
-		}
-
 		const transfer: ITransfer = {
 			transferId: message.payload.transferId,
 			payeeFspId: message.payload.payeeFsp,
@@ -171,23 +147,14 @@ export class TransfersAggregate{
 		// 	creditAccountCurrency: string
 		// ): Promise<string> {
 
-
-		const hubJokeAccount = hub.participantAccounts.find((value: any) => value.type === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode);
-		const payerPosAccount = payerFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transfer.currencyCode);
-		const payerLiqAccount = payerFsp.participantAccounts.find((value: any) => value.type === "SETTLEMENT" && value.currencyCode === transfer.currencyCode);
-
-		// TODO put net debit cap in the participant struct
-		const payerNdc = "0";
-
-		if(!hubJokeAccount || !payerPosAccount || !payerLiqAccount){
-			const err = new Error("Could not get hub or payer accounts from participant");
-			this._logger.error(err);
-			throw err;
-		}
-
 		try{
+			const participantAccounts = await this.getParticipantAccounts(transfer);
+			
+			// TODO put net debit cap in the participant struct
+			const payerNdc = "0";
+			
 			await this._accountAndBalancesAdapter.checkLiquidAndReserve(
-				payerPosAccount.id, payerLiqAccount.id, hubJokeAccount.id,
+				participantAccounts.payerPosAccount.id, participantAccounts.payerLiqAccount.id, participantAccounts.hubAccount.id,
 				transfer.amount, transfer.currencyCode, payerNdc, transfer.transferId
 			);
 		}catch (error){
@@ -228,56 +195,22 @@ export class TransfersAggregate{
 	private async transferFulfilCommittedEvt(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
 		this._logger.debug(`Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
-		let retEvent: TransferCommittedFulfiledEvt;
+		let participantAccounts: ITransferAccounts | null = null;
+	
+		const transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
 
-		let payerFsp: any;
-		let payeeFsp: any;
-		let hub: any;
-
-		let hubJokeAccount: any;
-		let payerPosAccount: any;
-		let payerLiqAccount: any;
-		
-		let payeePosAccount: any;
-
-		let transferRec = await this._transfersRepo.getTransferById(message.payload.transferId);
-		
 		try {
 			if (!transferRec) {
-				throw new NoSuchTransferError();
+				throw new NoSuchParticipantError();
 			}
 
-			 payerFsp = await this._participantAdapter.getParticipantInfo(transferRec.payerFspId);
-			 payeeFsp = await this._participantAdapter.getParticipantInfo(transferRec.payeeFspId);
-			 hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
-	
-			if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
-				const err = new Error("Cannot get hub participant information");
-				this._logger.error(err);
-				throw err;
-			}
-	
-			if(!payerFsp || !payeeFsp){//} || !payerFsp.isActive || !payerFsp.approved){
-				const err = new NoSuchParticipantError("Payer or payee participant not found");
-				this._logger.error(err);
-				throw err;
-			}
-
-			hubJokeAccount = hub.participantAccounts.find((value: any) => value.type === "HUB_RECONCILIATION" && value.currencyCode === transferRec?.currencyCode);
-			payerPosAccount = payerFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transferRec?.currencyCode);
-			payerLiqAccount = payerFsp.participantAccounts.find((value: any) => value.type === "SETTLEMENT" && value.currencyCode === transferRec?.currencyCode);
+			participantAccounts = await this.getParticipantAccounts(transferRec);
 			
-			payeePosAccount = payeeFsp.participantAccounts.find((value: any) => value.type === "POSITION" && value.currencyCode === transferRec?.currencyCode);
-
-			if(!hubJokeAccount || !payerPosAccount || !payerLiqAccount){
-				const err = new Error("Could not get hub or payer accounts from participant");
-				this._logger.error(err);
-				throw err;
-			}
-		}catch(err){
-			// log and revert
-			// TODO revert the reservation we did in the prepare step
+		}catch(error){
+			const err = new Error("Could not get either recorded transfer or hub, payer or payee accounts from participant");
+			this._logger.error(err);
 			// await this._accountAndBalancesAdapter.cancelReservation()
+			throw err;
 		}
 
 		try{
@@ -285,8 +218,12 @@ export class TransfersAggregate{
 				throw new NoSuchTransferError();
 			}
 
+			if(!participantAccounts) {
+				throw new Error("Could not get either recorded transfer or hub, payer or payee accounts from participant");
+			}
+			
 			await this._accountAndBalancesAdapter.cancelReservationAndCommit(
-				payerPosAccount.id,payeePosAccount.id,hubJokeAccount.id,
+				participantAccounts.payerPosAccount.id, participantAccounts.payeePosAccount.id, participantAccounts.hubAccount.id,
 				transferRec.amount, transferRec.currencyCode, transferRec.transferId,
 			);
 
@@ -317,7 +254,7 @@ export class TransfersAggregate{
 			extensionList: message.payload.extensionList
 		};
 
-		retEvent = new TransferCommittedFulfiledEvt(payload);
+		const retEvent = new TransferCommittedFulfiledEvt(payload);
 
 		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
 
@@ -340,6 +277,53 @@ export class TransfersAggregate{
 		}
 
 		return;
+	}
+
+	private async getParticipantAccounts(transfer: ITransfer): Promise<ITransferAccounts>{
+		// TODO get all participants in a single call with participantsClient.getParticipantsByIds()
+		const payerFsp = await this._participantAdapter.getParticipantInfo(transfer.payerFspId);
+		const payeeFsp = await this._participantAdapter.getParticipantInfo(transfer.payeeFspId);
+		const hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
+
+		if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new Error("Cannot get hub participant information");
+			this._logger.error(err);
+			throw err;
+		}
+
+		if(!payerFsp || !payeeFsp){//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new NoSuchParticipantError("Payer or payee participant not found");
+			this._logger.error(err);
+			throw err;
+		}
+		// TODO reactivate participant.isActive check
+		// if (!payerFsp.isActive || !payerFsp.approved || !payeeFsp.isActive || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
+		if (!payerFsp.approved || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
+			const err = new RequiredParticipantIsNotActive("Payer or payee participants are not active and approved");
+			this._logger.error(err);
+			throw err;
+		}
+
+		const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => value.type === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode) ?? null;
+		const payerPosAccount = payerFsp.participantAccounts.find((value: IParticipantAccount) => value.type === "POSITION" && value.currencyCode === transfer.currencyCode) ?? null;
+		const payerLiqAccount = payerFsp.participantAccounts.find((value: IParticipantAccount) => value.type === "SETTLEMENT" && value.currencyCode === transfer.currencyCode) ?? null;
+		const payeePosAccount = payeeFsp.participantAccounts.find((value: IParticipantAccount) => value.type === "POSITION" && value.currencyCode === transfer.currencyCode) ?? null;
+		const payeeLiqAccount = payeeFsp.participantAccounts.find((value: IParticipantAccount) => value.type === "POSITION" && value.currencyCode === transfer.currencyCode) ?? null;
+
+		if(!hubAccount || !payerPosAccount || !payerLiqAccount || !payeePosAccount|| !payeeLiqAccount){
+			const err = new Error("Could not get hub, payer or payee accounts from participant");
+			this._logger.error(err);
+			throw err;
+		}
+
+		return {
+			hubAccount: hubAccount,
+			payerPosAccount: payerPosAccount,
+			payerLiqAccount: payerLiqAccount,
+			payeePosAccount: payeePosAccount,
+			payeeLiqAccount: payeeLiqAccount
+
+		};
 	}
 
 	//#region Transfers Admin Endpoints

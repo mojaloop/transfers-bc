@@ -42,7 +42,7 @@
 
 import express from "express";
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import {ITransfersRepository, TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { check } from "express-validator";
 import { BaseRoutes } from "./base/base_routes";
 
@@ -65,29 +65,21 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
     this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
   }
 
-  private async getAllTransfers(
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction
-  ) {
+  private async getAllTransfers(req: express.Request, res: express.Response) {
     this.logger.debug("Fetching all transfers");
     try {
       const fetched = await this.repo.getTransfers();
       res.send(fetched);
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.logger.error(err);
       res.status(500).json({
         status: "error",
-        msg: err.message,
+        msg: (err as Error).message,
       });
     }
   }
 
-  private async getTransferById(
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction
-  ) {
+  private async getTransferById(req: express.Request, res: express.Response  ) {
     if (!this.validateRequest(req, res)) {
       return;
     }
@@ -106,11 +98,11 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         return;
       }
       res.send(fetched);
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.logger.error(err);
       res.status(500).json({
         status: "error",
-        msg: err.message,
+        msg: (err as Error).message,
       });
     }
   }

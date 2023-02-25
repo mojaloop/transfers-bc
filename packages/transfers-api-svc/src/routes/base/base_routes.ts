@@ -40,7 +40,7 @@
 
 "use strict";
 
-import {ITransfersRepository, TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import express from "express";
 import { validationResult } from "express-validator";
@@ -70,7 +70,7 @@ export abstract class BaseRoutes {
 
   public validateRequest(
     req: express.Request,
-    res: express.Response<any, Record<string, any>>
+    res: express.Response
   ): boolean {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

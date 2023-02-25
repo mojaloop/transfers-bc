@@ -38,7 +38,6 @@ import {
 	IAccountsBalancesAdapter
 } from "@mojaloop/transfers-bc-domain-lib";
 import { ParticipantAdapter, MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations";
-import {TransfersEventHandler} from "@mojaloop/transfers-bc-event-handler-svc/dist/handler";
 import {
 	GrpcAccountsAndBalancesAdapter
 } from "@mojaloop/transfers-bc-implementations/dist/external_adapters/grpc_acc_bal_adapter";
@@ -104,10 +103,15 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
 // Participant service
-const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
+const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
+const CLIENT_ID = SVC_CLIENT_ID;
+const CLIENT_SECRET = SVC_CLIENT_SECRET;
+const PARTICIPANTS_BASE_URL = "http://localhost:3010";
+const HTTP_CLIENT_TIMEOUT_MS = 10_000;
 
 export class Service {
 	static logger: ILogger;
@@ -196,13 +200,6 @@ export class Service {
 
 		if (!participantService) {
 			const participantLogger = logger.createChild("participantLogger");
-
-			const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
-			const CLIENT_ID = SVC_CLIENT_ID;
-			const CLIENT_SECRET = SVC_CLIENT_SECRET;
-			const PARTICIPANTS_BASE_URL = "http://localhost:3010";
-			const HTTP_CLIENT_TIMEOUT_MS = 10_000;
-
 			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_TOKEN_ENPOINT);
 
 			authRequester.setAppCredentials(CLIENT_ID, CLIENT_SECRET);
@@ -252,7 +249,7 @@ export class Service {
 async function _handle_int_and_term_signals(signal: NodeJS.Signals): Promise<void> {
 	console.info(`Service - ${signal} received - cleaning up...`);
 	let clean_exit = false;
-	setTimeout(args => {
+	setTimeout(() => {
 		clean_exit || process.abort();
 	}, 5000);
 

@@ -32,6 +32,8 @@
 
 "use strict";
 
+import { IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
+
 
 
 export declare const enum TransferState {
@@ -63,5 +65,11 @@ export interface ITransfer {
     } | null;
 }
 
-
+export interface ITransferAccounts {
+	hubAccount: IParticipantAccount,
+	payerPosAccount: IParticipantAccount,
+	payerLiqAccount: IParticipantAccount,
+	payeePosAccount: IParticipantAccount,
+	payeeLiqAccount: IParticipantAccount
+}
 

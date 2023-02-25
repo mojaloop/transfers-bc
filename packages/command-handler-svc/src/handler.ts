@@ -31,10 +31,10 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IMessage,IMessageConsumer, IMessageProducer, DomainEventMsg, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import {TransferPrepareRequestedEvt, TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import {IMessage,IMessageConsumer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
-import {PrepareTransferCmd, PrepareTransferCmdPayload, TransfersAggregate, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {PrepareTransferCmd, TransfersAggregate, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
 	private _logger: ILogger;
@@ -59,6 +59,7 @@ export class TransfersCommandHandler{
 	}
 
 	private async _msgHandler(message: IMessage): Promise<void>{
+		// eslint-disable-next-line no-async-promise-executor
 		return await new Promise<void>(async (resolve) => {
 			//this._logger.debug(`Got message in handler: ${JSON.stringify(message, null, 2)}`);
 			try {
@@ -77,8 +78,8 @@ export class TransfersCommandHandler{
 					}
 				}
 
-			}catch(err:any){
-				this._logger.error(err, `TransfersCommandHandler - processing command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${err?.message?.toString()}`);
+			}catch(err: unknown){
+				this._logger.error(err, `TransfersCommandHandler - processing command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
 			}finally {
 				resolve();
 			}

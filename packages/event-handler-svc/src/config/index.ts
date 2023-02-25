@@ -34,7 +34,7 @@ import {
     ConfigurationClient,
     DefaultConfigProvider
 } from "@mojaloop/platform-configuration-bc-client-lib";
-import { ConfigParameterTypes } from "@mojaloop/platform-configuration-bc-public-types-lib";
+// import { ConfigParameterTypes } from "@mojaloop/platform-configuration-bc-public-types-lib";
 
 // configs - constants / code dependent
 const BC_NAME = "transfers-bc";

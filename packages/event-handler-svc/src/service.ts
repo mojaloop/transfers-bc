@@ -73,6 +73,7 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
 export class Service {
@@ -164,7 +165,7 @@ export class Service {
 async function _handle_int_and_term_signals(signal: NodeJS.Signals): Promise<void> {
 	console.info(`Service - ${signal} received - cleaning up...`);
 	let clean_exit = false;
-	setTimeout(args => {
+	setTimeout(() => {
 		clean_exit || process.abort();
 	}, 5000);
 
