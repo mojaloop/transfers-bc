@@ -59,7 +59,7 @@ import {
 } from "./errors";
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
 import {ITransfer, ITransferAccounts, TransferState} from "./types";
-import { IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
+import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -205,11 +205,22 @@ export class TransfersAggregate{
 			}
 
 			participantAccounts = await this.getParticipantAccounts(transferRec);
-			
-		}catch(error){
+
+		} catch(error) {
 			const err = new Error("Could not get either recorded transfer or hub, payer or payee accounts from participant");
 			this._logger.error(err);
-			// await this._accountAndBalancesAdapter.cancelReservation()
+
+			// Recheck this logic when implementing non-happy-paths 
+			if(transferRec && participantAccounts){
+				transferRec.transferState = TransferState.REJECTED;
+				await this._transfersRepo.updateTransfer(transferRec);
+			
+				await this._accountAndBalancesAdapter.cancelReservation(
+					participantAccounts.payerPosAccount.id, participantAccounts.hubAccount.id, 
+					transferRec.amount,transferRec.currencyCode, transferRec.transferId
+				);
+			}
+
 			throw err;
 		}
 
@@ -281,9 +292,18 @@ export class TransfersAggregate{
 
 	private async getParticipantAccounts(transfer: ITransfer): Promise<ITransferAccounts>{
 		// TODO get all participants in a single call with participantsClient.getParticipantsByIds()
-		const payerFsp = await this._participantAdapter.getParticipantInfo(transfer.payerFspId);
-		const payeeFsp = await this._participantAdapter.getParticipantInfo(transfer.payeeFspId);
-		const hub = await this._participantAdapter.getParticipantInfo(HUB_ID);
+		const participants = await this._participantAdapter.getParticipantsInfo([transfer.payerFspId, transfer.payeeFspId, HUB_ID]);
+
+		if (!participants) {
+			const err = new Error("Cannot get participants info");
+			this._logger.error(err);
+			throw err;
+		}
+
+		const payerFsp = participants.find((value: IParticipant) => value.id === transfer.payerFspId) ?? null;
+		const payeeFsp = participants.find((value: IParticipant) => value.id === transfer.payeeFspId) ?? null;
+		const hub = participants.find((value: IParticipant) => value.id === HUB_ID) ?? null;
+		
 
 		if (!hub) {//} || !payerFsp.isActive || !payerFsp.approved){
 			const err = new Error("Cannot get hub participant information");

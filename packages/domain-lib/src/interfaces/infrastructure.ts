@@ -44,4 +44,5 @@ export interface ITransfersRepository {
 
 export interface IParticipantsServiceAdapter {
     getParticipantInfo(fspId: string): Promise<IParticipant| null>;
+    getParticipantsInfo(fspIds: string[]): Promise<IParticipant[]|null>;
 }
