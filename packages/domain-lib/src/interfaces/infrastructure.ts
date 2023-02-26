@@ -32,6 +32,11 @@
 
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
 import { ITransfer } from "../types";
+import {
+    AccountsAndBalancesAccount,
+    AccountsAndBalancesJournalEntry,
+    AccountsAndBalancesAccountType
+} from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
 export interface ITransfersRepository {
     init(): Promise<void>;
@@ -45,4 +50,46 @@ export interface ITransfersRepository {
 export interface IParticipantsServiceAdapter {
     getParticipantInfo(fspId: string): Promise<IParticipant| null>;
     getParticipantsInfo(fspIds: string[]): Promise<IParticipant[]|null>;
+}
+
+export interface IAccountsBalancesAdapter {
+	init(): Promise<void>;
+	destroy(): Promise<void>;
+
+	setToken(accessToken: string): void;
+	setUserCredentials(client_id: string, username: string, password: string): void;
+	setAppCredentials(client_id: string, client_secret: string): void;
+
+	createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string>;
+	getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
+	getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
+	getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
+
+	createJournalEntry(
+		requestedId: string,
+		ownerId: string,
+		currencyCode: string,
+		amount: string,
+		pending: boolean,
+		debitedAccountId: string,
+		creditedAccountId: string
+	): Promise<string>;
+
+	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
+
+    // high level
+    checkLiquidAndReserve(
+        payerPositionAccountId: string, payerLiquidityAccountId: string, hubJokeAccountId: string,
+        transferAmount: string, currencyCode: string, payerNetDebitCap: string, transferId: string
+    ): Promise<void>;
+
+    cancelReservationAndCommit(
+        payerPositionAccountId: string, payeePositionAccountId: string, hubJokeAccountId: string,
+        transferAmount: string, currencyCode: string, transferId: string
+    ): Promise<void>;
+
+    cancelReservation(
+        payerPositionAccountId: string, hubJokeAccountId: string,
+        transferAmount: string, currencyCode: string, transferId: string
+    ): Promise<void>;
 }

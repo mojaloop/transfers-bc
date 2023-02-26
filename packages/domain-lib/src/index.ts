@@ -33,5 +33,4 @@
 export * from "./commands";
 export * from "./aggregate";
 export * from "./interfaces/infrastructure";
-export * from "./interfaces/iparticipant_account_balances_adapter";
 export * from "./types";

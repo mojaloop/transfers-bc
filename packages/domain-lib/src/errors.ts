@@ -22,7 +22,7 @@
 
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
- 
+
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
@@ -38,21 +38,52 @@ export class InvalidIdError extends Error {
         super(message || "Invalid id");
     }
 }
-
-export class UnableToProcessMessageError extends Error {
-    constructor(message?: string) {
-        super(message || "Unable to process message");
-    }
-}
 export class NoSuchTransferError extends Error {
     constructor(message?: string) {
         super(message||"No such transfer");
     }
 }
 
-export class CheckLiquidityAndReserveFailedError extends Error{}
+export class CheckLiquidityAndReserveFailedError extends Error{
+    constructor(message?: string) {
+        super(message || "Check liquidity and reserve failed");
+    }
+}
+
+export class UnableToCancelTransferError extends Error {
+    constructor(message?: string) {
+        super(message || "Unable to cancel transfer");
+    }
+}
+
+export class UnableToCommitTransferError extends Error {
+    constructor(message?: string) {
+        super(message || "Unable to commit transfer");
+    }
+}
+
+// Account
+
+export class UnableToGetParticipantAccountsError extends Error {
+    constructor(message?: string) {
+        super(message || "No such account");
+    }
+}
+
+export class NoSuchAccountError extends Error {
+    constructor(message?: string) {
+        super(message || "No such account");
+    }
+}
+
 
 // Message Producer
+
+export class UnableToProcessMessageError extends Error {
+    constructor(message?: string) {
+        super(message || "Unable to process message");
+    }
+}
 export class InvalidMessagePayloadError extends Error {
     constructor(message?: string) {
         super(message || "Invalid message payload");
@@ -80,5 +111,19 @@ export class InvalidParticipantIdError extends Error {
 export class RequiredParticipantIsNotActive extends Error {
     constructor(message?: string) {
         super(message || "Participant is not active");
+    }
+}
+
+
+export class TransferWouldExceedCreditsError extends Error{
+    constructor(message?: string) {
+        super(message || "Transfer would exceed credits");
+    }
+
+}
+
+export class TransferWouldExceedDebitsError extends Error{
+    constructor(message?: string) {
+        super(message || "Transfer would exceed debits");
     }
 }

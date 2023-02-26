@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
+import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
 
 
 
@@ -45,6 +45,12 @@ export declare const enum TransferState {
     EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
+export declare const enum AccountType {
+	HUB = "HUB_RECONCILIATION",
+	POSITION = "POSITION",
+	SETTLEMENT = "SETTLEMENT"
+}
+
 export interface ITransfer {
 	transferId: string;
 	payeeFspId: string;
@@ -53,7 +59,7 @@ export interface ITransfer {
 	currencyCode: string;
 	ilpPacket: string;				// move to opaque object
 	condition: string;				// move to opaque object
-	fulfilment: number | null,		// move to opaque object
+	fulFillment: number | null,		// move to opaque object
 	expirationTimestamp: number;
 	transferState: TransferState,
 	completedTimestamp: number | null,
@@ -63,6 +69,12 @@ export interface ITransfer {
             value: string;
         }[]
     } | null;
+}
+
+export interface ITransferParticipants {
+	hub : IParticipant,
+	payer : IParticipant,
+	payee : IParticipant
 }
 
 export interface ITransferAccounts {

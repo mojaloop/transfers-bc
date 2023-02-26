@@ -159,6 +159,7 @@ export class Service {
       await transfersRepo.init();
       logger.info("Transfer Registry Repo Initialized");
     }
+
     this.transfersRepo = transfersRepo;
 
     // Start express server
