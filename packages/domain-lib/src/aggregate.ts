@@ -204,21 +204,19 @@ export class TransfersAggregate{
 
 		const transferRecord = await this._transfersRepo.getTransferById(message.payload.transferId);
 
-		if(!transferRecord) {
-			throw new NoSuchTransferError();
-		}
-
-		const participants = await this.getParticipantsInfo(transferRecord.payerFspId, transferRecord.payeeFspId);
-
-		const transferParticipants = this.getTransferParticipants(participants, transferRecord);
-
 		try{
+
+			if(!transferRecord) {
+				throw new NoSuchTransferError();
+			}
+			const participants = await this.getParticipantsInfo(transferRecord.payerFspId, transferRecord.payeeFspId);
+			const transferParticipants = this.getTransferParticipants(participants, transferRecord);
 			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
 		}
 		catch (error: any){
 			this._logger.error(error.message);
 			await this.cancelTransfer(transferRecord, participantTransferAccounts);
-			throw new UnableToGetParticipantAccountsError();
+			throw error;
 		}
 
 		await this.commitTransfer(participantTransferAccounts, transferRecord, message);
