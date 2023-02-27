@@ -67,8 +67,7 @@ export class TransfersEventHandler{
 	private async _msgHandler(message: IMessage): Promise<void>{
 		// eslint-disable-next-line no-async-promise-executor
 		return await new Promise<void>(async (resolve) => {
-			//this._logger.debug(`Got message in handler: ${JSON.stringify(message, null, 2)}`);
-			console.log("Got message in handler");
+			this._logger.debug(`Got message in TransfersEventHandler with name: ${message.msgName}`);
 			try {
 				//let transferEvt: DomainEventMsg | undefined;
 				let transferCmd: CommandMsg | null = null;
@@ -87,17 +86,14 @@ export class TransfersEventHandler{
 						break;
 
 					default: {
-						//this._logger.isWarnEnabled() && this._logger.warn(`TransfersEventHandler - processing event - ${message?.msgName}:${message?.msgKey}:${message?.msgId} (name:key:id) - Skipping unknown event`);
-						console.log("TransfersEventHandler - Skipping event");
+						this._logger.isWarnEnabled() && this._logger.warn(`TransfersEventHandler - Skipping unknown event - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
 					}
 				}
 
 				if (transferCmd) {
-					//this._logger.info(`TransfersEventHandler - publishing cmd - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Cmd: ${transferCmd.msgName}:${transferCmd.msgId}`);
-					console.log("TransfersEventHandler - publishing cmd");
+					this._logger.info(`TransfersEventHandler - publishing cmd - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Cmd: ${transferCmd.msgName}:${transferCmd.msgId}`);
 					await this._messageProducer.send(transferCmd);
-					console.log("TransfersEventHandler - publishing cmd Finished");
-					// this._logger.info(`TransfersEventHandler - publishing cmd Finished - ${message?.msgName}:${message?.msgKey}:${message?.msgId}`);
+					this._logger.info(`TransfersEventHandler - publishing cmd Finished - ${message?.msgName}:${message?.msgKey}:${message?.msgId}`);
 				}
 			}catch(err: unknown){
 				this._logger.error(err, `TransfersEventHandler - processing event - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);

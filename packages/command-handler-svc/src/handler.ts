@@ -61,7 +61,7 @@ export class TransfersCommandHandler{
 	private async _msgHandler(message: IMessage): Promise<void>{
 		// eslint-disable-next-line no-async-promise-executor
 		return await new Promise<void>(async (resolve) => {
-			//this._logger.debug(`Got message in handler: ${JSON.stringify(message, null, 2)}`);
+			this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
 			try {
 
 				switch (message.msgName) {
@@ -74,7 +74,7 @@ export class TransfersCommandHandler{
 						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
 					default: {
-						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} (name:key:id)`);
+						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
 					}
 				}
 

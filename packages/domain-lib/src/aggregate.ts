@@ -47,7 +47,7 @@ import {
 	TransferPreparedEvtPayload,
 	TransferPrepareRequestedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
 import {
 	CheckLiquidityAndReserveFailedError,
