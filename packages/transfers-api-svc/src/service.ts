@@ -39,15 +39,15 @@ import {
   KafkaAuditClientDispatcher,
   LocalAuditClientCryptoProvider,
 } from "@mojaloop/auditing-bc-client-lib";
-import { MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations";
+import { MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations-lib";
 import { KafkaLogger } from "@mojaloop/logging-bc-client-lib";
 import { MLKafkaJsonProducerOptions } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import express, { Express } from "express";
 import { Server } from "net";
+import process from "process";
 
 /* import configs - other imports stay above */
 import configClient from "./config";
-import path from "path";
 import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { TransferAdminExpressRoutes } from "./routes/transfer_admin_routes";
 
@@ -56,16 +56,13 @@ const APP_NAME = configClient.applicationName;
 const APP_VERSION = configClient.applicationVersion;
 
 const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
-const LOG_LEVEL: LogLevel =
-  (process.env["LOG_LEVEL"] as LogLevel) || LogLevel.DEBUG;
+const LOG_LEVEL: LogLevel =(process.env["LOG_LEVEL"] as LogLevel) || LogLevel.DEBUG;
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH =
-  process.env["AUDIT_KEY_FILE_PATH"] ||
-  path.join(__dirname, "../dist/tmp_audit_key_file");
+const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
   kafkaBrokerList: KAFKA_URL,

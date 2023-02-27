@@ -13,8 +13,6 @@
   ],
   "scripts": {
     "prepare": "husky install",
-    "start": "npm -ws run start",
-    "start:example-svc": "npm -w packages/example-svc run start",
     "build": "npm -ws run build",
     "watch": "npm -ws run watch",
     "clean": "rm -Rf dist; npm run clean:dist",
@@ -31,7 +29,10 @@
     "audit:check": "npm audit",
     "audit:resolve": "npm audit fix",
     "dep:check": "ncu -e 2; npm -ws run dep:check",
-    "dep:update": "ncu -e 2 -u; npm -ws run dep:update"
+    "dep:update": "ncu -e 2 -u; npm -ws run dep:update",
+    "start:transfers-api-svc": "npm -w packages/transfers-api-svc run start",
+    "start:command-handler-svc": "npm -w packages/command-handler-svc run start",
+    "start:event-handler-svc": "npm -w packages/event-handler-svc run start"
   },
   "devDependencies": {
     "@types/jest": "^29.2.5",
@@ -49,9 +50,7 @@
   "workspaces": [
     "packages/public-types-lib",
     "packages/domain-lib",
-    "packages/implementations",
-    "packages/event-handler-svc",
-    "packages/command-handler-svc",
+    "packages/implementations-lib",
     "packages/*"
   ],
   "engines": {

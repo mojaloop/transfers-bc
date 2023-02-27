@@ -42,6 +42,7 @@
 
 export * from "./transfers/mongo_transfers_repo";
 export * from "./external_adapters/participant_adapter";
+export * from "./external_adapters/grpc_acc_bal_adapter";
 export * from "./local_cache";
 export * from "./errors";
 

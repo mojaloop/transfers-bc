@@ -29,37 +29,37 @@
  --------------
  ******/
 
- "use strict";
+"use strict";
 
- import {
-     ConfigurationClient,
-     DefaultConfigProvider
- } from "@mojaloop/platform-configuration-bc-client-lib";
+import {
+    ConfigurationClient,
+    DefaultConfigProvider
+} from "@mojaloop/platform-configuration-bc-client-lib";
 
- // configs - constants / code dependent
- const BC_NAME = "transfers-bc";
- const APP_NAME = "transfers-svc";
- const APP_VERSION = process.env.npm_package_version || "0.0.1";
- const CONFIGSET_VERSION = "0.0.1";
+// configs - constants / code dependent
+const BC_NAME = "transfers-bc";
+const APP_NAME = "transfers-api-svc";
+const APP_VERSION = process.env.npm_package_version || "0.0.0";
+const CONFIGSET_VERSION = "0.0.1";
 
- // configs - non-constants
- const ENV_NAME = process.env["ENV_NAME"] || "dev";
- const CONFIG_SVC_BASEURL = process.env["CONFIG_SVC_BASEURL"] || "http://localhost:3100";
+// configs - non-constants
+const ENV_NAME = process.env["ENV_NAME"] || "dev";
 
- const defaultConfigProvider: DefaultConfigProvider = new DefaultConfigProvider(CONFIG_SVC_BASEURL);
+// use default url from PLATFORM_CONFIG_CENTRAL_URL env var
+const defaultConfigProvider: DefaultConfigProvider = new DefaultConfigProvider();
 
- const configClient = new ConfigurationClient(ENV_NAME, BC_NAME, APP_NAME, APP_VERSION, CONFIGSET_VERSION, defaultConfigProvider);
+const configClient = new ConfigurationClient(ENV_NAME, BC_NAME, APP_NAME, APP_VERSION, CONFIGSET_VERSION, defaultConfigProvider);
 
- /*
- * Add application parameters here
- * */
+/*
+* Add application parameters here
+* */
 
- // configClient.appConfigs.addNewParam(
- //         "PARAM_NAME",
- //         ConfigParameterTypes.BOOL,
- //         true,
- //         "param description"
- // );
+// configClient.appConfigs.addNewParam(
+//         "PARAM_NAME",
+//         ConfigParameterTypes.BOOL,
+//         true,
+//         "param description"
+// );
 
- export = configClient;
+export = configClient;
 

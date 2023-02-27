@@ -37,10 +37,7 @@ import {
 	ITransfersRepository,
 	IAccountsBalancesAdapter
 } from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations";
-import {
-	GrpcAccountsAndBalancesAdapter
-} from "@mojaloop/transfers-bc-implementations/dist/external_adapters/grpc_acc_bal_adapter";
+import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
@@ -75,10 +72,11 @@ const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
+const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:example@localhost:27017/";
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file");
+const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
 const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
 const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
@@ -90,6 +88,7 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 // const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
 
 const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
+const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
@@ -106,11 +105,7 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
-// Participant service
-const AUTH_TOKEN_ENPOINT = "http://localhost:3201/token";
-const CLIENT_ID = SVC_CLIENT_ID;
-const CLIENT_SECRET = SVC_CLIENT_SECRET;
-const PARTICIPANTS_BASE_URL = "http://localhost:3010";
+const DB_NAME_TRANSFERS = "transfers";
 const HTTP_CLIENT_TIMEOUT_MS = 10_000;
 
 export class Service {
@@ -188,9 +183,6 @@ export class Service {
 		this.messageProducer = messageProducer;
 
 		if (!transfersRepo) {
-			const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
-			const DB_NAME_TRANSFERS = process.env.TRANSFERS_DB_NAME ?? "transfers";
-
 			transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
 
 			await transfersRepo.init();
@@ -200,11 +192,11 @@ export class Service {
 
 		if (!participantService) {
 			const participantLogger = logger.createChild("participantLogger");
-			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_TOKEN_ENPOINT);
+			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
 
-			authRequester.setAppCredentials(CLIENT_ID, CLIENT_SECRET);
+			authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
 			participantLogger.setLogLevel(LogLevel.INFO);
-			participantService = new ParticipantAdapter(participantLogger, PARTICIPANTS_BASE_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
+			participantService = new ParticipantAdapter(participantLogger, PARTICIPANTS_SVC_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
 		}
 		this.participantService = participantService;
 
@@ -229,7 +221,7 @@ export class Service {
 		this.handler = new TransfersCommandHandler(this.logger, this.auditClient, this.messageConsumer, this.aggregate);
 		await this.handler.start();
 
-		this.logger.info("Service started");
+		this.logger.info(`Transfer Command Handler Service started, version: ${configClient.applicationVersion}`);
 	}
 
 	static async stop() {

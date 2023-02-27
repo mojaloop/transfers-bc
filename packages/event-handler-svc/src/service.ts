@@ -46,6 +46,7 @@ import {
 	MLKafkaJsonProducerOptions
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import process from "process";
 import {TransfersEventHandler} from "./handler";
 
 /* import configs - other imports stay above */
@@ -62,7 +63,7 @@ const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__dirname, "../dist/tmp_audit_key_file");
+const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
 	kafkaBrokerList: KAFKA_URL,
@@ -145,7 +146,7 @@ export class Service {
 		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer);
 		await this.handler.start();
 
-		this.logger.info("Service started");
+		this.logger.info(`Transfer Event Handler Service started, version: ${configClient.applicationVersion}`);
 	}
 
 	static async stop() {

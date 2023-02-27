@@ -36,7 +36,7 @@ executors:
     working_directory: &workingDirVar /home/circleci/project
     resource_class: medium
     docker:
-      - image: node:16.13
+      - image: node:18.13
 
 jobs:
   setup:
