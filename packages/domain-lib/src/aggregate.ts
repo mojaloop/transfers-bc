@@ -47,7 +47,7 @@ import {
 	TransferPreparedEvtPayload,
 	TransferPrepareRequestedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "./commands";
+import {PrepareTransferCmd, CommitTransferFulfilCmd} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
 import {
 	CheckLiquidityAndReserveFailedError,
@@ -90,7 +90,7 @@ export class TransfersAggregate{
 
 	async init():Promise<void>{
 		// TODO
-		this._messageProducer.connect();
+		//await this._messageProducer.connect();
 	}
 
 	async processCommand(command: CommandMsg){
@@ -102,7 +102,7 @@ export class TransfersAggregate{
 			case PrepareTransferCmd.name:
 				eventToPublish = await this.transferPreparedReceivedEvt(command as TransferPrepareRequestedEvt);
 				break;
-			case TransferFulfilCommittedCmd.name:
+			case CommitTransferFulfilCmd.name:
 				eventToPublish = await this.transferFullFillCommittedEvt(command as TransferFulfilCommittedRequestedEvt);
 				break;
 			default:
@@ -127,6 +127,14 @@ export class TransfersAggregate{
 	private async transferPreparedReceivedEvt(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
 		this._logger.debug(`Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
+		// TODO call the settlements lib to get the correct settlement model
+		// export function obtainSettlementModelFrom(
+		// 	transferAmount: bigint,
+		// 	debitAccountCurrency: string,
+		// 	creditAccountCurrency: string
+		// ): Promise<string> {
+		const settlementModel = "DEFAULT"; // FIXED for now
+
 		const transfer: ITransfer = {
 			transferId: message.payload.transferId,
 			payeeFspId: message.payload.payeeFsp,
@@ -139,17 +147,11 @@ export class TransfersAggregate{
 			transferState: TransferState.RECEIVED,
 			fulFillment: null,
 			completedTimestamp: null,
-			extensionList: message.payload.extensionList
+			extensionList: message.payload.extensionList,
+			settlementModel: settlementModel
 		};
 
 		await this._transfersRepo.addTransfer(transfer);
-
-		// TODO call the settlements lib to get the correct settlement model
-		// export function obtainSettlementModelFrom(
-		// 	transferAmount: bigint,
-		// 	debitAccountCurrency: string,
-		// 	creditAccountCurrency: string
-		// ): Promise<string> {
 
 		const participants = await this.getParticipantsInfo(transfer?.payerFspId, transfer?.payeeFspId);
 
@@ -226,7 +228,14 @@ export class TransfersAggregate{
 			transferState: message.payload.transferState,
 			fulfilment: message.payload.fulfilment,
 			completedTimestamp: message.payload.completedTimestamp,
-			extensionList: message.payload.extensionList
+			extensionList: message.payload.extensionList,
+
+			payerFspId: transferRecord.payerFspId,
+			payeeFspId: transferRecord.payeeFspId,
+			amount: transferRecord.amount,
+			currencyCode: transferRecord.currencyCode,
+			settlementModel: transferRecord.settlementModel,
+
 		};
 
 		const retEvent = new TransferCommittedFulfiledEvt(payload);

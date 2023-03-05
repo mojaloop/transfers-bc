@@ -55,7 +55,7 @@ export class ParticipantAdapter implements IParticipantsServiceAdapter {
 		timeoutMs: number,
 		localCache?: ILocalCache,
 	) {
-		this._logger = logger;
+		this._logger = logger.createChild(this.constructor.name);
 		this._clientBaseUrl = clientBaseUrl;
 		this._authRequester = authRequester;
 		this._timeoutMs = timeoutMs;

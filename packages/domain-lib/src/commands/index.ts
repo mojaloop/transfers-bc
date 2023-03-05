@@ -69,7 +69,7 @@ export class PrepareTransferCmd extends CommandMsg {
 	}
 }
 
-export type TransferFulfilCommittedCmdPayload = {
+export type CommitTransferFulfilCmdPayload = {
 	transferId: string;
 	transferState: string,
 	fulfilment: number | null,
@@ -83,15 +83,15 @@ export type TransferFulfilCommittedCmdPayload = {
 }
 
 
-export class TransferFulfilCommittedCmd extends CommandMsg {
+export class CommitTransferFulfilCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
 	msgTopic: string = TransfersBCTopics.DomainRequests;
-	payload: TransferFulfilCommittedCmdPayload;
+	payload: CommitTransferFulfilCmdPayload;
 
-	constructor(payload: TransferFulfilCommittedCmdPayload) {
+	constructor(payload: CommitTransferFulfilCmdPayload) {
 		super();
 
 		this.aggregateId = this.msgKey = payload.transferId;

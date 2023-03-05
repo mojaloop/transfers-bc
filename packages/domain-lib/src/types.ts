@@ -69,6 +69,9 @@ export interface ITransfer {
             value: string;
         }[]
     } | null;
+
+	// populated from the settlements lib during prepare
+	settlementModel: string;
 }
 
 export interface ITransferParticipants {

@@ -124,7 +124,7 @@ export class Service {
 		auditClient?: IAuditClient,
 		messageConsumer?: IMessageConsumer,
 		messageProducer?: IMessageProducer,
-		participantService?: IParticipantsServiceAdapter,
+		participantAdapter?: IParticipantsServiceAdapter,
 		transfersRepo?: ITransfersRepository,
 		accountAndBalancesAdapter?: IAccountsBalancesAdapter,
 		aggregate?: TransfersAggregate
@@ -190,15 +190,12 @@ export class Service {
 		}
 		this.transfersRepo = transfersRepo;
 
-		if (!participantService) {
-			const participantLogger = logger.createChild("participantLogger");
+		if (!participantAdapter) {
 			const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
-
 			authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
-			participantLogger.setLogLevel(LogLevel.INFO);
-			participantService = new ParticipantAdapter(participantLogger, PARTICIPANTS_SVC_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
+			participantAdapter = new ParticipantAdapter(this.logger, PARTICIPANTS_SVC_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
 		}
-		this.participantService = participantService;
+		this.participantService = participantAdapter;
 
 		if(!accountAndBalancesAdapter) {
 			// TODO put these credentials in env var
@@ -211,9 +208,7 @@ export class Service {
 		this.accountAndBalancesAdapter = accountAndBalancesAdapter;
 
 		if (!aggregate) {
-			const producerLogger = logger.createChild("producerLogger");
-			producerLogger.setLogLevel(LogLevel.INFO);
-			aggregate = new TransfersAggregate(logger, transfersRepo, participantService, messageProducer, this.accountAndBalancesAdapter);
+			aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter);
 		}
 		this.aggregate = aggregate;
 

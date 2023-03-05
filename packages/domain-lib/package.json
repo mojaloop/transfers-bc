@@ -1,6 +1,6 @@
 {
   "name": "@mojaloop/transfers-bc-domain-lib",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "description": "Mojaloop vNext Transfers BC - Domain lib",
   "license": "Apache-2.0",
   "homepage": "https://github.com/mojaloop/transfers-bc/domain-lib",
@@ -33,7 +33,7 @@
     "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.1.2",
     "@mojaloop/auditing-bc-public-types-lib": "~0.0.12",
     "@mojaloop/logging-bc-public-types-lib": "~0.1.15",
-    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.70",
+    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.73",
     "@mojaloop/security-bc-public-types-lib": "~0.1.12",
     "@mojaloop/participant-bc-public-types-lib":"~0.0.7"
   },

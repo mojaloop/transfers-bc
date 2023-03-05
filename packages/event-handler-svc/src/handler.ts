@@ -37,7 +37,10 @@ import {
 	TransferPrepareRequestedEvt,
 	TransferFulfilCommittedRequestedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {
+	CommitTransferFulfilCmd,
+	PrepareTransferCmd,
+} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersEventHandler{
 	private _logger: ILogger;
@@ -74,14 +77,16 @@ export class TransfersEventHandler{
 
 				switch (message.msgName) {
 					case TransferPrepareRequestedEvt.name:
+						// TODO: use this._prepareEventToPrepareCommand() to properly create the cmd from the event (cast is not allowed)
 						//const payload: PrepareTransferCmdPayload = message.payload;
 						transferCmd = new PrepareTransferCmd(message.payload);
 						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
 						break;
 
 					case TransferFulfilCommittedRequestedEvt.name:
+						// TODO: use this._fulfilEventToFulfilCommand() to properly create the cmd from the event (cast is not allowed)
 						//const payload: PrepareTransferCmdPayload = message.payload;
-						transferCmd = new TransferFulfilCommittedCmd(message.payload);
+						transferCmd = new CommitTransferFulfilCmd(message.payload);
 						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
 						break;
 
@@ -102,7 +107,26 @@ export class TransfersEventHandler{
 			}
 		});
 	}
+/*
+	private _prepareEventToPrepareCommand(evt: TransferPrepareRequestedEvt): PrepareTransferCmd{
+		const cmdPayload: PrepareTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			amount: evt.payload.amount,
+			currency: evt.payload.currencyCode,
+			payerId: evt.payload.payerFsp,
+			payeeId: evt.payload.payeeFsp,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new PrepareTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		return cmd;
+	}
 
+	private _fulfilEventToFulfilCommand(evt: TransferFulfilCommittedRequestedEvt): CommitTransferFulfilCmd {
+
+	}
+
+*/
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}

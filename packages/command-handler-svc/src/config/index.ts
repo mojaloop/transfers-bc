@@ -39,7 +39,7 @@ import {
 // configs - constants / code dependent
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
-const APP_VERSION = process.env.npm_package_version || "0.0.1";
+const APP_VERSION = process.env.npm_package_version || "0.0.0";
 const CONFIGSET_VERSION = "0.0.1";
 
 // configs - non-constants

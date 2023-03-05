@@ -34,7 +34,11 @@ import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {IMessage,IMessageConsumer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
-import {PrepareTransferCmd, TransfersAggregate, TransferFulfilCommittedCmd} from "@mojaloop/transfers-bc-domain-lib";
+import {
+	PrepareTransferCmd,
+	TransfersAggregate,
+	CommitTransferFulfilCmd
+} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
 	private _logger: ILogger;
@@ -69,7 +73,7 @@ export class TransfersCommandHandler{
 						// send to aggregate handler
 						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
-					case TransferFulfilCommittedCmd.name:
+					case CommitTransferFulfilCmd.name:
 						// send to aggregate handler
 						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
