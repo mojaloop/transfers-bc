@@ -119,6 +119,43 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return mappedTransfers;
 	}
 
+	async searchTransfers(
+		state?:string,
+		currencyCode?:string,
+		startDate?:number,
+		endDate?:number,
+		id?:string
+	):Promise<ITransfer[]>{
+		const filter:any = {$and:[]};
+		if(id){
+			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
+		}
+		if(currencyCode){
+			filter.$and.push({currencyCode: currencyCode});
+		}
+		if(startDate){
+			filter.$and.push({updatedAt: {$gte:startDate}});
+		}
+		if(endDate){
+			filter.$and.push({updatedAt: {$lte:endDate}});
+		}
+		if(state){
+			filter.$and.push({transferState: state});
+		}
+
+		const transfers = await this.transfers.find(
+			filter,
+			{sort:["updatedAt", "desc"], projection: {_id: 0}}
+		).toArray().catch((e: unknown) => {
+			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+			throw new UnableToGetTransferError();
+		});
+
+		const mappedTransfers = transfers.map(this.mapToTransfer);
+
+		return mappedTransfers;
+	}
+
 	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 

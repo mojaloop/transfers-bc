@@ -66,9 +66,22 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
   }
 
   private async getAllTransfers(req: express.Request, res: express.Response) {
+    const id = req.query.id as string;
+    const state = req.query.state as string;
+    const startDateStr = req.query.startDate as string || req.query.startdate as string;
+    const startDate = startDateStr ? parseInt(startDateStr) : undefined;
+    const endDateStr = req.query.endDate as string || req.query.enddate as string;
+    const endDate = endDateStr ? parseInt(endDateStr) : undefined;
+    const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+
     this.logger.debug("Fetching all transfers");
     try {
-      const fetched = await this.repo.getTransfers();
+      let fetched = [];
+      if(!id && !state && !startDate && !endDate && !currencyCode){
+        fetched = await this.repo.getTransfers();
+      }else{
+        fetched = await this.repo.searchTransfers(state, currencyCode, startDate, endDate, id);
+      }
       res.send(fetched);
     } catch (err: unknown) {
       this.logger.error(err);

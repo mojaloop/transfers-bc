@@ -45,6 +45,13 @@ export interface ITransfersRepository {
     updateTransfer(transfer: ITransfer):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
     getTransfers():Promise<ITransfer[]>;
+	searchTransfers(
+		state?:string,
+		currencyCode?:string,
+		startDate?:number,
+		endDate?:number,
+		id?:string
+	):Promise<ITransfer[]>
 }
 
 export interface IParticipantsServiceAdapter {
