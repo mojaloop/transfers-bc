@@ -100,10 +100,10 @@ export class TransfersAggregate{
 
 		switch(command.msgName){
 			case PrepareTransferCmd.name:
-				eventToPublish = await this.transferPreparedReceivedEvt(command as TransferPrepareRequestedEvt);
+				eventToPublish = await this.prepareTransfer(command as TransferPrepareRequestedEvt);
 				break;
 			case CommitTransferFulfilCmd.name:
-				eventToPublish = await this.transferFullFillCommittedEvt(command as TransferFulfilCommittedRequestedEvt);
+				eventToPublish = await this.fulfilTransfer(command as TransferFulfilCommittedRequestedEvt);
 				break;
 			default:
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
@@ -124,8 +124,8 @@ export class TransfersAggregate{
 
 	}
 
-	private async transferPreparedReceivedEvt(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
-		this._logger.debug(`Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
+	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
+		this._logger.debug(`prepareTransfer() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
 		// TODO call the settlements lib to get the correct settlement model
 		// export function obtainSettlementModelFrom(
@@ -135,7 +135,11 @@ export class TransfersAggregate{
 		// ): Promise<string> {
 		const settlementModel = "DEFAULT"; // FIXED for now
 
+		const now = Date.now();
+
 		const transfer: ITransfer = {
+			createdAt: now,
+			updatedAt: now,
 			transferId: message.payload.transferId,
 			payeeFspId: message.payload.payeeFsp,
 			payerFspId: message.payload.payerFsp,
@@ -199,8 +203,8 @@ export class TransfersAggregate{
 		return event;
 	}
 
-	private async transferFullFillCommittedEvt(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
-		this._logger.debug(`Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
+	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
+		this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
 		let participantTransferAccounts: ITransferAccounts | null = null;
 
@@ -221,7 +225,28 @@ export class TransfersAggregate{
 			throw error;
 		}
 
-		await this.commitTransfer(participantTransferAccounts, transferRecord, message);
+		try{
+			await this._accountAndBalancesAdapter.cancelReservationAndCommit(
+				participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.payeePosAccount.id, participantTransferAccounts.hubAccount.id,
+				transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId
+			);
+
+			transferRecord.updatedAt = Date.now();
+			transferRecord.transferState = TransferState.COMMITTED;
+
+			await this._transfersRepo.updateTransfer({
+				...transferRecord,
+				transferState: message.payload.transferState as TransferState,
+				fulFillment: message.payload.fulfilment,
+				completedTimestamp: message.payload.completedTimestamp,
+				extensionList: message.payload.extensionList
+			});
+		}		catch (error: any){
+			// TODO revert the reservation after we try to cancelReservationAndCommit
+			const errorMessage = `Unable to commit transferId: ${transferRecord.transferId} for payer: ${transferRecord.payerFspId} and payee: ${transferRecord.payeeFspId}`;
+			this._logger.error(errorMessage, error);
+			throw new UnableToCommitTransferError(errorMessage);
+		}
 
 		const payload: TransferCommittedFulfiledEvtPayload = {
 			transferId: message.payload.transferId,
@@ -243,32 +268,6 @@ export class TransfersAggregate{
 		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
 
 		return retEvent;
-	}
-
-	private async commitTransfer(participantTransferAccounts: ITransferAccounts, transferRecord: ITransfer, message: TransferFulfilCommittedRequestedEvt) {
-		try{
-			await this._accountAndBalancesAdapter.cancelReservationAndCommit(
-				participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.payeePosAccount.id, participantTransferAccounts.hubAccount.id,
-				transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId
-			);
-
-			transferRecord.transferState = TransferState.COMMITTED;
-
-			await this._transfersRepo.updateTransfer({
-				...transferRecord,
-				transferState: message.payload.transferState as TransferState,
-				fulFillment: message.payload.fulfilment,
-				completedTimestamp: message.payload.completedTimestamp,
-				extensionList: message.payload.extensionList
-			});
-		}
-		catch (error: any){
-			// TODO revert the reservation after we try to cancelReservationAndCommit
-			const errorMessage = `Unable to commit transferId: ${transferRecord.transferId} for payer: ${transferRecord.payerFspId} and payee: ${transferRecord.payeeFspId}`;
-			this._logger.error(errorMessage, error);
-			throw new UnableToCommitTransferError(errorMessage);
-		}
-
 	}
 
 	private async getParticipantsInfo(payerFspId:string, payeeFspId: string): Promise<IParticipant[]>{

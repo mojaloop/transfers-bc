@@ -52,6 +52,8 @@ export declare const enum AccountType {
 }
 
 export interface ITransfer {
+	createdAt: number;
+	updatedAt: number;
 	transferId: string;
 	payeeFspId: string;
 	payerFspId: string;

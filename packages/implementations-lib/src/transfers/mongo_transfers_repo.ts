@@ -106,7 +106,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async getTransfers():Promise<ITransfer[]>{
-		const transfers = await this.transfers.find({}).toArray().catch((e: unknown) => {
+		const transfers = await this.transfers.find(
+			{},
+			{sort:["updatedAt", "desc"], projection: {_id: 0}}
+		).toArray().catch((e: unknown) => {
 			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
 		});
@@ -149,6 +152,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 	private mapToTransfer(transfer: WithId<Document>): ITransfer {
 		const transferMapped: ITransfer = {
+			createdAt: transfer.createdAt ?? null,
+			updatedAt: transfer.updatedAt ?? null,
 			transferId: transfer.transferId ?? null,
 			payeeFspId: transfer.payeeFspId ?? null,
 			payerFspId: transfer.payerFspId ?? null,
