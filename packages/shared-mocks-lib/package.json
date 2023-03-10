@@ -1,0 +1,44 @@
+{
+  "name": "@mojaloop/transfers-bc-shared-mocks-lib",
+  "version": "0.0.1",
+  "description": "Transfers BC shared mocks.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/mojaloop/transfers-bc/tree/main/packages/shared-mocks-lib",
+  "bugs": {
+    "url": "https://github.com/mojaloop/transfers-bc/issues#readme"
+  },
+  "contributors": [
+    "José Antunes <jose.antunes@arg.software>",
+    "Rui Rocha <rui.rocha@arg.software>"
+  ],
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean:dist": "rm -rf dist",
+    "clean:npm": "rm -rf node_modules",
+    "clean:dist-and-node-modules": "rm -rf dist node_modules",
+    "clean": "npm run clean:dist",
+    "audit:check": "npm npm audit",
+    "dep:check": "ncu -e 2",
+    "dep:update": "ncu -u",
+    "lint": "eslint ./src",
+    "lint:fix": "eslint ./src --fix"
+  },
+  "dependencies": {
+    "@mojaloop/transfers-bc-domain-lib": "*",
+    "@mojaloop/logging-bc-public-types-lib": "~0.1.15",
+    "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.71",
+    "@mojaloop/security-bc-client-lib": "~0.1.12",
+    "@mojaloop/participant-bc-public-types-lib": "~0.0.7"
+  },
+  "devDependencies": {
+    "eslint": "^8.34.0",
+    "npm-check-updates": "^16.7.9",
+    "typescript": "^4.7.3"
+  }
+}

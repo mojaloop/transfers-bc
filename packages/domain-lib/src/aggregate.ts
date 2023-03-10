@@ -38,19 +38,22 @@ const HUB_ID = "hub"; // move to shared lib
 
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {CommandMsg, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {CommandMsg, IMessageProducer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
 	TransferCommittedFulfiledEvt,
 	TransferCommittedFulfiledEvtPayload,
 	TransferFulfilCommittedRequestedEvt,
 	TransferPreparedEvt,
 	TransferPreparedEvtPayload,
-	TransferPrepareRequestedEvt
+	TransferPrepareRequestedEvt,
+	TransferErrorEvt,
+	TransferErrorEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {PrepareTransferCmd, CommitTransferFulfilCmd} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
 import {
 	CheckLiquidityAndReserveFailedError,
+	InvalidMessagePayloadError,
 	InvalidMessageTypeError,
 	NoSuchAccountError,
 	NoSuchParticipantError,
@@ -93,17 +96,69 @@ export class TransfersAggregate{
 		//await this._messageProducer.connect();
 	}
 
+	async handleTransferCommand(message: CommandMsg): Promise<void> {
+		this._logger.debug(`Got message in handleTransfersEvent handler - msgName: ${message.msgName}`);
+
+		try{
+			const isMessageValid = this.validateMessage(message);
+			if(isMessageValid) {
+				await this.processCommand(message);
+			}
+		} catch(error:unknown) {
+			const errorMessage = error instanceof Error ? error.constructor.name : "Unexpected Error";
+			this._logger.error(`Error processing event : ${message.msgName} -> ` + errorMessage);
+
+			const errorPayload: TransferErrorEvtPayload = {
+				errorMsg: errorMessage,
+				transferId: message.payload.transferId,
+				sourceEvent: message.msgName,
+				requesterFspId: message.fspiopOpaqueState?.requesterFspId ?? null,
+				destinationFspId: message.fspiopOpaqueState?.destinationFspId ?? null,
+
+			};
+
+			const messageToPublish = new TransferErrorEvt(errorPayload);
+			messageToPublish.fspiopOpaqueState = message.fspiopOpaqueState;
+			await this._messageProducer.send(messageToPublish);
+		}
+	}
+
+	private validateMessage(message:CommandMsg): boolean {
+		if(!message.payload){
+			this._logger.error(`TransferCommandHandler: message payload has invalid format or value`);
+			throw new InvalidMessagePayloadError();
+		}
+
+		if(!message.msgName){
+			this._logger.error(`TransferCommandHandler: message name is invalid`);
+			throw new InvalidMessageTypeError();
+		}
+
+		if(message.msgType !== MessageTypes.DOMAIN_EVENT){
+			this._logger.error(`TransferCommandHandler: message type is invalid : ${message.msgType}`);
+			throw new InvalidMessageTypeError();
+		}
+
+		return true;
+	}
+
 	async processCommand(command: CommandMsg){
 		// switch command type and call specific private method
 
 		let eventToPublish = null;
-
+		let commandEvt = null;
 		switch(command.msgName){
 			case PrepareTransferCmd.name:
-				eventToPublish = await this.prepareTransfer(command as TransferPrepareRequestedEvt);
+				commandEvt = new TransferPrepareRequestedEvt(command.payload);
+                commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+
+                eventToPublish = await this.prepareTransfer(commandEvt);
 				break;
 			case CommitTransferFulfilCmd.name:
-				eventToPublish = await this.fulfilTransfer(command as TransferFulfilCommittedRequestedEvt);
+				commandEvt = new TransferFulfilCommittedRequestedEvt(command.payload);
+                commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+
+                eventToPublish = await this.fulfilTransfer(commandEvt);
 				break;
 			default:
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
@@ -152,7 +207,8 @@ export class TransfersAggregate{
 			fulFillment: null,
 			completedTimestamp: null,
 			extensionList: message.payload.extensionList,
-			settlementModel: settlementModel
+			settlementModel: settlementModel,
+			errorInformation: null
 		};
 
 		await this._transfersRepo.addTransfer(transfer);
