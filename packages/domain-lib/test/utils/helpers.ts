@@ -39,12 +39,12 @@ import { ITransfer } from '../../src/types';
 export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): TransferPreparedEvtPayload {
     return {
         transferId: mockedTransfer.transferId,
-        payeeFsp: mockedTransfer.transferId,
-        payerFsp: mockedTransfer.transferId,
-        amount: mockedTransfer.transferId,
-        currencyCode: mockedTransfer.transferId,
-        ilpPacket: mockedTransfer.transferId,
-        condition: mockedTransfer.transferId,
+        payeeFsp: mockedTransfer.payeeFspId,
+        payerFsp: mockedTransfer.payerFspId,
+        amount: mockedTransfer.amount,
+        currencyCode: mockedTransfer.currencyCode,
+        ilpPacket: mockedTransfer.ilpPacket,
+        condition: mockedTransfer.condition,
         expiration: mockedTransfer.expirationTimestamp,
         extensionList: mockedTransfer.extensionList
     };
@@ -58,10 +58,10 @@ export function createTransferCommittedFulfiledEvtPayload(mockedTransfer: ITrans
         completedTimestamp: mockedTransfer.completedTimestamp,
         extensionList: mockedTransfer.extensionList,
         payeeFspId: mockedTransfer.payeeFspId,
-        payerFspId: mockedTransfer.transferId,
-        amount: mockedTransfer.transferId,
-        currencyCode: mockedTransfer.transferId,
-        settlementModel: mockedTransfer.transferId,
+        payerFspId: mockedTransfer.payerFspId,
+        amount: mockedTransfer.amount,
+        currencyCode: mockedTransfer.currencyCode,
+        settlementModel: mockedTransfer.settlementModel,
     };
 }
 

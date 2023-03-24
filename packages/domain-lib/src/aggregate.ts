@@ -55,6 +55,7 @@ import {
 	CheckLiquidityAndReserveFailedError,
 	InvalidMessagePayloadError,
 	InvalidMessageTypeError,
+	InvalidParticipantIdError,
 	NoSuchAccountError,
 	NoSuchParticipantError,
 	NoSuchTransferError,
@@ -110,7 +111,7 @@ export class TransfersAggregate{
 
 			const errorPayload: TransferErrorEvtPayload = {
 				errorMsg: errorMessage,
-				transferId: message.payload.transferId,
+				transferId: message.payload?.transferId,
 				sourceEvent: message.msgName,
 				requesterFspId: message.fspiopOpaqueState?.requesterFspId ?? null,
 				destinationFspId: message.fspiopOpaqueState?.destinationFspId ?? null,
@@ -147,6 +148,7 @@ export class TransfersAggregate{
 
 		let eventToPublish = null;
 		let commandEvt = null;
+
 		switch(command.msgName){
 			case PrepareTransferCmd.name:
 				commandEvt = new TransferPrepareRequestedEvt(command.payload);
@@ -259,7 +261,7 @@ export class TransfersAggregate{
 		return event;
 	}
 
-	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt> {
+	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<any> {
 		this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
 		let participantTransferAccounts: ITransferAccounts | null = null;
@@ -297,7 +299,7 @@ export class TransfersAggregate{
 				completedTimestamp: message.payload.completedTimestamp,
 				extensionList: message.payload.extensionList
 			});
-		}		catch (error: any){
+		} catch (error: any) {
 			// TODO revert the reservation after we try to cancelReservationAndCommit
 			const errorMessage = `Unable to commit transferId: ${transferRecord.transferId} for payer: ${transferRecord.payerFspId} and payee: ${transferRecord.payeeFspId}`;
 			this._logger.error(errorMessage, error);
@@ -310,7 +312,6 @@ export class TransfersAggregate{
 			fulfilment: message.payload.fulfilment,
 			completedTimestamp: message.payload.completedTimestamp,
 			extensionList: message.payload.extensionList,
-
 			payerFspId: transferRecord.payerFspId,
 			payeeFspId: transferRecord.payeeFspId,
 			amount: transferRecord.amount,
@@ -333,11 +334,28 @@ export class TransfersAggregate{
 				return null;
 			});
 
-			if (!participants || participants?.length ==0 )
+			if (!participants || participants?.length == 0)
 			{
 				const errorMessage = "Cannot get participants info for payer: " + payerFspId + " and payee: " + payeeFspId;
 				this._logger.error(errorMessage);
 				throw new NoSuchParticipantError(errorMessage);
+			}
+
+			for (const participant of participants) {
+				if(participant.id === HUB_ID) {
+					break;
+				}
+
+				if(participant.id !== payerFspId && participant.id !== payeeFspId){
+					this._logger.debug(`Participant id mismatch ${participant.id} ${participant.id}`);
+					throw new InvalidParticipantIdError();
+				}
+	
+				if(!participant.isActive) {
+					this._logger.debug(`${participant.id} is not active`);
+					throw new RequiredParticipantIsNotActive();
+				}
+				
 			}
 
 			return participants;

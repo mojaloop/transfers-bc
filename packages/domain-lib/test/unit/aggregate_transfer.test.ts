@@ -33,13 +33,51 @@
 "use strict";
 
 import { CommandMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { IParticipant } from "@mojaloop/participant-bc-public-types-lib";
-import { TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferPrepareRequestedEvtPayload} from "@mojaloop/platform-shared-lib-public-messages-lib";
-import { InvalidParticipantIdError} from "../../src/errors";
+import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
+import { TransferCommittedFulfiledEvtPayload, TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferPrepareRequestedEvtPayload} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { InvalidParticipantIdError, NoSuchAccountError, NoSuchParticipantError, RequiredParticipantIsNotActive} from "../../src/errors";
 import { TransferState } from '../../src/types';
-import { createCommand,  createTransferPreparedEvtPayload } from "../utils/helpers";
-import { aggregate, transferRepo, messageProducer, participantService } from "../utils/mocked_variables";
-import { mockedTransfer1 } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { createCommand,  createTransferCommittedFulfiledEvtPayload,  createTransferPreparedEvtPayload } from "../utils/helpers";
+import { aggregate, transferRepo, messageProducer, participantService, accountsAndBalancesService } from "../utils/mocked_variables";
+import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import {
+	PrepareTransferCmd,
+	TransfersAggregate,
+	CommitTransferFulfilCmd
+} from "@mojaloop/transfers-bc-domain-lib";
+import { NoSuchTransferError } from "@mojaloop/transfers-bc-implementations-lib";
+
+const mockedParticipantAccountHub = {
+    id: "1",
+    type: "HUB_RECONCILIATION",
+    currencyCode: "EUR",
+    debitBalance: 100,
+    creditBalance: 100,
+} as unknown as IParticipantAccount
+
+const mockedParticipantAccountHubNonExisting = {
+    id: "1",
+    type: "HUB_WRONG_TYPE",
+    currencyCode: "EUR",
+    debitBalance: 100,
+    creditBalance: 100,
+} as unknown as IParticipantAccount
+
+const mockedParticipantAccountPosition = {
+    id: "1",
+    type: "POSITION",
+    currencyCode: "EUR",
+    debitBalance: 100,
+    creditBalance: 100,
+} as unknown as IParticipantAccount
+
+const mockedParticipantAccountSettlement = {
+    id: "1",
+    type: "SETTLEMENT",
+    currencyCode: "EUR",
+    debitBalance: 100,
+    creditBalance: 100,
+} as unknown as IParticipantAccount
 
 describe("Domain - Unit Tests for Transfer Events", () => {
 
@@ -52,10 +90,9 @@ describe("Domain - Unit Tests for Transfer Events", () => {
     });
 
     //#region handleTransferPreparedEvt
-
-    test("handleTransferPreparedEvt - should publish error command if participant is invalid", async () => {
+    test("handleTransferPreparedEvt - should publish error command if participants list is empty", async () => {
         // Arrange
-        const mockedTransfer = mockedTransfer1 as any as any;
+        const mockedTransfer = mockedTransfer1 as any;
 
         const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
 
@@ -66,7 +103,50 @@ describe("Domain - Unit Tests for Transfer Events", () => {
             destinationFspId,
         };
 
-        const command: CommandMsg = createCommand(payload, TransferPrepareRequestedEvt.name,fspiopOpaqueState);
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
+
+        const errorMsg = NoSuchParticipantError.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent : PrepareTransferCmd.name,
+		};
+
+        jest.spyOn(transferRepo, "addTransfer")
+        .mockResolvedValueOnce(mockedTransfer.id);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([]);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+
+    });
+
+    test("handleTransferPreparedEvt - should publish error command if participant is invalid", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
 
         const errorMsg = InvalidParticipantIdError.name;
 
@@ -75,11 +155,107 @@ describe("Domain - Unit Tests for Transfer Events", () => {
 			destinationFspId,
             requesterFspId,
             transferId: payload.transferId,
-            sourceEvent : TransferPrepareRequestedEvt.name,
+            sourceEvent : PrepareTransferCmd.name,
 		};
 
-        jest.spyOn(participantService, "getParticipantInfo")
-            .mockResolvedValueOnce({ id: "not matching", type: "DFSP", isActive: false} as IParticipant as any);
+        jest.spyOn(transferRepo, "addTransfer")
+        .mockResolvedValueOnce(mockedTransfer.id);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+        .mockResolvedValueOnce([{ id: "not matching", type: "DFSP", isActive: false} as IParticipant as any]);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+
+    });
+
+    test("handleTransferPreparedEvt - should publish error command if participant is not active", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
+
+        const errorMsg = RequiredParticipantIsNotActive.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent : PrepareTransferCmd.name,
+		};
+
+        jest.spyOn(transferRepo, "addTransfer")
+        .mockResolvedValueOnce(mockedTransfer.id);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+        .mockResolvedValueOnce([
+            { id: "payee", type: "DFSP", isActive: false} as IParticipant as any,
+        ]);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+
+    });
+
+    
+    test("handleTransferPreparedEvt - should error on not finding all accounts", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
+
+        const errorMsg = NoSuchAccountError.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent : PrepareTransferCmd.name,
+		};
+
+        jest.spyOn(transferRepo, "addTransfer")
+            .mockResolvedValueOnce("inserted transfer id");
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([
+                { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHubNonExisting] } as IParticipant as any,
+                { id: requesterFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
+                { id: destinationFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
+            ]);
 
         jest.spyOn(messageProducer, "send");
 
@@ -95,7 +271,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
 
     test("handleTransferPreparedEvt - should add transfer to transfer repo", async () => {
         // Arrange
-        const mockedTransfer = mockedTransfer1 as any as any;
+        const mockedTransfer = mockedTransfer1 as any;
         const payload:TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
 
         const payerFspId = "payer";
@@ -105,11 +281,13 @@ describe("Domain - Unit Tests for Transfer Events", () => {
             payeeFspId,
         };
 
-        const command: CommandMsg = createCommand(payload, TransferPrepareRequestedEvt.name,fspiopOpaqueState);
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
 
-        jest.spyOn(participantService, "getParticipantInfo")
-            .mockResolvedValueOnce({ id: "payer", type: "DFSP", isActive: true} as IParticipant as any)
-            .mockResolvedValueOnce({ id: "payee", type: "DFSP", isActive: true} as IParticipant as any);
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([
+                { id: "payer", type: "DFSP", isActive: true} as IParticipant as any,
+                { id: "payee", type: "DFSP", isActive: true} as IParticipant as any
+        ])
 
         jest.spyOn(transferRepo, "addTransfer")
             .mockResolvedValueOnce(mockedTransfer.transferId);
@@ -123,7 +301,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         expect(transferRepo.addTransfer).toHaveBeenCalled();
         expect(transferRepo.addTransfer).toHaveBeenCalledWith(expect.objectContaining({
             transferId: mockedTransfer.transferId,
-            status: TransferState.RESERVED
+            transferState: TransferState.RECEIVED
         }));
 
     });
@@ -140,16 +318,16 @@ describe("Domain - Unit Tests for Transfer Events", () => {
             payeeFspId,
         };
 
-        const command: CommandMsg = createCommand(payload, TransferPrepareRequestedEvt.name,fspiopOpaqueState);
+        const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
 
-        const responsePayload : TransferPreparedEvtPayload= {
+        const responsePayload: TransferPreparedEvtPayload = {
             transferId: mockedTransfer.transferId,
-            payeeFsp: mockedTransfer.transferId,
-            payerFsp: mockedTransfer.transferId,
-            amount: mockedTransfer.transferId,
-            currencyCode: mockedTransfer.transferId,
-            ilpPacket: mockedTransfer.transferId,
-            condition: mockedTransfer.transferId,
+            payeeFsp: mockedTransfer.payeeFspId,
+            payerFsp: mockedTransfer.payerFspId,
+            amount: mockedTransfer.amount,
+            currencyCode: mockedTransfer.currencyCode,
+            ilpPacket: mockedTransfer.ilpPacket,
+            condition: mockedTransfer.condition,
             expiration: mockedTransfer.expirationTimestamp,
             extensionList: mockedTransfer.extensionList
         };
@@ -157,9 +335,15 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         jest.spyOn(transferRepo, "addTransfer")
             .mockResolvedValueOnce("inserted transfer id");
 
-        jest.spyOn(participantService, "getParticipantInfo")
-            .mockResolvedValueOnce({ id: payerFspId, type: "DFSP", isActive: true} as IParticipant as any)
-            .mockResolvedValueOnce({ id: payeeFspId, type: "DFSP", isActive: true} as IParticipant as any);
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([
+                { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub] } as IParticipant as any,
+                { id: payerFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
+                { id: payeeFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
+            ]);
+
+        jest.spyOn(transferRepo, "updateTransfer")
+            .mockResolvedValue();
 
         jest.spyOn(messageProducer, "send");
 
@@ -175,7 +359,227 @@ describe("Domain - Unit Tests for Transfer Events", () => {
 
     //#endregion
 
+    //#region handleTransferFulfillEvt
 
+    test("handleTransferFulfillEvt - should publish error command if transfer to fulfill is not found", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
+
+        const errorMsg = NoSuchTransferError.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent: CommitTransferFulfilCmd.name,
+		};
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transferRepo, "getTransferById")
+            .mockResolvedValueOnce(null);
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+    });
+
+    test("handleTransferFulfillEvt - should publish error command if transfer to fulfill is not found", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
+
+        const errorMsg = NoSuchParticipantError.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent: CommitTransferFulfilCmd.name,
+		};
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transferRepo, "getTransferById")
+            .mockResolvedValueOnce(mockedTransfer1);
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+    });
+
+    test("handleTransferFulfillEvt - should publish error command if participant is invalid", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
+
+        const errorMsg = InvalidParticipantIdError.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent: CommitTransferFulfilCmd.name,
+		};
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transferRepo, "getTransferById")
+            .mockResolvedValueOnce(mockedTransfer1);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([{ id: "not matching", type: "DFSP", isActive: false} as IParticipant as any]);
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+    });
+
+    test("handleTransferFulfillEvt - should publish error command if participant is not active", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+
+        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+
+        const requesterFspId = "payer";
+        const destinationFspId = "payee";
+        const fspiopOpaqueState = {
+            requesterFspId,
+            destinationFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
+
+        const errorMsg = RequiredParticipantIsNotActive.name;
+
+        const errorPayload: TransferErrorEvtPayload = {
+			errorMsg,
+			destinationFspId,
+            requesterFspId,
+            transferId: payload.transferId,
+            sourceEvent: CommitTransferFulfilCmd.name,
+		};
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transferRepo, "getTransferById")
+            .mockResolvedValueOnce(mockedTransfer1);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([
+                { id: "payee", type: "DFSP", isActive: false} as IParticipant as any,
+            ]);
+
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": errorPayload,
+        }));
+    });
+
+    test("handleTransferFulfillEvt - should publish TransferCommittedFulfiledEvt if event runs successfully", async () => {
+        // Arrange
+        const mockedTransfer = mockedTransfer1 as any;
+        const payload:TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+
+        const payerFspId = "payer";
+        const payeeFspId = "payee";
+        const fspiopOpaqueState = {
+            payerFspId,
+            payeeFspId,
+        };
+
+        const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
+
+        const responsePayload: TransferCommittedFulfiledEvtPayload = {
+            transferId: payload.transferId,
+            transferState: payload.transferState as any,
+            fulfilment: payload.fulfilment,
+            completedTimestamp: payload.completedTimestamp,
+            extensionList: payload.extensionList,
+            payeeFspId: payload.payeeFspId,
+            payerFspId: payload.payerFspId,
+            amount: payload.amount,
+            currencyCode: payload.currencyCode,
+            settlementModel: payload.settlementModel,
+        };
+
+        jest.spyOn(transferRepo, "getTransferById")
+            .mockResolvedValueOnce(mockedTransfer1);
+
+        jest.spyOn(participantService, "getParticipantsInfo")
+            .mockResolvedValueOnce([
+                { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub] } as IParticipant as any,
+                { id: payerFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
+                { id: payeeFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
+            ]);
+
+        jest.spyOn(accountsAndBalancesService, "cancelReservationAndCommit")
+            .mockResolvedValue();
+
+        jest.spyOn(transferRepo, "updateTransfer")
+            .mockResolvedValue();
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.handleTransferCommand(command);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
+            "payload": responsePayload,
+        }));
+    });
+    //#endregion
   
 });
 

@@ -31,9 +31,12 @@
 
  "use strict";
 
- import {Service} from "./service";
- 
- Service.start().then(() => {
-     console.log("Service start complete");
- });
- 
+import {Service} from "./service";
+
+if(process.env.NODE_ENV !== "test") {
+    Service.start().then(() => {
+        console.log("Service start complete");
+    });
+}
+
+export { Service };

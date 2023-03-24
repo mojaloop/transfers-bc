@@ -50,4 +50,4 @@ const accountsAndBalancesService: IAccountsBalancesAdapter = new MemoryAccountsA
 
 const aggregate: TransfersAggregate = new TransfersAggregate(logger,transferRepo, participantService, messageProducer, accountsAndBalancesService);
 
-export { aggregate, logger, transferRepo, messageProducer, participantService };
+export { aggregate, logger, transferRepo, messageProducer, participantService, accountsAndBalancesService };

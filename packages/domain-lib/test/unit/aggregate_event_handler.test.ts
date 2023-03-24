@@ -72,7 +72,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Assert
         expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
             "payload": errorPayload,
-           }));
+        }));
 
     });
 

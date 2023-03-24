@@ -57,10 +57,10 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(transfer.transferId);
     }
 
-    // addTransfers(transfers: ITransfer[]): Promise<void> {
-    //     this._transfers.push(...transfers);
-    //     return Promise.resolve();
-    // }
+    addTransfers(transfers: ITransfer[]): Promise<void> {
+        this._transfers.push(...transfers);
+        return Promise.resolve();
+    }
 
     updateTransfer(transfer: ITransfer): Promise<void> {
         const transferToUpdate = this._transfers.find(q => q.transferId === transfer.transferId);
@@ -73,10 +73,10 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve();
     }
     
-    // removeTransfer(id: string): Promise<void> {
-    //     this._transfers.splice(this._transfers.findIndex(q => q.transferId === id), 1);
-    //     return Promise.resolve();
-    // }
+    removeTransfer(id: string): Promise<void> {
+        this._transfers.splice(this._transfers.findIndex(q => q.transferId === id), 1);
+        return Promise.resolve();
+    }
 
     getTransferById(id: string): Promise<ITransfer | null> {
         return Promise.resolve(this._transfers.find(q => q.transferId === id) || null);

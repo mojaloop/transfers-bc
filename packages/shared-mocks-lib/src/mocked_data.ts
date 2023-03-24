@@ -39,8 +39,8 @@ const now = Date.now();
 export const mockedTransfer1 : ITransfer = {
 	createdAt: now,
 	updatedAt: now,
-    payerFspId: "1",
-    payeeFspId: "10",
+    payerFspId: "payer",
+    payeeFspId: "payee",
     transferId: "1",
     amount: "200",
     currencyCode: "EUR",

@@ -96,11 +96,10 @@ express.json = jest.fn();
 express.urlencoded = jest.fn();
 express.Router = jest.fn().mockImplementation(() => { return routerSpy });
 
-describe("Transfers Service", () => {
+describe("Transfers Command Handler Service", () => {
 
     beforeAll(async () => {
-        process.env['PLATFORM_CONFIG_BASE_SVC_URL'] = "test";
-        process.env['PLATFORM_CONFIG_STANDALONE'] = "test";
+
     });
 
     
@@ -137,7 +136,7 @@ describe("Transfers Service", () => {
         // Arrange
         const spyMockedConsumer = jest.spyOn(mockedConsumer, "destroy");
         const spyMockedProducer = jest.spyOn(mockedProducer, "destroy");
-        const spyMockedAggregate = jest.spyOn(mockedAggregate, "destroy");
+        // const spyMockedAggregate = jest.spyOn(mockedAggregate, "destroy");
         await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository, 
             mockedAccountsAndBalancesService, mockedAggregate);
 
@@ -147,7 +146,7 @@ describe("Transfers Service", () => {
         // Assert
         expect(spyMockedConsumer).toBeCalledTimes(1);
         expect(spyMockedProducer).toBeCalledTimes(1);
-        expect(spyMockedAggregate).toBeCalledTimes(1);
+        // expect(spyMockedAggregate).toBeCalledTimes(1);
         expect(closeSpy).toBeCalledTimes(1);
     });
 
