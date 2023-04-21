@@ -70,11 +70,17 @@ async function getPipelines() {
 
     const pipelinesResp = await getData(url);
 
-    if (!pipelinesResp || !pipelinesResp.next_page_token || !pipelinesResp.items || pipelinesResp.items.length <= 0) {
+    if (!pipelinesResp || !pipelinesResp.items) {
         throw new Error("Invalid or empty response from getPipelines()");
     }
 
+    // if no next_page_token came, it's because it is the last page
     pipelinesNextPageToken = pipelinesResp.next_page_token;
+
+    if (pipelinesResp.items.length <= 0) {
+        return [];
+    }
+
     return pipelinesResp.items;
 }
 
@@ -94,10 +100,6 @@ async function getPipelineWorkflows(pipelineId) {
 async function startLoop() {
     while(true) {
         const pipelineList = await getPipelines();
-        if(!pipelineList){
-            console.log("No more pipeline executions found, giving up.")
-            process.exit(9);
-        }
 
         for (const pipeline of pipelineList) {
             if (pipeline.state==="errored") continue;
@@ -127,6 +129,12 @@ async function startLoop() {
                 }
                 process.exit(0);
             }
+        }
+
+        // no more pages to fetch, exit
+        if (!pipelinesNextPageToken) {
+            console.log("No more pipeline executions found, giving up.")
+            process.exit(9);
         }
     }
 }
