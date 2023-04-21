@@ -134,7 +134,7 @@ async function startLoop() {
         // no more pages to fetch, exit
         if (!pipelinesNextPageToken) {
             console.log("No more pipeline executions found, giving up.")
-            process.exit(9);
+            process.exit(0);
         }
     }
 }
