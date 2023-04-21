@@ -19,8 +19,9 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "clean:npm": "rm -Rf node_modules",
-    "clean": "rm -Rf dist",
+    "clean": "npm run clean:npm; npm run clean:dist",
+    "clean:dist": "rm -rf dist",
+    "clean:npm": "rm -rf node_modules",
     "pretest": "npm run build",
     "standard": "npm run lint",
     "lint": "npm run build && npx eslint ./src",
@@ -30,22 +31,22 @@
     "dep:update": "ncu -u"
   },
   "dependencies": {
-    "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.1.2",
-    "@mojaloop/auditing-bc-public-types-lib": "~0.0.12",
-    "@mojaloop/logging-bc-public-types-lib": "~0.1.15",
-    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.73",
-    "@mojaloop/security-bc-public-types-lib": "~0.1.12",
-    "@mojaloop/participant-bc-public-types-lib":"~0.0.7"
+    "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.1.4",
+    "@mojaloop/auditing-bc-public-types-lib": "~0.0.15",
+    "@mojaloop/logging-bc-public-types-lib": "~0.1.19",
+    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.84",
+    "@mojaloop/security-bc-public-types-lib": "~0.1.19",
+    "@mojaloop/participant-bc-public-types-lib": "~0.0.8"
   },
   "devDependencies": {
-    "@types/node": "^18.8.5",
-    "@typescript-eslint/eslint-plugin": "^5.40.0",
-    "@typescript-eslint/parser": "^5.40.0",
-    "eslint": "^8.25.0",
-    "husky": "^8.0.1",
-    "jest": "^29.1.2",
-    "npm-check-updates": "^16.3.11",
-    "ts-jest": "^29.0.3",
-    "typescript": "^4.8.4"
+    "@types/node": "^18.15.13",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "eslint": "^8.38.0",
+    "husky": "^8.0.3",
+    "jest": "^29.5.0",
+    "npm-check-updates": "^16.10.9",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.4"
   }
 }
