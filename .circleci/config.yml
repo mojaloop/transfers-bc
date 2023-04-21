@@ -130,11 +130,10 @@ workflows:
       - lint:
           context: org-global
           requires:
-            - setup
+            - build
       - test-unit:
           context: org-global
           requires:
-            - build
             - lint
       - coverage-report:
           context: org-global
