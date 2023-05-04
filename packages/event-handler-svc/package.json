@@ -32,7 +32,7 @@
     "standard": "npm run lint",
     "lint": "npm run build && npx eslint ./src",
     "lint:fix": "npm run build && npx eslint ./src --fix",
-    "test:unit": "jest --passWithNoTests --testMatch '**/test/unit/**/*.test.ts'",
+    "test:unit": "jest --passWithNoTests --testMatch **/test/unit/**/*.test.ts",
     "dep:check": "ncu -e 2",
     "dep:update": "ncu -u"
   },

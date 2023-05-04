@@ -35,7 +35,7 @@
 import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError } from '../errors';
+import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToAddManyTransfersError, UnableToDeleteTransferError } from '../errors';
 import { randomUUID } from 'crypto';
 
 export class MongoTransfersRepo implements ITransfersRepository {
@@ -91,6 +91,20 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		});
 
 		return transferToAdd.transferId;
+	}
+
+	async removeTransfer(transferId: string): Promise<void> {
+		const deleteResult = await this.transfers.deleteOne({transferId}).catch((e: unknown) => {
+			this._logger.error(`Unable to delete transfer: ${(e as Error).message}`);
+			throw new UnableToDeleteTransferError();
+		});
+
+		if(deleteResult.deletedCount == 1){
+			return;
+		}
+		else{
+			throw new NoSuchTransferError();
+		}
 	}
 
 	async getTransferById(transferId:string):Promise<ITransfer|null>{
@@ -156,6 +170,22 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return mappedTransfers;
 	}
 
+	async addTransfers(transfers: ITransfer[]): Promise<void> {
+		const transfersToAdd = transfers.map(transfer => {
+			return {...transfer, transferId: transfer.transferId || randomUUID()};
+		});
+
+		// Check if any of the transfers already exists
+		for await (const transfer of transfersToAdd){
+			await this.checkIfTransferExists(transfer);
+		}
+
+		await this.transfers.insertMany(transfersToAdd).catch((e: unknown) => {
+			this._logger.error(`Unable to insert many transfers: ${(e as Error).message}`);
+			throw new UnableToAddManyTransfersError();
+		});
+	}
+
 	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 
@@ -198,12 +228,13 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			currencyCode: transfer.currencyCode ?? null,
 			ilpPacket: transfer.ilpPacket ?? null,
 			condition: transfer.condition ?? null,
-			expirationTimestamp: transfer.expiration ?? null,
+			expirationTimestamp: transfer.expirationTimestamp ?? null,
 			transferState: transfer.transferState ?? null,
 			fulFillment: transfer.fulFillment ?? null,
 			completedTimestamp: transfer.completedTimestamp ?? null,
 			extensionList: transfer.extensionList ?? null,
-			settlementModel: transfer.settlementModel ?? null
+			settlementModel: transfer.settlementModel ?? null,
+			errorInformation: transfer.errorInformation ?? null
 		};
 
 		return transferMapped;

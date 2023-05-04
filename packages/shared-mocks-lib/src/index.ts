@@ -1,4 +1,4 @@
-/*****
+/**
  License
  --------------
  Copyright © 2017 Bill & Melinda Gates Foundation
@@ -12,7 +12,7 @@
  --------------
  This is the official list (alphabetical ordering) of the Mojaloop project contributors for this file.
  Names of the original copyright holders (individuals or organizations)
- should be listed with a '*' in the first column. People who have
+ should be listed with a '' in the first column. People who have
  contributed from an organization can be listed under the organization
  that actually holds the copyright for their contributions (see the
  Gates Foundation organization for an example). Those individuals should have
@@ -27,16 +27,17 @@
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- ******/
+ **/
 
- "use strict";
+"use strict";
 
-import {Service} from "./service";
+export * from "./memory_message_producer";
+export * from "./memory_message_consumer";
+export * from "./memory_transfers_repo";
+export * from "./memory_participant_service";
+export * from "./memory_accounts_and_balances_service";
+export * from "./memory_audit_service";
+export * from "./memory_auth_requester";
+export * from "./mocked_data";
 
-if(process.env.NODE_ENV !== "test") {
-    Service.start().then(() => {
-        console.log("Service start complete");
-    });
-}
 
-export { Service };

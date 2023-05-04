@@ -1,4 +1,4 @@
-/*****
+/**
  License
  --------------
  Copyright © 2017 Bill & Melinda Gates Foundation
@@ -12,7 +12,7 @@
  --------------
  This is the official list (alphabetical ordering) of the Mojaloop project contributors for this file.
  Names of the original copyright holders (individuals or organizations)
- should be listed with a '*' in the first column. People who have
+ should be listed with a '' in the first column. People who have
  contributed from an organization can be listed under the organization
  that actually holds the copyright for their contributions (see the
  Gates Foundation organization for an example). Those individuals should have
@@ -21,22 +21,42 @@
 
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
-
+ 
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- ******/
+**/
 
- "use strict";
+"use strict";
 
-import {Service} from "./service";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { IParticipant } from "@mojaloop/participant-bc-public-types-lib";
+import { IParticipantsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
+import {AuditEntryLabel, AuditSecurityContext, IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 
-if(process.env.NODE_ENV !== "test") {
-    Service.start().then(() => {
-        console.log("Service start complete");
-    });
+export class MemoryAuditService implements IAuditClient {
+	private readonly logger: ILogger;
+	
+	constructor(
+		logger: ILogger,
+	) {
+		this.logger = logger;
+	}
+
+	init(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    destroy(): Promise<void> {
+        return Promise.resolve();
+    }
+
+	audit(actionType: string, actionSuccessful: boolean, securityContext?: AuditSecurityContext | undefined, labels?: AuditEntryLabel[] | undefined): Promise<void> {
+        return Promise.resolve();
+	}
+
+
+	
 }
-
-export { Service };

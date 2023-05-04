@@ -51,6 +51,16 @@ export declare const enum AccountType {
 	SETTLEMENT = "SETTLEMENT"
 }
 
+export interface IExtensionList {
+    extension: { key: string; value: string;}[];
+}
+
+export interface IErrorInformation {
+    errorCode: string;
+    errorDescription: string;
+    extensionList: IExtensionList
+}
+
 export interface ITransfer {
 	createdAt: number;
 	updatedAt: number;
@@ -65,12 +75,8 @@ export interface ITransfer {
 	expirationTimestamp: number;
 	transferState: TransferState,
 	completedTimestamp: number | null,
-	extensionList: {
-        extension: {
-            key: string;
-            value: string;
-        }[]
-    } | null;
+    extensionList: IExtensionList | null;
+    errorInformation: IErrorInformation | null;
 
 	// populated from the settlements lib during prepare
 	settlementModel: string;

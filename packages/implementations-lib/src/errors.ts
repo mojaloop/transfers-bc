@@ -63,6 +63,17 @@ export class NoSuchTransferError extends Error {
         super(message||"No such transfer");
     }
 }
+export class UnableToAddManyTransfersError extends Error {
+    constructor(message?: string) {
+        super(message || 'Unable to add many transfers');
+    }
+}
+export class UnableToDeleteTransferError extends Error {
+    constructor(message?:string) {
+        super(message || 'Unable to delete transfer');
+    }
+}
+
 
 // Cache
 export class LocalCacheError extends Error {
@@ -83,3 +94,4 @@ export class UnableToInitTransferRegistryError extends Error {
         super(message || 'Unable to initialize transfer registry');
     }
 }
+

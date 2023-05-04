@@ -19,9 +19,6 @@
  their names indented and be marked with a '-'. Email address can be added
  optionally within square brackets <email>.
 
- * Gates Foundation
- - Name Surname <name.surname@gatesfoundation.com>
-
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
@@ -31,12 +28,47 @@
 
  "use strict";
 
-import {Service} from "./service";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-client-lib";
 
-if(process.env.NODE_ENV !== "test") {
-    Service.start().then(() => {
-        console.log("Service start complete");
-    });
+export class MemoryAuthenticatedHttpRequesterMock implements IAuthenticatedHttpRequester {
+    private readonly logger: ILogger;
+    private readonly authTokenUrl: string;
+
+    private client_id: string | null = null;
+    private client_secret: string | null = null;
+    private username: string | null = null;
+    private password: string | null = null;
+
+    constructor(
+        logger: ILogger,
+        authTokenUrl: string,
+    ) {
+        this.logger = logger;
+        this.authTokenUrl = authTokenUrl;
+    }
+
+    initialised: boolean;
+
+    setUserCredentials(client_id: string, username: string, password: string): void {
+        this.client_id = client_id;
+        this.username = username;
+        this.password = password;
+    }
+
+    setAppCredentials(client_id: string, client_secret: string): void {
+        this.client_id = client_id;
+        this.client_secret = client_secret;
+    }
+
+    fetch(_requestInfo: RequestInfo, _timeoutMs?: number | undefined): Promise<Response> {
+        return new Promise<Response>((_resolve, _reject) => {
+            const mockResponse = <Response>{
+                body: {}
+            };
+
+            return Promise.resolve(mockResponse);
+        });
+    }
+
 }
-
-export { Service };
