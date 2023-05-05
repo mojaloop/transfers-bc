@@ -28,48 +28,20 @@
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
- "use strict";
-
- import {IMessage, IMessageConsumer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-
- export class MemoryMessageConsumer implements IMessageConsumer{
+"use strict";
 
 
-    setCallbackFn(_handlerCallback: (message: IMessage) => Promise<void>): void {
-         return;
-    }
+import { TransferPrepareInvalidPayerCheckFailedEvt, TransferPrepareInvalidPayerCheckFailedPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import {  } from "./errors";
 
-    setFilteringFn(_filterFn: (message: IMessage) => boolean): void{
-         return;
-    }
-
-    setTopics(_topics: string[]): void {
-         return;
-    }
-
-     async destroy(_force: boolean) : Promise<void>{
-         return Promise.resolve();
-    }
-
-    async connect() : Promise<void> {
-          return Promise.resolve();
-    }
-
-    async disconnect(_force: boolean) : Promise<void> {
-          return Promise.resolve();
-    }
-
-    async start() : Promise<void> {
-          return Promise.resolve();
-    }
-
-    async stop (): Promise<void> {
-          return Promise.resolve();
-    }
-
-    async startAndWaitForRebalance() : Promise<void> {
-		return Promise.resolve();
-	}
+export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
+    const invalidPayerParticipantErrorPayload: TransferPrepareInvalidPayerCheckFailedPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareInvalidPayerCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
 }

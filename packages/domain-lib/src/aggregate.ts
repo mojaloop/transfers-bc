@@ -46,8 +46,6 @@ import {
 	TransferPreparedEvt,
 	TransferPreparedEvtPayload,
 	TransferPrepareRequestedEvt,
-	TransferErrorEvt,
-	TransferErrorEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {PrepareTransferCmd, CommitTransferFulfilCmd} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
@@ -66,8 +64,9 @@ import {
 	UnableToProcessMessageError
 } from "./errors";
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
-import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
+import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
+import { createParticipantPayerInvalidErrorEvent } from "./error_events";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -109,18 +108,18 @@ export class TransfersAggregate{
 			const errorMessage = error instanceof Error ? error.constructor.name : "Unexpected Error";
 			this._logger.error(`Error processing event : ${message.msgName} -> ` + errorMessage);
 
-			const errorPayload: TransferErrorEvtPayload = {
-				errorMsg: errorMessage,
-				transferId: message.payload?.transferId,
-				sourceEvent: message.msgName,
-				requesterFspId: message.fspiopOpaqueState?.requesterFspId ?? null,
-				destinationFspId: message.fspiopOpaqueState?.destinationFspId ?? null,
+			// const errorPayload: TransferErrorEvtPayload = {
+			// 	errorMsg: errorMessage,
+			// 	transferId: message.payload?.transferId,
+			// 	sourceEvent: message.msgName,
+			// 	requesterFspId: message.fspiopOpaqueState?.requesterFspId ?? null,
+			// 	destinationFspId: message.fspiopOpaqueState?.destinationFspId ?? null,
 
-			};
+			// };
 
-			const messageToPublish = new TransferErrorEvt(errorPayload);
-			messageToPublish.fspiopOpaqueState = message.fspiopOpaqueState;
-			await this._messageProducer.send(messageToPublish);
+			// const messageToPublish = new TransferErrorEvt(errorPayload);
+			// messageToPublish.fspiopOpaqueState = message.fspiopOpaqueState;
+			// await this._messageProducer.send(messageToPublish);
 		}
 	}
 
@@ -135,10 +134,10 @@ export class TransfersAggregate{
 			throw new InvalidMessageTypeError();
 		}
 
-		if(message.msgType !== MessageTypes.DOMAIN_EVENT){
-			this._logger.error(`TransferCommandHandler: message type is invalid : ${message.msgType}`);
-			throw new InvalidMessageTypeError();
-		}
+		// if(message.msgType !== MessageTypes.DOMAIN_EVENT){
+		// 	this._logger.error(`TransferCommandHandler: message type is invalid : ${message.msgType}`);
+		// 	throw new InvalidMessageTypeError();
+		// }
 
 		return true;
 	}
@@ -215,9 +214,9 @@ export class TransfersAggregate{
 
 		await this._transfersRepo.addTransfer(transfer);
 
-		const participants = await this.getParticipantsInfo(transfer?.payerFspId, transfer?.payeeFspId);
+		const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transfer.transferId, transfer?.payerFspId, transfer?.payeeFspId);
 
-		const transferParticipants = this.getTransferParticipants(participants, transfer);
+		const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transfer);
 
 		const participantAccounts = this.getTransferParticipantsAccounts(transferParticipants,transfer);
 
@@ -273,8 +272,8 @@ export class TransfersAggregate{
 			if(!transferRecord) {
 				throw new NoSuchTransferError();
 			}
-			const participants = await this.getParticipantsInfo(transferRecord.payerFspId, transferRecord.payeeFspId);
-			const transferParticipants = this.getTransferParticipants(participants, transferRecord);
+			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
+			const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transferRecord);
 			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
 		}
 		catch (error: any){
@@ -327,38 +326,45 @@ export class TransfersAggregate{
 		return retEvent;
 	}
 
-	private async getParticipantsInfo(payerFspId:string, payeeFspId: string): Promise<IParticipant[]>{
+	private async getParticipantsInfoOrGetErrorEvent(transferId: string, payerFspId:string, payeeFspId: string): Promise<{errorEvent:TransferErrorEvent | null, participants: IParticipant[]}>{
+		let participants: IParticipant[] = [];
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, participants };
+
 		// TODO get all participants in a single call with participantsClient.getParticipantsByIds()
-			const participants = await this._participantAdapter.getParticipantsInfo([payerFspId, payeeFspId, HUB_ID]).catch((err) => {
-				this._logger.error("Cannot get participants info " + err);
-				return null;
-			});
+		const participantsInfo = await this._participantAdapter.getParticipantsInfo([payerFspId, payeeFspId, HUB_ID]).catch((err) => {
+			this._logger.error("Cannot get participants info " + err);
+			return null;
+		});
 
-			if (!participants || participants?.length == 0)
-			{
-				const errorMessage = "Cannot get participants info for payer: " + payerFspId + " and payee: " + payeeFspId;
-				this._logger.error(errorMessage);
-				throw new NoSuchParticipantError(errorMessage);
+		if (!participantsInfo || participantsInfo?.length == 0)
+		{
+			const errorMessage = "Cannot get participants info for payer: " + payerFspId + " and payee: " + payeeFspId;
+			this._logger.error(errorMessage);
+			errorEvent = createParticipantPayerInvalidErrorEvent(errorMessage, transferId, payerFspId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		for (const participantInfo of participantsInfo) {
+			if(participantInfo.id === HUB_ID) {
+				break;
 			}
 
-			for (const participant of participants) {
-				if(participant.id === HUB_ID) {
-					break;
-				}
-
-				if(participant.id !== payerFspId && participant.id !== payeeFspId){
-					this._logger.debug(`Participant id mismatch ${participant.id} ${participant.id}`);
-					throw new InvalidParticipantIdError();
-				}
-	
-				if(!participant.isActive) {
-					this._logger.debug(`${participant.id} is not active`);
-					throw new RequiredParticipantIsNotActive();
-				}
-				
+			if(participantInfo.id !== payerFspId && participantInfo.id !== payeeFspId){
+				this._logger.debug(`Participant id mismatch ${participantInfo.id} ${participantInfo.id}`);
+				throw new InvalidParticipantIdError();
 			}
 
-			return participants;
+			if(!participantInfo.isActive) {
+				this._logger.debug(`${participantInfo.id} is not active`);
+				throw new RequiredParticipantIsNotActive();
+			}
+			
+		}
+
+		result.participants = participantsInfo;
+		return result;
 	}
 
 	private getTransferParticipants(participants: IParticipant[], transfer: ITransfer): ITransferParticipants  {
