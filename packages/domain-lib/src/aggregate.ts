@@ -46,8 +46,11 @@ import {
 	TransferPreparedEvt,
 	TransferPreparedEvtPayload,
 	TransferPrepareRequestedEvt,
+	TransferRejectRequestedEvt,
+	TransferRejectRequestProcessedEvt,
+	TransferRejectRequestProcessedEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, CommitTransferFulfilCmd} from "./commands";
+import {PrepareTransferCmd, CommitTransferFulfilCmd, RejectTransferCmd} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
 import {
 	CheckLiquidityAndReserveFailedError,
@@ -66,7 +69,7 @@ import {
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { createParticipantPayerInvalidErrorEvent } from "./error_events";
+import { createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent } from "./error_events";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -145,7 +148,7 @@ export class TransfersAggregate{
 	async processCommand(command: CommandMsg){
 		// switch command type and call specific private method
 
-		let eventToPublish = null;
+		let eventToPublish:any = null;
 		let commandEvt = null;
 
 		switch(command.msgName){
@@ -161,6 +164,12 @@ export class TransfersAggregate{
 
                 eventToPublish = await this.fulfilTransfer(commandEvt);
 				break;
+			case RejectTransferCmd.name:
+				commandEvt = new TransferRejectRequestedEvt(command.payload);
+				commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+
+				eventToPublish = await this.rejectTransfer(commandEvt);
+				break;
 			default:
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
 				throw new InvalidMessageTypeError();
@@ -169,9 +178,11 @@ export class TransfersAggregate{
 		if(eventToPublish){
 			if(Array.isArray(eventToPublish)){
 				for await (const event of eventToPublish){
+					event.fspiopOpaqueState = commandEvt.fspiopOpaqueState;
 					await this._messageProducer.send(event);
 				}
 			}else {
+				eventToPublish.fspiopOpaqueState = commandEvt.fspiopOpaqueState;
 				await this._messageProducer.send(eventToPublish);
 			}
 		}else{
@@ -180,7 +191,7 @@ export class TransfersAggregate{
 
 	}
 
-	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt> {
+	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt | TransferErrorEvent> {
 		this._logger.debug(`prepareTransfer() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
 		// TODO call the settlements lib to get the correct settlement model
@@ -216,24 +227,29 @@ export class TransfersAggregate{
 
 		const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transfer.transferId, transfer?.payerFspId, transfer?.payeeFspId);
 
+		if(participantsInfo.participants.length === 0){
+			this._logger.error(`Invalid participants info for payerFspId: ${transfer.payerFspId} and payeeFspId: ${transfer.payeeFspId}`);
+			return participantsInfo.errorEvent as TransferErrorEvent;
+		}
+
+
 		const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transfer);
+
+		// if(transferParticipants.=== 0){
+		// 	this._logger.error(`Invalid participants info for payerFspId: ${transfer.payerFspId} and payeeFspId: ${transfer.payeeFspId}`);
+		// 	return participantsInfo.errorEvent as TransferErrorEvent;
+		// }
 
 		const participantAccounts = this.getTransferParticipantsAccounts(transferParticipants,transfer);
 
 		// TODO put net debit cap in the participant struct
 		const payerNdc = "0";
 
-		try{
-			await this._accountAndBalancesAdapter.checkLiquidAndReserve(
-				participantAccounts.payerPosAccount.id, participantAccounts.payerLiqAccount.id, participantAccounts.hubAccount.id,
-				transfer.amount, transfer.currencyCode, payerNdc, transfer.transferId
-			);
-		}catch (error){
-			const errorMessage = `Unable to check liquidity and reserve for transferId: ${transfer.transferId}`;
-			this._logger.error(errorMessage , error);
-			transfer.transferState = TransferState.REJECTED;
-			await this._transfersRepo.updateTransfer(transfer);
-			throw new CheckLiquidityAndReserveFailedError(errorMessage);
+		const liquidityCheck = await this.checkLiquidityOrGetErrorEvent(transfer, participantAccounts, payerNdc);
+
+		if(!liquidityCheck.valid){
+			this._logger.error(`Unable to check liquidity and reserve for transferId: ${transfer.transferId}`);
+			return liquidityCheck.errorEvent as TransferErrorEvent;
 		}
 
 		transfer.transferState = TransferState.RESERVED;
@@ -273,6 +289,12 @@ export class TransfersAggregate{
 				throw new NoSuchTransferError();
 			}
 			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
+			
+			if(participantsInfo.participants.length === 0){
+				this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+				return participantsInfo.errorEvent as TransferErrorEvent;
+			}
+
 			const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transferRecord);
 			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
 		}
@@ -326,6 +348,49 @@ export class TransfersAggregate{
 		return retEvent;
 	}
 
+	private async rejectTransfer(message: TransferRejectRequestedEvt):Promise<any> {
+		this._logger.debug(`rejectTransfer() - Got transferRejectRequesteddEvt msg for transferId: ${message.payload.transferId}`);
+
+		let participantTransferAccounts: ITransferAccounts | null = null;
+
+		const transferRecord = await this._transfersRepo.getTransferById(message.payload.transferId);
+
+		try{
+
+			if(!transferRecord) {
+				throw new NoSuchTransferError();
+			}
+			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
+			
+			if(participantsInfo.participants.length === 0){
+				this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+				return participantsInfo.errorEvent as TransferErrorEvent;
+			}
+
+			const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transferRecord);
+			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
+
+			this.payeeRejectTransfer(transferRecord, participantTransferAccounts)
+
+		}
+		catch (error: any){
+			this._logger.error(error.message);
+			await this.cancelTransfer(transferRecord, participantTransferAccounts);
+			throw error;
+		}
+
+		const payload: TransferRejectRequestProcessedEvtPayload = {
+			transferId: message.payload.transferId,
+			errorInformation: message.payload.errorInformation
+		};
+
+		const retEvent = new TransferRejectRequestProcessedEvt(payload);
+
+		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+
+		return retEvent;
+	}
+
 	private async getParticipantsInfoOrGetErrorEvent(transferId: string, payerFspId:string, payeeFspId: string): Promise<{errorEvent:TransferErrorEvent | null, participants: IParticipant[]}>{
 		let participants: IParticipant[] = [];
 		let errorEvent!: TransferErrorEvent | null;
@@ -337,7 +402,7 @@ export class TransfersAggregate{
 			return null;
 		});
 
-		if (!participantsInfo || participantsInfo?.length == 0)
+		if (!participantsInfo || participantsInfo?.length === 0)
 		{
 			const errorMessage = "Cannot get participants info for payer: " + payerFspId + " and payee: " + payeeFspId;
 			this._logger.error(errorMessage);
@@ -353,17 +418,55 @@ export class TransfersAggregate{
 
 			if(participantInfo.id !== payerFspId && participantInfo.id !== payeeFspId){
 				this._logger.debug(`Participant id mismatch ${participantInfo.id} ${participantInfo.id}`);
-				throw new InvalidParticipantIdError();
+
+				if(participantInfo.id !== payerFspId) {
+					const errorMessage = "Invalid participant id for payer: " + payerFspId;
+					errorEvent = createParticipantPayerInvalidErrorEvent(errorMessage, transferId, payerFspId);
+				} else if(participantInfo.id !== payeeFspId) {
+					const errorMessage = "Invalid participant id for payee: " + payerFspId;
+					errorEvent = createParticipantPayeeInvalidErrorEvent(errorMessage, transferId, payerFspId);
+				}
+				
+				result.errorEvent = errorEvent;
+				return result;
 			}
 
-			if(!participantInfo.isActive) {
-				this._logger.debug(`${participantInfo.id} is not active`);
-				throw new RequiredParticipantIsNotActive();
-			}
+			// if(!participantInfo.isActive) {
+			// 	this._logger.debug(`${participantInfo.id} is not active`);
+			// 	if(participantInfo.id !== payerFspId) {
+			// 		const errorMessage = "Payer participant id: " + payerFspId + " is not active";
+			// 		errorEvent = createParticipantPayerInvalidErrorEvent(errorMessage, transferId, payerFspId);
+			// 	} else if(participantInfo.id !== payeeFspId) {
+			// 		const errorMessage = "Payee participant id: " + payerFspId + " is not active";
+			// 		errorEvent = createParticipantPayeeInvalidErrorEvent(errorMessage, transferId, payerFspId);
+			// 	}
+			// 	return result;
+			// }
 			
 		}
 
 		result.participants = participantsInfo;
+		return result;
+	}
+
+	private async checkLiquidityOrGetErrorEvent(transfer: ITransfer, participantAccounts: any, payerNdc: string): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+
+		try{
+			await this._accountAndBalancesAdapter.checkLiquidAndReserve(
+				participantAccounts.payerPosAccount.id, participantAccounts.payerLiqAccount.id, participantAccounts.hubAccount.id,
+				transfer.amount, transfer.currencyCode, payerNdc, transfer.transferId
+			);
+		}catch (error: any){
+			const errorMessage = `Unable to check liquidity and reserve for transferId: ${transfer.transferId}`;
+			this._logger.error(`${errorMessage}: ${transfer.transferId} - ${error?.message}`);
+			errorEvent = createLiquidityCheckFailedErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		result.valid = true;
 		return result;
 	}
 
@@ -451,7 +554,7 @@ export class TransfersAggregate{
 
 	private async cancelTransfer(transferRecord: ITransfer | null, participantAccounts: ITransferAccounts | null) {
 		if (transferRecord && participantAccounts) {
-			transferRecord.transferState = TransferState.REJECTED;
+			transferRecord.transferState = TransferState.ABORTED;
 
 			try{
 				await this._transfersRepo.updateTransfer(transferRecord);
@@ -462,6 +565,27 @@ export class TransfersAggregate{
 			}
 			catch(err){
 				const errorMessage = `Error cancelling transfer ${transferRecord.transferId} ${err}`;
+				this._logger.error(errorMessage);
+				throw new UnableToCancelTransferError(errorMessage);
+			}
+		}
+
+	}
+
+	private async payeeRejectTransfer(transferRecord: ITransfer | null, participantAccounts: ITransferAccounts | null) {
+		if (transferRecord && participantAccounts) {
+			transferRecord.transferState = TransferState.REJECTED;
+
+			try{
+				await this._transfersRepo.updateTransfer(transferRecord);
+
+				// await this._accountAndBalancesAdapter.cancelReservation(
+				// 	participantAccounts.payerPosAccount.id, participantAccounts.hubAccount.id,
+				// 	transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId
+				// );
+			}
+			catch(err){
+				const errorMessage = `Error rejecting transfer ${transferRecord.transferId} ${err}`;
 				this._logger.error(errorMessage);
 				throw new UnableToCancelTransferError(errorMessage);
 			}

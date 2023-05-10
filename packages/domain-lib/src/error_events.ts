@@ -33,8 +33,14 @@
 "use strict";
 
 
-import { TransferPrepareInvalidPayerCheckFailedEvt, TransferPrepareInvalidPayerCheckFailedPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {  } from "./errors";
+import { 
+    TransferPrepareInvalidPayerCheckFailedEvt, 
+    TransferPrepareInvalidPayerCheckFailedPayload, 
+    TransferPrepareInvalidPayeeCheckFailedEvt, 
+    TransferPrepareInvalidPayeeCheckFailedPayload,
+    TransferPrepareLiquidityCheckFailedEvt,
+    TransferPrepareLiquidityCheckFailedPayload
+} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
     const invalidPayerParticipantErrorPayload: TransferPrepareInvalidPayerCheckFailedPayload = {
@@ -43,5 +49,25 @@ export function createParticipantPayerInvalidErrorEvent(errorDescription:string,
         errorDescription
     };
     const errorEvent = new TransferPrepareInvalidPayerCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
+}
+
+export function createParticipantPayeeInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayeeCheckFailedEvt {
+    const invalidPayerParticipantErrorPayload: TransferPrepareInvalidPayeeCheckFailedPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareInvalidPayeeCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
+}
+
+export function createLiquidityCheckFailedErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareLiquidityCheckFailedEvt {
+    const invalidPayerParticipantErrorPayload: TransferPrepareLiquidityCheckFailedPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareInvalidPayeeCheckFailedEvt(invalidPayerParticipantErrorPayload);
     return errorEvent;
 }

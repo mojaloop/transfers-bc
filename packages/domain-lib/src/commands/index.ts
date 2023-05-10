@@ -80,6 +80,10 @@ export type CommitTransferFulfilCmdPayload = {
             value: string;
         }[]
     } | null;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
 }
 
 
@@ -92,6 +96,38 @@ export class CommitTransferFulfilCmd extends CommandMsg {
 	payload: CommitTransferFulfilCmdPayload;
 
 	constructor(payload: CommitTransferFulfilCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type RejectTransferCmdPayload = {
+	transferId: string;
+	errorInformation: {
+		errorCode: string;
+		errorDescription: string;
+	};
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class RejectTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: RejectTransferCmdPayload;
+
+	constructor(payload: RejectTransferCmdPayload) {
 		super();
 
 		this.aggregateId = this.msgKey = payload.transferId;

@@ -37,7 +37,8 @@ import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-l
 import {
 	PrepareTransferCmd,
 	TransfersAggregate,
-	CommitTransferFulfilCmd
+	CommitTransferFulfilCmd,
+	RejectTransferCmd
 } from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
@@ -68,13 +69,15 @@ export class TransfersCommandHandler{
 			this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
 			try {
 
+				// send to aggregate handler
 				switch (message.msgName) {
 					case PrepareTransferCmd.name:
-						// send to aggregate handler
 						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
 						break;
 					case CommitTransferFulfilCmd.name:
-						// send to aggregate handler
+						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
+						break;
+					case RejectTransferCmd.name:
 						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
 						break;
 					default: {
