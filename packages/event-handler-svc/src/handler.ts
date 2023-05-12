@@ -115,9 +115,10 @@ export class TransfersEventHandler{
 		const cmdPayload: PrepareTransferCmdPayload = {
 			transferId: evt.payload.transferId,
 			amount: evt.payload.amount,
-			currency: evt.payload.currencyCode,
-			payerId: evt.payload.payerFsp,
-			payeeId: evt.payload.payeeFsp,
+			currencyCode: evt.payload.currencyCode,
+			payerFsp: evt.payload.payerFsp,
+			payeeFsp: evt.payload.payeeFsp,
+			ilpPacket: evt.payload.ilpPacket,
 			expiration: evt.payload.expiration as unknown as string,
 			condition: evt.payload.condition,
 			prepare: evt.fspiopOpaqueState

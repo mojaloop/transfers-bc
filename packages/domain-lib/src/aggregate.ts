@@ -69,7 +69,7 @@ import {
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent } from "./error_events";
+import { createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent, createTransferPrepareTimedoutErrorEvent } from "./error_events";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -224,6 +224,25 @@ export class TransfersAggregate{
 		};
 
 		await this._transfersRepo.addTransfer(transfer);
+
+		// Replace this code with corresponding SchedulingBC function call
+		const transferExpiryTime = new Date(transfer.expirationTimestamp).valueOf();
+		const transferTimeout = await this._transfersRepo.getTransferById(message.payload.transferId);
+		const currentTime = Date.now();
+
+		if(currentTime > transferExpiryTime) {
+			this._logger.error("Throwing a TransferPrepareRequestTimedout event!")
+			
+			const abortedTransfer = await this.abortTransferAndGetErrorEvent(transfer);
+
+			if(!abortedTransfer.valid){
+				this._logger.error(`Aborted transfer for transferId: ${transfer.transferId}`);
+				return abortedTransfer.errorEvent as TransferErrorEvent;
+			}
+			this._logger.debug("Current state of transfer during TransferPrepareRequestedEvt: ", transferTimeout?.transferState);
+		}
+		
+		
 
 		const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transfer.transferId, transfer?.payerFspId, transfer?.payeeFspId);
 
@@ -591,6 +610,22 @@ export class TransfersAggregate{
 			}
 		}
 
+	}
+
+	private async abortTransferAndGetErrorEvent(transfer: ITransfer): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+
+		transfer.transferState = TransferState.ABORTED;
+		await this._transfersRepo.updateTransfer(transfer);
+		
+		const errorMessage = `Aborted timedout transfer for transferId: ${transfer.transferId}`;
+		this._logger.error(`${errorMessage}: ${transfer.transferId}`);
+		errorEvent = createTransferPrepareTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+		result.errorEvent = errorEvent;	
+
+		result.valid = false;
+		return result;
 	}
 
 }

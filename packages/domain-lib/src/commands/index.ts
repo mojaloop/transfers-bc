@@ -38,9 +38,10 @@ import {TRANSFERS_BOUNDED_CONTEXT_NAME, TRANSFERS_AGGREGATE_NAME, TransfersBCTop
 export type PrepareTransferCmdPayload = {
 	transferId: string;
 	amount: string;
-	currency: string;
-	payerId: string;
-	payeeId: string;
+	currencyCode: string;
+	payerFsp: string;
+	payeeFsp: string;
+	ilpPacket: string;
 	expiration: string;
 	condition: string;
 	prepare: {

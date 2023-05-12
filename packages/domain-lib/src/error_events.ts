@@ -39,7 +39,9 @@ import {
     TransferPrepareInvalidPayeeCheckFailedEvt, 
     TransferPrepareInvalidPayeeCheckFailedPayload,
     TransferPrepareLiquidityCheckFailedEvt,
-    TransferPrepareLiquidityCheckFailedPayload
+    TransferPrepareLiquidityCheckFailedPayload,
+    TransferPrepareRequestTimedoutEvt,
+    TransferPrepareRequestTimedoutEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
@@ -69,5 +71,15 @@ export function createLiquidityCheckFailedErrorEvent(errorDescription:string, tr
         errorDescription
     };
     const errorEvent = new TransferPrepareInvalidPayeeCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferPrepareTimedoutErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareRequestTimedoutEvt {
+    const transferPrepareTimedoutErrorPayload: TransferPrepareRequestTimedoutEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareRequestTimedoutEvt(transferPrepareTimedoutErrorPayload);
     return errorEvent;
 }
