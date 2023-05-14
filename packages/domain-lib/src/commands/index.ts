@@ -139,3 +139,31 @@ export class RejectTransferCmd extends CommandMsg {
 		// TODO
 	}
 }
+
+export type QueryTransferCmdPayload = {
+	transferId: string;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class QueryTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: QueryTransferCmdPayload;
+
+	constructor(payload: QueryTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}

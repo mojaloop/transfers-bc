@@ -38,7 +38,8 @@ import {
 	PrepareTransferCmd,
 	TransfersAggregate,
 	CommitTransferFulfilCmd,
-	RejectTransferCmd
+	RejectTransferCmd,
+	QueryTransferCmd
 } from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
@@ -78,6 +79,9 @@ export class TransfersCommandHandler{
 						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
 						break;
 					case RejectTransferCmd.name:
+						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
+						break;
+					case QueryTransferCmd.name:
 						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
 						break;
 					default: {

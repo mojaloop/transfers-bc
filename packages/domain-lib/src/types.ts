@@ -33,7 +33,13 @@
 "use strict";
 
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { TransfersBCUnknownErrorEvent, TransferPrepareInvalidPayerCheckFailedEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { 
+	TransfersBCUnknownErrorEvent, 
+	TransferPrepareInvalidPayerCheckFailedEvt, 
+	TransferPrepareInvalidPayeeCheckFailedEvt,
+	TransferQueryInvalidPayerCheckFailedEvt, 
+	TransferQueryInvalidPayeeCheckFailedEvt 
+} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 
 export declare const enum TransferState {
@@ -97,4 +103,4 @@ export interface ITransferAccounts {
 }
 
 export type TransferErrorEvent = TransfersBCUnknownErrorEvent |
-    TransferPrepareInvalidPayerCheckFailedEvt
+    TransferPrepareInvalidPayerCheckFailedEvt | TransferPrepareInvalidPayeeCheckFailedEvt | TransferQueryInvalidPayerCheckFailedEvt | TransferQueryInvalidPayeeCheckFailedEvt

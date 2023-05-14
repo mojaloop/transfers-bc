@@ -48,9 +48,17 @@ import {
 	TransferPrepareRequestedEvt,
 	TransferRejectRequestedEvt,
 	TransferRejectRequestProcessedEvt,
-	TransferRejectRequestProcessedEvtPayload
+	TransferRejectRequestProcessedEvtPayload,
+	TransferQueryReceivedEvt,
+	TransferQueryResponseEvt,
+	TransferQueryResponseEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {PrepareTransferCmd, CommitTransferFulfilCmd, RejectTransferCmd} from "./commands";
+import {
+	PrepareTransferCmd,
+	CommitTransferFulfilCmd,
+	RejectTransferCmd,
+	QueryTransferCmd
+} from "./commands";
 import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
 import {
 	CheckLiquidityAndReserveFailedError,
@@ -69,7 +77,7 @@ import {
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent, createTransferPrepareTimedoutErrorEvent } from "./error_events";
+import { createInvalidPayeeParticipantIdErrorEvent, createInvalidPayerParticipantIdErrorEvent, createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent, createPayeeParticipantNotFoundErrorEvent, createPayerParticipantNotFoundErrorEvent, createTransferPrepareTimedoutErrorEvent, createTransferQueryParticipantPayeeInvalidErrorEvent, createTransferQueryParticipantPayerInvalidErrorEvent } from "./error_events";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -169,6 +177,12 @@ export class TransfersAggregate{
 				commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
 
 				eventToPublish = await this.rejectTransfer(commandEvt);
+				break;
+			case QueryTransferCmd.name:
+				commandEvt = new TransferQueryReceivedEvt(command.payload);
+				commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+
+				eventToPublish = await this.queryTransfer(commandEvt);
 				break;
 			default:
 				this._logger.error(`message type has invalid format or value ${command.msgName}`);
@@ -367,6 +381,44 @@ export class TransfersAggregate{
 		return retEvent;
 	}
 
+	private async queryTransfer(message: TransferQueryReceivedEvt):Promise<TransferQueryResponseEvt | TransferErrorEvent> {
+		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
+
+		const requesterParticipant = await this.validatePayerParticipantInfoOrGetErrorEvent(message.payload.transferId, message.fspiopOpaqueState.requesterFspId);
+
+		if(!requesterParticipant.valid){
+			this._logger.error(`Invalid participant info for requesterFspId: ${message.fspiopOpaqueState.requesterFspId}`);
+			return requesterParticipant.errorEvent as TransferErrorEvent;
+		}
+
+		const destinationParticipant = await this.validatePayeeParticipantInfoOrGetErrorEvent(message.payload.transferId, message.fspiopOpaqueState.destinationFspId);
+
+		if(!destinationParticipant.valid){
+			this._logger.error(`Invalid participant info for destinationFspId: ${message.fspiopOpaqueState.destinationFspId}`);
+			return destinationParticipant.errorEvent as TransferErrorEvent;
+		}
+
+
+		const transfer = await this._transfersRepo.getTransferById(message.payload.transferId);
+
+		if(!transfer) {
+			throw new Error();
+		}
+
+		const payload: TransferQueryResponseEvtPayload = {
+			transferId: transfer.transferId,
+			transferState: transfer.transferState,
+			completedTimestamp: transfer.completedTimestamp as unknown as string,
+			extensionList: transfer.extensionList
+		};
+
+		const event = new TransferQueryResponseEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+		return event;
+	}
+
 	private async rejectTransfer(message: TransferRejectRequestedEvt):Promise<any> {
 		this._logger.debug(`rejectTransfer() - Got transferRejectRequesteddEvt msg for transferId: ${message.payload.transferId}`);
 
@@ -553,22 +605,94 @@ export class TransfersAggregate{
 		};
 	}
 
-	private async validateParticipant(participantId: string | null):Promise<void>{
-		if(participantId){
-			const participant = await this._participantAdapter.getParticipantInfo(participantId);
+	private async validatePayerParticipantInfoOrGetErrorEvent(transferId :string, participantId: string | null):Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let participant: IParticipant | null = null;
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
 
-			if(!participant) {
-				this._logger.debug(`No participant found`);
-				throw new NoSuchParticipantError();
-			}
-
-			if(!participant.isActive) {
-				this._logger.debug(`${participant.id} is not active`);
-				throw new RequiredParticipantIsNotActive();
-			}
+		if(!participantId){
+			const errorMessage = "Fsp Id is null or undefined";
+			this._logger.error(errorMessage);
+			errorEvent = createTransferQueryParticipantPayerInvalidErrorEvent(errorMessage, transferId, participantId);
+			result.errorEvent = errorEvent;
+			return result;
 		}
 
-		return;
+		participant = await this._participantAdapter.getParticipantInfo(participantId)
+			.catch((error:any) => {
+				this._logger.error(`Error getting participant info for participantId: ${participantId} - ${error?.message}`);
+				return null;
+		});
+
+		if(!participant) {
+			const errorMessage = `No participant found for fspId: ${participantId}`;
+			this._logger.error(errorMessage);
+			errorEvent = createPayerParticipantNotFoundErrorEvent(errorMessage, transferId, participantId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		if(participant.id !== participantId){
+			const errorMessage = `Participant id mismatch ${participant.id} ${participantId}`;
+			this._logger.error(errorMessage);
+			errorEvent = createInvalidPayerParticipantIdErrorEvent(errorMessage, transferId ,participantId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		// TODO enable participant.isActive check once this is implemented over the participants side
+		// if(!participant.isActive) {
+			// 	this._logger.debug(`${participant.id} is not active`);
+			// 	throw new RequiredParticipantIsNotActive();
+		// }
+		result.valid = true;
+
+		return result;
+	}
+
+	private async validatePayeeParticipantInfoOrGetErrorEvent(transferId :string, participantId: string | null):Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let participant: IParticipant | null = null;
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+
+		if(!participantId){
+			const errorMessage = "Fsp Id is null or undefined";
+			this._logger.error(errorMessage);
+			errorEvent = createTransferQueryParticipantPayeeInvalidErrorEvent(errorMessage, transferId, participantId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		participant = await this._participantAdapter.getParticipantInfo(participantId)
+			.catch((error:any) => {
+				this._logger.error(`Error getting participant info for participantId: ${participantId} - ${error?.message}`);
+				return null;
+		});
+
+		if(!participant) {
+			const errorMessage = `No participant found for fspId: ${participantId}`;
+			this._logger.error(errorMessage);
+			errorEvent = createPayeeParticipantNotFoundErrorEvent(errorMessage, transferId ,participantId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		if(participant.id !== participantId){
+			const errorMessage = `Participant id mismatch ${participant.id} ${participantId}`;
+			this._logger.error(errorMessage);
+			errorEvent = createInvalidPayeeParticipantIdErrorEvent(errorMessage, transferId ,participantId);
+			result.errorEvent = errorEvent;
+			return result;
+		}
+
+		// TODO enable participant.isActive check once this is implemented over the participants side
+		// if(!participant.isActive) {
+			// 	this._logger.debug(`${participant.id} is not active`);
+			// 	throw new RequiredParticipantIsNotActive();
+		// }
+		result.valid = true;
+
+		return result;
 	}
 
 	private async cancelTransfer(transferRecord: ITransfer | null, participantAccounts: ITransferAccounts | null) {

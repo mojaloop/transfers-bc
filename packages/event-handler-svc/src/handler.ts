@@ -36,7 +36,8 @@ import {
 	TransfersBCTopics,
 	TransferPrepareRequestedEvt,
 	TransferFulfilCommittedRequestedEvt,
-	TransferRejectRequestedEvt
+	TransferRejectRequestedEvt,
+	TransferQueryReceivedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
 	CommitTransferFulfilCmd,
@@ -44,7 +45,9 @@ import {
 	PrepareTransferCmd,
 	PrepareTransferCmdPayload,
 	RejectTransferCmd,
-	RejectTransferCmdPayload
+	RejectTransferCmdPayload,
+	QueryTransferCmd,
+	QueryTransferCmdPayload
 } from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersEventHandler{
@@ -92,7 +95,11 @@ export class TransfersEventHandler{
 					case TransferRejectRequestedEvt.name:
 						transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt)
 						break;
-	
+
+					case TransferQueryReceivedEvt.name:
+						transferCmd = this._prepareEventToQueryCommand(message as TransferQueryReceivedEvt)
+						break;
+
 					default: {
 						this._logger.isWarnEnabled() && this._logger.warn(`TransfersEventHandler - Skipping unknown event - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
 					}
@@ -142,13 +149,23 @@ export class TransfersEventHandler{
 		return cmd;
 	}
 
-	private _prepareEventToRejectCommand(evt: TransferRejectRequestedEvt): RejectTransferCmd{
+	private _prepareEventToRejectCommand(evt: TransferRejectRequestedEvt): RejectTransferCmd {
 		const cmdPayload: RejectTransferCmdPayload = {
 			transferId: evt.payload.transferId,
 			errorInformation: evt.payload.errorInformation,
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new RejectTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		return cmd;
+	}
+
+	private _prepareEventToQueryCommand(evt: TransferQueryReceivedEvt): QueryTransferCmd {
+		const cmdPayload: QueryTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new QueryTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
 		return cmd;
 	}

@@ -41,7 +41,19 @@ import {
     TransferPrepareLiquidityCheckFailedEvt,
     TransferPrepareLiquidityCheckFailedPayload,
     TransferPrepareRequestTimedoutEvt,
-    TransferPrepareRequestTimedoutEvtPayload
+    TransferPrepareRequestTimedoutEvtPayload,
+    TransferQueryInvalidPayerCheckFailedEvt,
+    TransferQueryInvalidPayerCheckFailedEvtPayload,
+    TransferQueryInvalidPayeeCheckFailedEvt,
+    TransferQueryInvalidPayeeCheckFailedEvtPayload,
+    TransferQueryPayerNotFoundFailedEvt,
+    TransferQueryPayerNotFoundFailedEvtPayload,
+    TransferQueryPayeeNotFoundFailedEvt,
+    TransferQueryPayeeNotFoundFailedEvtPayload,
+    TransferQueryInvalidPayerParticipantIdEvt,
+    TransferQueryInvalidPayerParticipantIdEvtPayload,
+    TransferQueryInvalidPayeeParticipantIdEvt,
+    TransferQueryInvalidPayeeParticipantIdEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
@@ -81,5 +93,65 @@ export function createTransferPrepareTimedoutErrorEvent(errorDescription:string,
         errorDescription
     };
     const errorEvent = new TransferPrepareRequestTimedoutEvt(transferPrepareTimedoutErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferQueryParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string|null): TransferQueryInvalidPayerCheckFailedEvt {
+    const invalidPayerParticipantErrorPayload: TransferQueryInvalidPayerCheckFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryInvalidPayerCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferQueryParticipantPayeeInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string|null): TransferQueryInvalidPayeeCheckFailedEvt {
+    const invalidPayerParticipantErrorPayload: TransferQueryInvalidPayeeCheckFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryInvalidPayeeCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    return errorEvent;
+}
+
+export function createPayerParticipantNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferQueryPayerNotFoundFailedEvt {
+    const payerParticipantNotFoundErrorPayload: TransferQueryPayerNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryPayerNotFoundFailedEvt(payerParticipantNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPayeeParticipantNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferQueryPayeeNotFoundFailedEvt {
+    const payeeParticipantNotFoundErrorPayload: TransferQueryPayeeNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryPayeeNotFoundFailedEvt(payeeParticipantNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createInvalidPayerParticipantIdErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferQueryInvalidPayerParticipantIdEvt {
+    const invalidPayerParticipantIdErrorPayload: TransferQueryInvalidPayerParticipantIdEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryInvalidPayerParticipantIdEvt(invalidPayerParticipantIdErrorPayload);
+    return errorEvent;
+}
+
+export function createInvalidPayeeParticipantIdErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferQueryInvalidPayeeParticipantIdEvt {
+    const invalidPayeeParticipantIdErrorPayload: TransferQueryInvalidPayeeParticipantIdEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferQueryInvalidPayeeParticipantIdEvt(invalidPayeeParticipantIdErrorPayload);
     return errorEvent;
 }
