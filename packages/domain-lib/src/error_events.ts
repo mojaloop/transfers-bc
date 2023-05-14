@@ -53,7 +53,12 @@ import {
     TransferQueryInvalidPayerParticipantIdEvt,
     TransferQueryInvalidPayerParticipantIdEvtPayload,
     TransferQueryInvalidPayeeParticipantIdEvt,
-    TransferQueryInvalidPayeeParticipantIdEvtPayload
+    TransferQueryInvalidPayeeParticipantIdEvtPayload,
+    TransferUnableToGetTransferByIdEvt,
+    TransferUnableToGetTransferByIdEvtPayload,
+    TransferNotFoundEvt,
+    TransferNotFoundEvtPayload
+    
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
@@ -153,5 +158,25 @@ export function createInvalidPayeeParticipantIdErrorEvent(errorDescription:strin
         errorDescription
     };
     const errorEvent = new TransferQueryInvalidPayeeParticipantIdEvt(invalidPayeeParticipantIdErrorPayload);
+    return errorEvent;
+}
+
+export function createUnableToGetTransferByIdErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferUnableToGetTransferByIdEvt {
+    const unableToGetParticipantFspIdErrorPayload: TransferUnableToGetTransferByIdEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferUnableToGetTransferByIdEvt(unableToGetParticipantFspIdErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferNotFoundErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferNotFoundEvt {
+    const unableToGetParticipantFspIdErrorPayload: TransferNotFoundEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferNotFoundEvt(unableToGetParticipantFspIdErrorPayload);
     return errorEvent;
 }

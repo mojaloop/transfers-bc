@@ -77,7 +77,19 @@ import {
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { createInvalidPayeeParticipantIdErrorEvent, createInvalidPayerParticipantIdErrorEvent, createLiquidityCheckFailedErrorEvent, createParticipantPayeeInvalidErrorEvent, createParticipantPayerInvalidErrorEvent, createPayeeParticipantNotFoundErrorEvent, createPayerParticipantNotFoundErrorEvent, createTransferPrepareTimedoutErrorEvent, createTransferQueryParticipantPayeeInvalidErrorEvent, createTransferQueryParticipantPayerInvalidErrorEvent } from "./error_events";
+import { createInvalidPayeeParticipantIdErrorEvent,
+	createInvalidPayerParticipantIdErrorEvent,
+	createLiquidityCheckFailedErrorEvent,
+	createParticipantPayeeInvalidErrorEvent,
+	createParticipantPayerInvalidErrorEvent,
+	createPayeeParticipantNotFoundErrorEvent,
+	createPayerParticipantNotFoundErrorEvent,
+	createTransferNotFoundErrorEvent,
+	createTransferPrepareTimedoutErrorEvent,
+	createTransferQueryParticipantPayeeInvalidErrorEvent,
+	createTransferQueryParticipantPayerInvalidErrorEvent,
+	createUnableToGetTransferByIdErrorEvent
+} from "./error_events";
 
 export class TransfersAggregate{
 	private _logger: ILogger;
@@ -384,32 +396,35 @@ export class TransfersAggregate{
 	private async queryTransfer(message: TransferQueryReceivedEvt):Promise<TransferQueryResponseEvt | TransferErrorEvent> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
 
-		const requesterParticipant = await this.validatePayerParticipantInfoOrGetErrorEvent(message.payload.transferId, message.fspiopOpaqueState.requesterFspId);
+		const requesterFspId = message.fspiopOpaqueState.requesterFspId;
+		const destinationFspId = message.fspiopOpaqueState.destinationFspId;
+		const transferId = message.payload.transferId;
+		
+		const requesterParticipant = await this.validatePayerParticipantInfoOrGetErrorEvent(transferId, requesterFspId);
 
 		if(!requesterParticipant.valid){
-			this._logger.error(`Invalid participant info for requesterFspId: ${message.fspiopOpaqueState.requesterFspId}`);
+			this._logger.error(`Invalid participant info for requesterFspId: ${requesterFspId}`);
 			return requesterParticipant.errorEvent as TransferErrorEvent;
 		}
 
-		const destinationParticipant = await this.validatePayeeParticipantInfoOrGetErrorEvent(message.payload.transferId, message.fspiopOpaqueState.destinationFspId);
+		const destinationParticipant = await this.validatePayeeParticipantInfoOrGetErrorEvent(transferId, destinationFspId);
 
 		if(!destinationParticipant.valid){
-			this._logger.error(`Invalid participant info for destinationFspId: ${message.fspiopOpaqueState.destinationFspId}`);
+			this._logger.error(`Invalid participant info for destinationFspId: ${destinationFspId}`);
 			return destinationParticipant.errorEvent as TransferErrorEvent;
 		}
 
-
-		const transfer = await this._transfersRepo.getTransferById(message.payload.transferId);
-
-		if(!transfer) {
-			throw new Error();
+		const transferRecord = await this.getTransferByIrOrGetErrorEvent(transferId, requesterFspId);
+		if(!transferRecord.transfer){
+			this._logger.error(`Unable to get transfer from Transfers Repository with transferId: ${transferId}`);
+			return transferRecord.errorEvent as TransferErrorEvent;
 		}
 
 		const payload: TransferQueryResponseEvtPayload = {
-			transferId: transfer.transferId,
-			transferState: transfer.transferState,
-			completedTimestamp: transfer.completedTimestamp as unknown as string,
-			extensionList: transfer.extensionList
+			transferId: transferRecord.transfer.transferId,
+			transferState: transferRecord.transfer.transferState,
+			completedTimestamp: transferRecord.transfer.completedTimestamp as unknown as string,
+			extensionList: transferRecord.transfer.extensionList
 		};
 
 		const event = new TransferQueryResponseEvt(payload);
@@ -693,6 +708,33 @@ export class TransfersAggregate{
 		result.valid = true;
 
 		return result;
+	}
+
+	private async getTransferByIrOrGetErrorEvent(transferId:string, fspId:string): Promise<{errorEvent:TransferErrorEvent, transfer:ITransfer | null}> {
+		let transfer!: ITransfer | null;
+		let errorEvent!: TransferErrorEvent;
+
+		const result = { errorEvent, transfer };
+
+		try{
+			transfer = await this._transfersRepo.getTransferById(transferId);
+		}
+		catch(error:any){
+			const errorMessage = `Unable to get transfer record for transferId: ${transferId} from repository`;
+			this._logger.error(errorMessage + error.message);
+			result.errorEvent = createUnableToGetTransferByIdErrorEvent(errorMessage, transferId, fspId);
+			return result;
+		}
+
+		if(!transfer){
+			const errorMessage = `TransferId: ${transferId} could not be found`;
+			this._logger.debug(errorMessage);
+			result.errorEvent = createTransferNotFoundErrorEvent(errorMessage, transferId, fspId);
+		}
+
+		result.transfer = transfer;
+		return result;
+
 	}
 
 	private async cancelTransfer(transferRecord: ITransfer | null, participantAccounts: ITransferAccounts | null) {
