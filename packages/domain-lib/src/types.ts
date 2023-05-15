@@ -102,5 +102,9 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
+type OptionalExceptFor<T, TRequired extends keyof T> = Partial<T> & Pick<T, TRequired>
+
+export type TransferUpdatableFields = OptionalExceptFor<ITransfer, "transferState">
+
 export type TransferErrorEvent = TransfersBCUnknownErrorEvent |
     TransferPrepareInvalidPayerCheckFailedEvt | TransferPrepareInvalidPayeeCheckFailedEvt | TransferQueryInvalidPayerCheckFailedEvt | TransferQueryInvalidPayeeCheckFailedEvt

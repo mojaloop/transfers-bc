@@ -34,6 +34,10 @@
 
 
 import { 
+    TransferInvalidMessagePayloadEvt,
+    TransferInvalidMessagePayloadEvtPayload,
+    TransferInvalidMessageTypeEvt,
+    TransferInvalidMessageTypeEvtPayload,
     TransferPrepareInvalidPayerCheckFailedEvt, 
     TransferPrepareInvalidPayerCheckFailedPayload, 
     TransferPrepareInvalidPayeeCheckFailedEvt, 
@@ -42,6 +46,10 @@ import {
     TransferPrepareLiquidityCheckFailedPayload,
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
+    TransferFulfilCommittedRequestedTimedoutEvt,
+    TransferFulfilCommittedRequestedTimedoutEvtPayload,
+    TransferFulfilPostCommittedRequestedTimedoutEvt,
+    TransferFulfilPostCommittedRequestedTimedoutEvtPayload,
     TransferQueryInvalidPayerCheckFailedEvt,
     TransferQueryInvalidPayerCheckFailedEvtPayload,
     TransferQueryInvalidPayeeCheckFailedEvt,
@@ -57,9 +65,33 @@ import {
     TransferUnableToGetTransferByIdEvt,
     TransferUnableToGetTransferByIdEvtPayload,
     TransferNotFoundEvt,
-    TransferNotFoundEvtPayload
+    TransferNotFoundEvtPayload,
+    TransferUnableToAddEvt,
+    TransferUnableToAddEvtPayload,
+    TransferUnableToUpdateEvt,
+    TransferUnableToUpdateEvtPayload
     
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
+
+export function createInvalidMessagePayloadErrorEvent(errorDescription:string, fspId:string, transferId: string ): TransferInvalidMessagePayloadEvt {
+    const invalidMessagePayload: TransferInvalidMessagePayloadEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferInvalidMessagePayloadEvt(invalidMessagePayload);
+    return errorEvent;
+}
+
+export function createInvalidMessageTypeErrorEvent(errorDescription:string, fspId:string, transferId: string): TransferInvalidMessageTypeEvt{
+    const invalidMessageType: TransferInvalidMessageTypeEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferInvalidMessageTypeEvt(invalidMessageType);
+    return errorEvent;
+}
 
 export function createParticipantPayerInvalidErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareInvalidPayerCheckFailedEvt {
     const invalidPayerParticipantErrorPayload: TransferPrepareInvalidPayerCheckFailedPayload = {
@@ -98,6 +130,26 @@ export function createTransferPrepareTimedoutErrorEvent(errorDescription:string,
         errorDescription
     };
     const errorEvent = new TransferPrepareRequestTimedoutEvt(transferPrepareTimedoutErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferPreCommittedTimedoutErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferFulfilCommittedRequestedTimedoutEvt {
+    const transferPrepareTimedoutErrorPayload: TransferFulfilCommittedRequestedTimedoutEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferFulfilCommittedRequestedTimedoutEvt(transferPrepareTimedoutErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferPostCommittedTimedoutErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferFulfilPostCommittedRequestedTimedoutEvt {
+    const transferPrepareTimedoutErrorPayload: TransferFulfilPostCommittedRequestedTimedoutEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferFulfilPostCommittedRequestedTimedoutEvt(transferPrepareTimedoutErrorPayload);
     return errorEvent;
 }
 
@@ -178,5 +230,25 @@ export function createTransferNotFoundErrorEvent(errorDescription:string, transf
         errorDescription
     };
     const errorEvent = new TransferNotFoundEvt(unableToGetParticipantFspIdErrorPayload);
+    return errorEvent;
+}
+
+export function createUnableToAddTransferToDatabaseErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferUnableToAddEvt {
+    const unableToAddTransferErrorPayload: TransferUnableToAddEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferUnableToAddEvt(unableToAddTransferErrorPayload);
+    return errorEvent;
+}
+
+export function createUnableToUpdateTransferInDatabaseErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferUnableToUpdateEvt {
+    const unableToUpdateTransferErrorPayload: TransferUnableToUpdateEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferUnableToUpdateEvt(unableToUpdateTransferErrorPayload);
     return errorEvent;
 }

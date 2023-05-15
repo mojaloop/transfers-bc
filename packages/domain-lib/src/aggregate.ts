@@ -75,9 +75,17 @@ import {
 	UnableToProcessMessageError
 } from "./errors";
 import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
-import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferErrorEvent, TransferState} from "./types";
+import {
+	AccountType,
+	ITransfer,
+	ITransferAccounts,
+	ITransferParticipants,
+	TransferErrorEvent,
+	TransferState,
+	TransferUpdatableFields
+} from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { createInvalidPayeeParticipantIdErrorEvent,
+import { createInvalidMessagePayloadErrorEvent, createInvalidMessageTypeErrorEvent, createInvalidPayeeParticipantIdErrorEvent,
 	createInvalidPayerParticipantIdErrorEvent,
 	createLiquidityCheckFailedErrorEvent,
 	createParticipantPayeeInvalidErrorEvent,
@@ -85,10 +93,14 @@ import { createInvalidPayeeParticipantIdErrorEvent,
 	createPayeeParticipantNotFoundErrorEvent,
 	createPayerParticipantNotFoundErrorEvent,
 	createTransferNotFoundErrorEvent,
+	createTransferPostCommittedTimedoutErrorEvent,
+	createTransferPreCommittedTimedoutErrorEvent,
 	createTransferPrepareTimedoutErrorEvent,
 	createTransferQueryParticipantPayeeInvalidErrorEvent,
 	createTransferQueryParticipantPayerInvalidErrorEvent,
-	createUnableToGetTransferByIdErrorEvent
+	createUnableToAddTransferToDatabaseErrorEvent,
+	createUnableToGetTransferByIdErrorEvent,
+	createUnableToUpdateTransferInDatabaseErrorEvent
 } from "./error_events";
 
 export class TransfersAggregate{
@@ -119,57 +131,23 @@ export class TransfersAggregate{
 		//await this._messageProducer.connect();
 	}
 
-	async handleTransferCommand(message: CommandMsg): Promise<void> {
-		this._logger.debug(`Got message in handleTransfersEvent handler - msgName: ${message.msgName}`);
-
-		try{
-			const isMessageValid = this.validateMessage(message);
-			if(isMessageValid) {
-				await this.processCommand(message);
-			}
-		} catch(error:unknown) {
-			const errorMessage = error instanceof Error ? error.constructor.name : "Unexpected Error";
-			this._logger.error(`Error processing event : ${message.msgName} -> ` + errorMessage);
-
-			// const errorPayload: TransferErrorEvtPayload = {
-			// 	errorMsg: errorMessage,
-			// 	transferId: message.payload?.transferId,
-			// 	sourceEvent: message.msgName,
-			// 	requesterFspId: message.fspiopOpaqueState?.requesterFspId ?? null,
-			// 	destinationFspId: message.fspiopOpaqueState?.destinationFspId ?? null,
-
-			// };
-
-			// const messageToPublish = new TransferErrorEvt(errorPayload);
-			// messageToPublish.fspiopOpaqueState = message.fspiopOpaqueState;
-			// await this._messageProducer.send(messageToPublish);
-		}
-	}
-
-	private validateMessage(message:CommandMsg): boolean {
-		if(!message.payload){
-			this._logger.error(`TransferCommandHandler: message payload has invalid format or value`);
-			throw new InvalidMessagePayloadError();
-		}
-
-		if(!message.msgName){
-			this._logger.error(`TransferCommandHandler: message name is invalid`);
-			throw new InvalidMessageTypeError();
-		}
-
-		// if(message.msgType !== MessageTypes.DOMAIN_EVENT){
-		// 	this._logger.error(`TransferCommandHandler: message type is invalid : ${message.msgType}`);
-		// 	throw new InvalidMessageTypeError();
-		// }
-
-		return true;
-	}
-
+	//#region Command Handlers
 	async processCommand(command: CommandMsg){
 		// switch command type and call specific private method
 
-		let eventToPublish:any = null;
+		this._logger.debug(`Got command in Quoting handler - msg: ${command}`);
+		const requesterFspId = command.fspiopOpaqueState?.requesterFspId;
+		const transferId = command.payload?.transferId;
+		const eventMessage = this.validateMessageOrGetErrorEvent(command);
 		let commandEvt = null;
+		let eventToPublish = null;
+
+		if(!eventMessage.valid) {
+			const errorEvent = eventMessage.errorEvent as TransferErrorEvent;
+			errorEvent.fspiopOpaqueState = command.fspiopOpaqueState;
+			await this.publishEvent(errorEvent);
+			return;
+		}
 
 		switch(command.msgName){
 			case PrepareTransferCmd.name:
@@ -196,19 +174,22 @@ export class TransfersAggregate{
 
 				eventToPublish = await this.queryTransfer(commandEvt);
 				break;
-			default:
-				this._logger.error(`message type has invalid format or value ${command.msgName}`);
-				throw new InvalidMessageTypeError();
+			default: {
+					const errorMessage = `Message type has invalid format or value ${command.msgName}`;
+					this._logger.error(errorMessage);
+					eventToPublish = createInvalidMessageTypeErrorEvent(errorMessage, requesterFspId, transferId);
+					eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
+				}
 			}
 
 		if(eventToPublish){
 			if(Array.isArray(eventToPublish)){
-				for await (const event of eventToPublish){
-					event.fspiopOpaqueState = commandEvt.fspiopOpaqueState;
+				for await (const event of eventToPublish) {
+					event.fspiopOpaqueState = commandEvt?.fspiopOpaqueState;
 					await this._messageProducer.send(event);
 				}
 			}else {
-				eventToPublish.fspiopOpaqueState = commandEvt.fspiopOpaqueState;
+				eventToPublish.fspiopOpaqueState = commandEvt?.fspiopOpaqueState;
 				await this._messageProducer.send(eventToPublish);
 			}
 		}else{
@@ -216,7 +197,20 @@ export class TransfersAggregate{
 		}
 
 	}
+	private async publishEvent(eventToPublish: TransferPreparedEvt | TransferErrorEvent| TransferErrorEvent[]): Promise<void> {
+		if (Array.isArray(eventToPublish)) {
+			for await (const event of eventToPublish) {
+				await this._messageProducer.send(event);
+			}
+		} else {
+			if (eventToPublish){
+				await this._messageProducer.send(eventToPublish);
+			}
+		}
+	}
+	//#endregion
 
+	//#region TransfersPrepareRequestedEvt
 	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt | TransferErrorEvent> {
 		this._logger.debug(`prepareTransfer() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
@@ -249,7 +243,10 @@ export class TransfersAggregate{
 			errorInformation: null
 		};
 
-		await this._transfersRepo.addTransfer(transfer);
+		const transferAddedToDatabase = await this.addTransferOrGetErrorEvent(transfer?.payerFspId, transfer);
+		if(!transferAddedToDatabase.valid){
+			return transferAddedToDatabase.errorEvent as TransferErrorEvent;
+		}
 
 		// Replace this code with corresponding SchedulingBC function call
 		const transferExpiryTime = new Date(transfer.expirationTimestamp).valueOf();
@@ -297,8 +294,15 @@ export class TransfersAggregate{
 			return liquidityCheck.errorEvent as TransferErrorEvent;
 		}
 
-		transfer.transferState = TransferState.RESERVED;
-		await this._transfersRepo.updateTransfer(transfer);
+		const transferResponse: TransferUpdatableFields = {
+			transferState: TransferState.RESERVED
+		};
+
+		const updatedTransfer = await this.updateTransferOrGetErrorEvent(transfer.transferId, transfer.payerFspId, TransferState.RESERVED, transferResponse);
+
+		if(!updatedTransfer.valid){
+			return updatedTransfer.errorEvent as TransferErrorEvent;
+		}
 
 		const payload : TransferPreparedEvtPayload = {
 			transferId: message.payload.transferId,
@@ -320,19 +324,24 @@ export class TransfersAggregate{
 
 		return event;
 	}
+	//#endregion
 
-	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<any> {
+	//#region TransfersFulfilCommittedRequestedEvt
+	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<TransferCommittedFulfiledEvt | TransferErrorEvent> {
 		this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
 		let participantTransferAccounts: ITransferAccounts | null = null;
+		const transferId = message.payload.transferId;
+		const requesterFspId = message.payload.transferId;
 
-		const transferRecord = await this._transfersRepo.getTransferById(message.payload.transferId);
+		const transferRecord = await this._transfersRepo.getTransferById(transferId);
+
+		if(!transferRecord) {
+			const errorEvent = createTransferNotFoundErrorEvent(`Transfer ${transferId} not found`, requesterFspId, transferId);
+			return errorEvent;
+		}
 
 		try{
-
-			if(!transferRecord) {
-				throw new NoSuchTransferError();
-			}
 			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
 			
 			if(participantsInfo.participants.length === 0){
@@ -392,6 +401,7 @@ export class TransfersAggregate{
 
 		return retEvent;
 	}
+	//#endregion
 
 	private async queryTransfer(message: TransferQueryReceivedEvt):Promise<TransferQueryResponseEvt | TransferErrorEvent> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
@@ -620,6 +630,40 @@ export class TransfersAggregate{
 		};
 	}
 
+	//#region Validations
+	private validateMessageOrGetErrorEvent(message:CommandMsg): {errorEvent:TransferErrorEvent | null, valid: boolean} {
+		let errorEvent!:TransferErrorEvent | null;
+		const requesterFspId = message.fspiopOpaqueState?.requesterFspId;
+		const transferId = message.payload?.transferId;
+		const result = {errorEvent, valid: false};
+
+		if(!message.payload){
+			const errorMessage = "Message payload is null or undefined";
+			this._logger.error(errorMessage);
+			result.errorEvent = createInvalidMessagePayloadErrorEvent(errorMessage,requesterFspId,transferId);
+			return result;
+		}
+
+		if(!message.msgName){
+			const errorMessage = "Message name is null or undefined";
+			this._logger.error(errorMessage);
+			result.errorEvent = createInvalidMessageTypeErrorEvent(errorMessage,requesterFspId,transferId);
+			return result;
+		}
+
+		if(message.msgType !== MessageTypes.COMMAND){
+			const errorMessage = `Message type is invalid ${message.msgType}`;
+			this._logger.error(errorMessage);
+			result.errorEvent = createInvalidMessageTypeErrorEvent(errorMessage,requesterFspId,transferId);
+			return result;
+		}
+
+		result.valid = true;
+
+		return result;
+	}
+
+	
 	private async validatePayerParticipantInfoOrGetErrorEvent(transferId :string, participantId: string | null):Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
 		let participant: IParticipant | null = null;
 		let errorEvent!: TransferErrorEvent | null;
@@ -709,7 +753,8 @@ export class TransfersAggregate{
 
 		return result;
 	}
-
+	//#endregion
+	
 	private async getTransferByIrOrGetErrorEvent(transferId:string, fspId:string): Promise<{errorEvent:TransferErrorEvent, transfer:ITransfer | null}> {
 		let transfer!: ITransfer | null;
 		let errorEvent!: TransferErrorEvent;
@@ -782,16 +827,89 @@ export class TransfersAggregate{
 		let errorEvent!: TransferErrorEvent | null;
 		const result = { errorEvent, valid: false };
 
+		const previousState = transfer.transferState;
+		
 		transfer.transferState = TransferState.ABORTED;
 		await this._transfersRepo.updateTransfer(transfer);
 		
-		const errorMessage = `Aborted timedout transfer for transferId: ${transfer.transferId}`;
-		this._logger.error(`${errorMessage}: ${transfer.transferId}`);
-		errorEvent = createTransferPrepareTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
-		result.errorEvent = errorEvent;	
+		switch(previousState) {
+			case TransferState.RECEIVED: {
+				const errorMessage = `TransferPrepareRequestTimedoutEvt for transferId: ${transfer.transferId}`;
+				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
+				errorEvent = createTransferPrepareTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+				result.errorEvent = errorEvent;	
+				break;
+			}
+			case TransferState.RESERVED: {
+				const errorMessage = `TransferFulfilPreCommittedRequestTimedoutEvt for transferId: ${transfer.transferId}`;
+				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
+				errorEvent = createTransferPreCommittedTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+				result.errorEvent = errorEvent;	
+				break;
+			}
+			case TransferState.COMMITTED: {
+				const errorMessage = `TransferFulfilPostCommittedRequestedTimedoutEvt for transferId: ${transfer.transferId}`;
+				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
+				errorEvent = createTransferPostCommittedTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+				result.errorEvent = errorEvent;	
+				break;
+			}
+		}
 
-		result.valid = false;
 		return result;
 	}
+
+	//#region Transfers database operations
+	private async addTransferOrGetErrorEvent(fspId:string, transfer: ITransfer): Promise<{errorEvent: TransferErrorEvent| null, valid: boolean}> {
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+
+		const transferAddedToDatabase = await this._transfersRepo.addTransfer(transfer)
+			.catch((err) => {
+				this._logger.error(`Error adding transfer ${transfer.transferId} to database - ${err.message}`);
+				return false;
+			});
+
+		if(!transferAddedToDatabase){
+			const errorMessage = `Error adding transfer to database: ${transfer.transferId}`;
+			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, fspId, transfer.transferId);
+			return result;
+		}
+
+		result.valid = true;
+		return result;
+	}
+
+	private async updateTransferOrGetErrorEvent(transferId:string, requesterFspId: string, status:TransferState, transfer: TransferUpdatableFields): Promise<{errorEvent: TransferErrorEvent| null, valid: boolean}> {
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+
+		const transferInDatabase = await this._transfersRepo.getTransferById(transferId);
+
+		if (!transferInDatabase) {
+			const errorMessage = `Transfer not found for transferId: ${transferId}`;
+			this._logger.error(errorMessage);
+			result.errorEvent = createTransferNotFoundErrorEvent(errorMessage, requesterFspId, transferId);
+			return result;
+		}
+
+		transferInDatabase.transferState = transfer.transferState;
+		transferInDatabase.updatedAt = Date.now();
+
+		const transferUpdated = await this._transfersRepo.updateTransfer(transferInDatabase).catch((err) => {
+			const errorMessage = `Error updating transfer for transferId: ${transferId}.`;
+			this._logger.error(errorMessage + " " + err.message);
+			result.errorEvent = createUnableToUpdateTransferInDatabaseErrorEvent(errorMessage, requesterFspId, transferId);
+			return false;
+		});
+
+		if (!transferUpdated) {
+			return result;
+		}
+
+		result.valid = true;
+		return result;
+	}
+	//#endregion
 
 }

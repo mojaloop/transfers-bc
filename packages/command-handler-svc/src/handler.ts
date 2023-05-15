@@ -73,17 +73,12 @@ export class TransfersCommandHandler{
 				// send to aggregate handler
 				switch (message.msgName) {
 					case PrepareTransferCmd.name:
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
 					case CommitTransferFulfilCmd.name:
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
 					case RejectTransferCmd.name:
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
+					case QueryTransferCmd.name: {
+						await this._transfersAgg.processCommand(message as CommandMsg);
 						break;
-					case QueryTransferCmd.name:
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
+					}
 					default: {
 						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
 					}
