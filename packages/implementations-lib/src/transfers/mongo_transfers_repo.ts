@@ -186,7 +186,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		});
 	}
 
-	async updateTransfer(transfer: ITransfer): Promise<void> {
+	async updateTransfer(transfer: ITransfer): Promise<ITransfer> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 
 		if(!existingTransfer || !existingTransfer.transferId) {
@@ -200,6 +200,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			this._logger.error(`Unable to insert transfer: ${(e as Error).message}`);
 			throw new UnableToUpdateTransferError();
 		});
+
+		return updatedTransfer;
 	}
 
 	private async checkIfTransferExists(transfer: ITransfer) {
@@ -234,6 +236,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			completedTimestamp: transfer.completedTimestamp ?? null,
 			extensionList: transfer.extensionList ?? null,
 			settlementModel: transfer.settlementModel ?? null,
+			hash: transfer.hash ?? null,
 			errorInformation: transfer.errorInformation ?? null
 		};
 

@@ -43,7 +43,7 @@ export interface ITransfersRepository {
 	destroy(): Promise<void>;
     addTransfer(transfer: ITransfer):Promise<string>;
 	addTransfers(transfers: ITransfer[]):Promise<void>;
-    updateTransfer(transfer: ITransfer):Promise<void>;
+    updateTransfer(transfer: ITransfer):Promise<ITransfer>;
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
     getTransfers():Promise<ITransfer[]>;

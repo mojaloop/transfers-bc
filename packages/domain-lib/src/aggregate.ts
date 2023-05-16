@@ -36,6 +36,7 @@
 
 const HUB_ID = "hub"; // move to shared lib
 
+import Crypto, { BinaryToTextEncoding } from 'crypto';
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {CommandMsg, IMessageProducer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
@@ -86,6 +87,7 @@ import {
 } from "./types";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
 import { createInvalidMessagePayloadErrorEvent, createInvalidMessageTypeErrorEvent, createInvalidPayeeParticipantIdErrorEvent,
+	createUnknownErrorEvent,
 	createInvalidPayerParticipantIdErrorEvent,
 	createLiquidityCheckFailedErrorEvent,
 	createParticipantPayeeInvalidErrorEvent,
@@ -100,7 +102,8 @@ import { createInvalidMessagePayloadErrorEvent, createInvalidMessageTypeErrorEve
 	createTransferQueryParticipantPayerInvalidErrorEvent,
 	createUnableToAddTransferToDatabaseErrorEvent,
 	createUnableToGetTransferByIdErrorEvent,
-	createUnableToUpdateTransferInDatabaseErrorEvent
+	createUnableToUpdateTransferInDatabaseErrorEvent,
+	createTransferDuplicateCheckFailedErrorEvent
 } from "./error_events";
 
 export class TransfersAggregate{
@@ -149,53 +152,49 @@ export class TransfersAggregate{
 			return;
 		}
 
-		switch(command.msgName){
-			case PrepareTransferCmd.name:
-				commandEvt = new TransferPrepareRequestedEvt(command.payload);
-                commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+		try {
+			switch(command.msgName) {
+				case PrepareTransferCmd.name:
+					commandEvt = new TransferPrepareRequestedEvt(command.payload);
+					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
 
-                eventToPublish = await this.prepareTransfer(commandEvt);
-				break;
-			case CommitTransferFulfilCmd.name:
-				commandEvt = new TransferFulfilCommittedRequestedEvt(command.payload);
-                commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+					eventToPublish = await this.prepareTransfer(commandEvt);
+					break;
+				case CommitTransferFulfilCmd.name:
+					commandEvt = new TransferFulfilCommittedRequestedEvt(command.payload);
+					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
 
-                eventToPublish = await this.fulfilTransfer(commandEvt);
-				break;
-			case RejectTransferCmd.name:
-				commandEvt = new TransferRejectRequestedEvt(command.payload);
-				commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+					eventToPublish = await this.fulfilTransfer(commandEvt);
+					break;
+				case RejectTransferCmd.name:
+					commandEvt = new TransferRejectRequestedEvt(command.payload);
+					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
 
-				eventToPublish = await this.rejectTransfer(commandEvt);
-				break;
-			case QueryTransferCmd.name:
-				commandEvt = new TransferQueryReceivedEvt(command.payload);
-				commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
+					eventToPublish = await this.rejectTransfer(commandEvt);
+					break;
+				case QueryTransferCmd.name:
+					commandEvt = new TransferQueryReceivedEvt(command.payload);
+					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
 
-				eventToPublish = await this.queryTransfer(commandEvt);
-				break;
-			default: {
+					eventToPublish = await this.queryTransfer(commandEvt);
+					break;
+				default: {
 					const errorMessage = `Message type has invalid format or value ${command.msgName}`;
 					this._logger.error(errorMessage);
 					eventToPublish = createInvalidMessageTypeErrorEvent(errorMessage, requesterFspId, transferId);
 					eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
 				}
 			}
-
-		if(eventToPublish){
-			if(Array.isArray(eventToPublish)){
-				for await (const event of eventToPublish) {
-					event.fspiopOpaqueState = commandEvt?.fspiopOpaqueState;
-					await this._messageProducer.send(event);
-				}
-			}else {
-				eventToPublish.fspiopOpaqueState = commandEvt?.fspiopOpaqueState;
-				await this._messageProducer.send(eventToPublish);
-			}
-		}else{
-			throw new UnableToProcessMessageError();
+		} catch(error:unknown) {
+			const errorMessage = `Error while handling message ${command.msgName}`;
+			this._logger.error(errorMessage + `- ${error}`);
+			eventToPublish = createUnknownErrorEvent(errorMessage, requesterFspId, transferId);
+			eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
+			await this.publishEvent(eventToPublish);
 		}
-
+	
+		eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
+		await this.publishEvent(eventToPublish);
 	}
 	private async publishEvent(eventToPublish: TransferPreparedEvt | TransferErrorEvent| TransferErrorEvent[]): Promise<void> {
 		if (Array.isArray(eventToPublish)) {
@@ -211,7 +210,7 @@ export class TransfersAggregate{
 	//#endregion
 
 	//#region TransfersPrepareRequestedEvt
-	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt | TransferErrorEvent> {
+	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<TransferPreparedEvt | TransferQueryResponseEvt  | TransferErrorEvent | void> {
 		this._logger.debug(`prepareTransfer() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
 		// TODO call the settlements lib to get the correct settlement model
@@ -224,6 +223,52 @@ export class TransfersAggregate{
 
 		const now = Date.now();
 
+		const hash = this.generateSha256({
+			transferId: message.payload.transferId,
+			payeeFspId: message.payload.payeeFsp,
+			payerFspId: message.payload.payerFsp,
+			amount: message.payload.amount,
+			expirationTimestamp: message.payload.expiration
+		});
+		
+		const repeatedTransfer = await this._transfersRepo.getTransferById(message.payload.transferId);
+
+		if(repeatedTransfer) {
+			if(repeatedTransfer.hash !== hash) {
+				const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
+				this._logger.error(errorMessage);
+				const errorEvent = createTransferDuplicateCheckFailedErrorEvent(errorMessage,message.payload.transferId, message.payload.payerFsp);
+				return errorEvent;
+			}
+
+			switch(repeatedTransfer.transferState) {
+				
+				case TransferState.RECEIVED: 		
+				case TransferState.RESERVED: {
+					// Ignore the request
+					return;
+				}		
+				case TransferState.REJECTED: 		
+				case TransferState.COMMITTED: 	
+				case TransferState.ABORTED: 		
+				case TransferState.EXPIRED: {
+					// Send a response event to the payer
+					const payload: TransferQueryResponseEvtPayload = {
+						transferId: repeatedTransfer.transferId,
+						transferState: repeatedTransfer.transferState,
+						completedTimestamp: repeatedTransfer.completedTimestamp as unknown as string,
+						extensionList: repeatedTransfer.extensionList
+					};
+			
+					const event = new TransferQueryResponseEvt(payload);
+			
+					event.fspiopOpaqueState = message.fspiopOpaqueState;
+					return event;
+				}
+			}
+		}
+
+		
 		const transfer: ITransfer = {
 			createdAt: now,
 			updatedAt: now,
@@ -240,7 +285,8 @@ export class TransfersAggregate{
 			completedTimestamp: null,
 			extensionList: message.payload.extensionList,
 			settlementModel: settlementModel,
-			errorInformation: null
+			errorInformation: null,
+			hash: hash
 		};
 
 		const transferAddedToDatabase = await this.addTransferOrGetErrorEvent(transfer?.payerFspId, transfer);
@@ -893,7 +939,7 @@ export class TransfersAggregate{
 			return result;
 		}
 
-		transferInDatabase.transferState = transfer.transferState;
+		transferInDatabase.transferState = status;
 		transferInDatabase.updatedAt = Date.now();
 
 		const transferUpdated = await this._transfersRepo.updateTransfer(transferInDatabase).catch((err) => {
@@ -912,4 +958,18 @@ export class TransfersAggregate{
 	}
 	//#endregion
 
+	//#region Hash generation
+	private generateSha256(object:any):string {
+		const hashSha256 = Crypto.createHash('sha256')
+						
+		// updating data
+		.update(JSON.stringify(object))
+
+		// Encoding to be used
+		.digest("base64");
+
+		// remove trailing '=' as per specification
+	  	return hashSha256.slice(0, -1)
+	}
+	//#endregion
 }

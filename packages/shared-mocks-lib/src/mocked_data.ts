@@ -59,6 +59,7 @@ export const mockedTransfer1 : ITransfer = {
     expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
+	hash: "randomhash",
 	errorInformation: {
       errorCode: "8562",
       errorDescription: "aliquip",
@@ -100,6 +101,7 @@ export const mockedTransfer2 : ITransfer = {
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
+	hash: "randomhash",
 	errorInformation: {
 		errorCode: "8562",
 		errorDescription: "aliquip",
@@ -141,6 +143,7 @@ export const mockedTransfer3 : ITransfer = {
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
+	hash: "randomhash",
 	errorInformation: {
 		errorCode: "8562",
 		errorDescription: "aliquip",
@@ -182,6 +185,7 @@ export const mockedTransfer4 : ITransfer = {
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
+	hash: "randomhash",
 	errorInformation: {
 		errorCode: "8562",
 		errorDescription: "aliquip",

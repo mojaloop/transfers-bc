@@ -86,6 +86,7 @@ export interface ITransfer {
 
 	// populated from the settlements lib during prepare
 	settlementModel: string;
+	hash: string;
 }
 
 export interface ITransferParticipants {

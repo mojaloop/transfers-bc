@@ -62,7 +62,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve();
     }
 
-    updateTransfer(transfer: ITransfer): Promise<void> {
+    updateTransfer(transfer: ITransfer): Promise<ITransfer> {
         const transferToUpdate = this._transfers.find(q => q.transferId === transfer.transferId);
         if (transferToUpdate) {
             Object.assign(transferToUpdate, transfer);
@@ -70,7 +70,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         else{
             throw new Error(`Transfer with id ${transfer.transferId} not found`);
         }
-        return Promise.resolve();
+        return Promise.resolve(transferToUpdate);
     }
     
     removeTransfer(id: string): Promise<void> {

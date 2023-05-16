@@ -34,6 +34,8 @@
 
 
 import { 
+    TransfersBCUnknownErrorEvent,
+    TransfersBCUnknownErrorPayload,
     TransferInvalidMessagePayloadEvt,
     TransferInvalidMessagePayloadEvtPayload,
     TransferInvalidMessageTypeEvt,
@@ -69,9 +71,21 @@ import {
     TransferUnableToAddEvt,
     TransferUnableToAddEvtPayload,
     TransferUnableToUpdateEvt,
-    TransferUnableToUpdateEvtPayload
+    TransferUnableToUpdateEvtPayload,
+    TransferPrepareDuplicateCheckFailedEvt,
+    TransferPrepareDuplicateCheckFailedEvtPayload
     
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
+
+export function createUnknownErrorEvent(errorDescription:string, fspId:string, transferId:string): TransfersBCUnknownErrorEvent{
+    const unknownErrorPayload: TransfersBCUnknownErrorPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransfersBCUnknownErrorEvent(unknownErrorPayload);
+    return errorEvent;
+}
 
 export function createInvalidMessagePayloadErrorEvent(errorDescription:string, fspId:string, transferId: string ): TransferInvalidMessagePayloadEvt {
     const invalidMessagePayload: TransferInvalidMessagePayloadEvtPayload = {
@@ -250,5 +264,15 @@ export function createUnableToUpdateTransferInDatabaseErrorEvent(errorDescriptio
         errorDescription
     };
     const errorEvent = new TransferUnableToUpdateEvt(unableToUpdateTransferErrorPayload);
+    return errorEvent;
+}
+
+export function createTransferDuplicateCheckFailedErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferPrepareDuplicateCheckFailedEvt {
+    const duplicateCheckFailedErrorPayload: TransferPrepareDuplicateCheckFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareDuplicateCheckFailedEvt(duplicateCheckFailedErrorPayload);
     return errorEvent;
 }
