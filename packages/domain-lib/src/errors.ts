@@ -96,9 +96,21 @@ export class InvalidMessageTypeError extends Error {
 }
 
 // Participant Adapter
-export class NoSuchParticipantError extends Error {
+export class ParticipantPayerNotFoundError extends Error {
     constructor(message?: string) {
-        super(message || "No participant found");
+        super(message || "No payer participant found");
+    }
+}
+
+export class ParticipantPayeeNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "No payee participant found");
+    }
+}
+
+export class ParticipantHubNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "No hub participant found");
     }
 }
 

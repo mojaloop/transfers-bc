@@ -73,9 +73,27 @@ import {
     TransferUnableToUpdateEvt,
     TransferUnableToUpdateEvtPayload,
     TransferPrepareDuplicateCheckFailedEvt,
-    TransferPrepareDuplicateCheckFailedEvtPayload
-    
+    TransferPrepareDuplicateCheckFailedEvtPayload,
+    TransferCancelReservationAndCommitFailedEvt,
+    TransferCancelReservationAndCommitFailedEvtPayload,
+    TransferPreparePayerNotFoundFailedEvt,
+    TransferPreparePayerNotFoundFailedEvtPayload,
+    TransferPreparePayeeNotFoundFailedEvt,
+    TransferPreparePayeeNotFoundFailedEvtPayload,
+    TransferPrepareHubNotFoundFailedEvt,
+    TransferPrepareHubNotFoundFailedEvtPayload,
+    TransferPrepareHubAccountNotFoundFailedEvt,
+    TransferPrepareHubAccountNotFoundFailedEvtPayload,
+    TransferPreparePayerPositionAccountNotFoundFailedEvt,
+    TransferPreparePayerPositionAccountNotFoundFailedEvtPayload,
+    TransferPreparePayerLiquidityAccountNotFoundFailedEvt,
+    TransferPreparePayerLiquidityAccountNotFoundFailedEvtPayload,
+    TransferPreparePayeePositionAccountNotFoundFailedEvt,
+    TransferPreparePayeePositionAccountNotFoundFailedEvtPayload,
+    TransferPreparePayeeLiquidityAccountNotFoundFailedEvt,
+    TransferPreparePayeeLiquidityAccountNotFoundFailedEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { ParticipantHubNotFoundError, ParticipantPayeeNotFoundError, ParticipantPayerNotFoundError } from "./errors";
 
 export function createUnknownErrorEvent(errorDescription:string, fspId:string, transferId:string): TransfersBCUnknownErrorEvent{
     const unknownErrorPayload: TransfersBCUnknownErrorPayload = {
@@ -276,3 +294,94 @@ export function createTransferDuplicateCheckFailedErrorEvent(errorDescription:st
     const errorEvent = new TransferPrepareDuplicateCheckFailedEvt(duplicateCheckFailedErrorPayload);
     return errorEvent;
 }
+
+export function createUnableToCancelReservationAndCommitErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferCancelReservationAndCommitFailedEvt {
+    const duplicateCheckFailedErrorPayload: TransferCancelReservationAndCommitFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferCancelReservationAndCommitFailedEvt(duplicateCheckFailedErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayerParticipantNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayerNotFoundFailedEvt {
+    const payerParticipantNotFoundErrorPayload: TransferPreparePayerNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayerNotFoundFailedEvt(payerParticipantNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayeeParticipantNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayeeNotFoundFailedEvt {
+    const payeeParticipantNotFoundErrorPayload: TransferPreparePayeeNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayeeNotFoundFailedEvt(payeeParticipantNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPrepareHubParticipantNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareHubNotFoundFailedEvt {
+    const hubParticipantNotFoundErrorPayload: TransferPrepareHubNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareHubNotFoundFailedEvt(hubParticipantNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPrepareHubParticipantAccountNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareHubAccountNotFoundFailedEvt {
+    const hubParticipantAccountNotFoundErrorPayload: TransferPrepareHubAccountNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPrepareHubAccountNotFoundFailedEvt(hubParticipantAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayerParticipantPositionAccountNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayerPositionAccountNotFoundFailedEvt {
+    const payerParticipantLiquidityAccountNotFoundErrorPayload: TransferPreparePayerPositionAccountNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayerPositionAccountNotFoundFailedEvt(payerParticipantLiquidityAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayerLiquidityAccountNotFoundFailedEvt {
+    const payerParticipantLiquidityAccountNotFoundErrorPayload: TransferPreparePayerLiquidityAccountNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayerLiquidityAccountNotFoundFailedEvt(payerParticipantLiquidityAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayeeParticipantPositionAccountNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayeePositionAccountNotFoundFailedEvt {
+    const payeeParticipantLiquidityAccountNotFoundErrorPayload: TransferPreparePayeePositionAccountNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayeePositionAccountNotFoundFailedEvt(payeeParticipantLiquidityAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayeeLiquidityAccountNotFoundFailedEvt {
+    const payeeParticipantLiquidityAccountNotFoundErrorPayload: TransferPreparePayeeLiquidityAccountNotFoundFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayeeLiquidityAccountNotFoundFailedEvt(payeeParticipantLiquidityAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+

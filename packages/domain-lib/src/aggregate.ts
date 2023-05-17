@@ -67,8 +67,10 @@ import {
 	InvalidMessageTypeError,
 	InvalidParticipantIdError,
 	NoSuchAccountError,
-	NoSuchParticipantError,
 	NoSuchTransferError,
+	ParticipantHubNotFoundError,
+	ParticipantPayeeNotFoundError,
+	ParticipantPayerNotFoundError,
 	RequiredParticipantIsNotActive,
 	UnableToCancelTransferError,
 	UnableToCommitTransferError,
@@ -103,7 +105,16 @@ import { createInvalidMessagePayloadErrorEvent, createInvalidMessageTypeErrorEve
 	createUnableToAddTransferToDatabaseErrorEvent,
 	createUnableToGetTransferByIdErrorEvent,
 	createUnableToUpdateTransferInDatabaseErrorEvent,
-	createTransferDuplicateCheckFailedErrorEvent
+	createTransferDuplicateCheckFailedErrorEvent,
+	createUnableToCancelReservationAndCommitErrorEvent,
+	createPreparePayerParticipantNotFoundErrorEvent,
+	createPreparePayeeParticipantNotFoundErrorEvent,
+	createPrepareHubParticipantNotFoundErrorEvent,
+	createPrepareHubParticipantAccountNotFoundErrorEvent,
+	createPreparePayerParticipantPositionAccountNotFoundErrorEvent,
+	createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent,
+	createPreparePayeeParticipantPositionAccountNotFoundErrorEvent,
+	createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent
 } from "./error_events";
 
 export class TransfersAggregate{
@@ -321,19 +332,18 @@ export class TransfersAggregate{
 		}
 
 
-		const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transfer);
+		const transferParticipants = this.getTransferParticipantsOrGetErrorEvent(participantsInfo.participants, transfer);
 
-		// if(transferParticipants.=== 0){
-		// 	this._logger.error(`Invalid participants info for payerFspId: ${transfer.payerFspId} and payeeFspId: ${transfer.payeeFspId}`);
-		// 	return participantsInfo.errorEvent as TransferErrorEvent;
-		// }
+		if(!transferParticipants.valid || !transferParticipants.participants){
+			return transferParticipants.errorEvent as TransferErrorEvent;
+		}
 
-		const participantAccounts = this.getTransferParticipantsAccounts(transferParticipants,transfer);
+		const participantAccounts = this.getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants.participants, transfer);
 
 		// TODO put net debit cap in the participant struct
 		const payerNdc = "0";
 
-		const liquidityCheck = await this.checkLiquidityOrGetErrorEvent(transfer, participantAccounts, payerNdc);
+		const liquidityCheck = await this.checkLiquidityOrGetErrorEvent(transfer, participantAccounts.participantAccounts, payerNdc);
 
 		if(!liquidityCheck.valid){
 			this._logger.error(`Unable to check liquidity and reserve for transferId: ${transfer.transferId}`);
@@ -389,14 +399,24 @@ export class TransfersAggregate{
 
 		try{
 			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
-			
 			if(participantsInfo.participants.length === 0){
 				this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
 				return participantsInfo.errorEvent as TransferErrorEvent;
 			}
 
-			const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transferRecord);
-			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
+			const transferParticipants = this.getTransferParticipantsOrGetErrorEvent(participantsInfo.participants, transferRecord);
+			if(!transferParticipants.valid || !transferParticipants.participants){
+				this._logger.error(`Invalid transfer participants for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+				return transferParticipants.errorEvent as TransferErrorEvent;
+			}
+
+			const transferParticipantTransferAccounts = this.getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants.participants,transferRecord);
+			if(!transferParticipantTransferAccounts.valid || !transferParticipantTransferAccounts.participantAccounts){
+				this._logger.error(`Invalid participants accounts for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+				return transferParticipantTransferAccounts.errorEvent as TransferErrorEvent;
+			}
+
+			participantTransferAccounts = transferParticipantTransferAccounts.participantAccounts;
 		}
 		catch (error: any){
 			this._logger.error(error.message);
@@ -404,28 +424,23 @@ export class TransfersAggregate{
 			throw error;
 		}
 
-		try{
-			await this._accountAndBalancesAdapter.cancelReservationAndCommit(
-				participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.payeePosAccount.id, participantTransferAccounts.hubAccount.id,
-				transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId
-			);
-
-			transferRecord.updatedAt = Date.now();
-			transferRecord.transferState = TransferState.COMMITTED;
-
-			await this._transfersRepo.updateTransfer({
-				...transferRecord,
-				transferState: message.payload.transferState as TransferState,
-				fulFillment: message.payload.fulfilment,
-				completedTimestamp: message.payload.completedTimestamp,
-				extensionList: message.payload.extensionList
-			});
-		} catch (error: any) {
-			// TODO revert the reservation after we try to cancelReservationAndCommit
-			const errorMessage = `Unable to commit transferId: ${transferRecord.transferId} for payer: ${transferRecord.payerFspId} and payee: ${transferRecord.payeeFspId}`;
-			this._logger.error(errorMessage, error);
-			throw new UnableToCommitTransferError(errorMessage);
+		const canceledAndCommittedTransfer = await this.cancelReservationAndCommitOrGetErrorEvent(transferRecord, participantTransferAccounts)
+		if(!canceledAndCommittedTransfer.valid){
+			this._logger.error(`Couldn't cancel reservation and commit for transfer: ${transferRecord.transferId}`);
+			return canceledAndCommittedTransfer.errorEvent as TransferErrorEvent;
 		}
+		 
+
+		transferRecord.updatedAt = Date.now();
+		transferRecord.transferState = TransferState.COMMITTED;
+
+		await this._transfersRepo.updateTransfer({
+			...transferRecord,
+			transferState: message.payload.transferState as TransferState,
+			fulFillment: message.payload.fulfilment,
+			completedTimestamp: message.payload.completedTimestamp,
+			extensionList: message.payload.extensionList
+		});
 
 		const payload: TransferCommittedFulfiledEvtPayload = {
 			transferId: message.payload.transferId,
@@ -509,8 +524,20 @@ export class TransfersAggregate{
 				return participantsInfo.errorEvent as TransferErrorEvent;
 			}
 
-			const transferParticipants = this.getTransferParticipants(participantsInfo.participants, transferRecord);
-			participantTransferAccounts = this.getTransferParticipantsAccounts(transferParticipants,transferRecord);
+			const transferParticipants = this.getTransferParticipantsOrGetErrorEvent(participantsInfo.participants, transferRecord);
+
+			if(!transferParticipants.valid || !transferParticipants.participants){
+				return transferParticipants.errorEvent as TransferErrorEvent;
+			}
+
+
+			const transferParticipantTransferAccounts = this.getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants.participants,transferRecord);
+			if(!transferParticipantTransferAccounts.valid || !transferParticipantTransferAccounts.participantAccounts){
+				this._logger.error(`Invalid participants accounts for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+				return transferParticipantTransferAccounts.errorEvent as TransferErrorEvent;
+			}
+
+			participantTransferAccounts = transferParticipantTransferAccounts.participantAccounts;
 
 			this.payeeRejectTransfer(transferRecord, participantTransferAccounts)
 
@@ -612,27 +639,39 @@ export class TransfersAggregate{
 		return result;
 	}
 
-	private getTransferParticipants(participants: IParticipant[], transfer: ITransfer): ITransferParticipants  {
-		const transferPayerParticipant = participants.find((value: IParticipant) => value.id === transfer.payerFspId) ??
-			(() => {
-				const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
-				this._logger.error(errorMessage);
-				throw new NoSuchParticipantError(errorMessage);
-			})();
+	private getTransferParticipantsOrGetErrorEvent(participants: IParticipant[], transfer: ITransfer): {errorEvent:TransferErrorEvent | null, participants:{hub: IParticipant, payer: IParticipant, payee: IParticipant} | null, valid: boolean}  {
+		let errorEvent!:TransferErrorEvent | null;
+		const result = {errorEvent, participants: null, valid: false };
 
-		const transferPayeeParticipant = participants.find((value: IParticipant) => value.id === transfer.payeeFspId) ??
-			(() => {
-				const errorMessage = "Payee participant not found " + transfer.payeeFspId + " for transfer " + transfer.transferId;
-				this._logger.error(errorMessage);
-				throw new NoSuchParticipantError(errorMessage);
-			})();
+		const transferPayerParticipant = participants.find((value: IParticipant) => value.id === transfer.payerFspId) 
+		
+		if(!transferPayerParticipant) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayerParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
+		
+		const transferPayeeParticipant = participants.find((value: IParticipant) => value.id === transfer.payeeFspId)
+		
+		if(!transferPayeeParticipant) {
+			const errorMessage = "Payee participant not found " + transfer.payeeFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayeeParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
 
-		const hub = participants.find((value: IParticipant) => value.id === HUB_ID) ??
-			(() => {
-				const errorMessage = "Hub not found " + HUB_ID + " for transfer " + transfer.transferId;
-				this._logger.error(errorMessage);
-				throw new NoSuchParticipantError(errorMessage);
-			})();
+		const hub = participants.find((value: IParticipant) => value.id === HUB_ID)
+
+		if(!hub) {
+			const errorMessage = "Hub participant not found " + HUB_ID + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPrepareHubParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
 
 		// TODO reactivate participant.isActive check
 		// if (!payerFsp.isActive || !payerFsp.approved || !payeeFsp.isActive || !payeeFsp.approved) {//} || !payerFsp.isActive || !payerFsp.approved){
@@ -642,38 +681,93 @@ export class TransfersAggregate{
 			throw new RequiredParticipantIsNotActive(errorMessage);
 		}
 
-		return { hub, payer: transferPayerParticipant, payee: transferPayeeParticipant };
+
+		result.valid = true;
+		return { 
+			...result, 
+			...{
+				participants: { 
+					hub: hub, 
+					payer: transferPayerParticipant, 
+					payee: transferPayeeParticipant 
+				}
+			}
+		};
 	}
 
 
-	private getTransferParticipantsAccounts(transferParticipants: ITransferParticipants, transfer: ITransfer): ITransferAccounts  {
+	private getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants: ITransferParticipants, transfer: ITransfer): {errorEvent:TransferErrorEvent | null, participantAccounts: ITransferAccounts | null, valid: boolean}  {
+		let errorEvent!:TransferErrorEvent | null;
+		const result = {errorEvent, participantAccounts: null, valid: false };
 
 		const { hub, payer: transferPayerParticipant, payee: transferPayeeParticipant } = transferParticipants;
 
 		const hubAccount = hub.participantAccounts
 			.find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode) ?? null;
-		const payerPosAccount = transferPayerParticipant.participantAccounts
-			.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
-		const payerLiqAccount = transferPayerParticipant.participantAccounts
-			.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
-		const payeePosAccount = transferPayeeParticipant.participantAccounts
-			.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
-		const payeeLiqAccount = transferPayeeParticipant.participantAccounts
-			.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
-
-		if (!hubAccount || !payerPosAccount || !payerLiqAccount || !payeePosAccount || !payeeLiqAccount) {
-			const errorMessage = "Could not get hub, payer or payee accounts from participant for transfer " + transfer.transferId;
+		
+		if(!hubAccount) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			throw new NoSuchAccountError(errorMessage);
+			result.errorEvent = createPrepareHubParticipantAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
 		}
 
-		return {
-			hubAccount: hubAccount,
-			payerPosAccount: payerPosAccount,
-			payerLiqAccount: payerLiqAccount,
-			payeePosAccount: payeePosAccount,
-			payeeLiqAccount: payeeLiqAccount
+		const payerPosAccount = transferPayerParticipant.participantAccounts
+			.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
+		if(!payerPosAccount) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayerParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
+
+		const payerLiqAccount = transferPayerParticipant.participantAccounts
+			.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
+		if(!payerLiqAccount) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
+
+		const payeePosAccount = transferPayeeParticipant.participantAccounts
+			.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
+		if(!payeePosAccount) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayeeParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
+
+		const payeeLiqAccount = transferPayeeParticipant.participantAccounts
+			.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
+		if(!payeeLiqAccount) {
+			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
+			this._logger.error(errorMessage);
+			result.errorEvent = createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return result;
+		}
+
+		result.valid = true;
+		
+		return { 
+			...result, 
+			...{
+				participantAccounts: {
+					hubAccount: hubAccount,
+					payerPosAccount: payerPosAccount,
+					payerLiqAccount: payerLiqAccount,
+					payeePosAccount: payeePosAccount,
+					payeeLiqAccount: payeeLiqAccount
+				}
+			}
 		};
+
 	}
 
 	//#region Validations
@@ -904,17 +998,37 @@ export class TransfersAggregate{
 
 		return result;
 	}
+	
+	private async cancelReservationAndCommitOrGetErrorEvent(transfer: ITransfer, participantTransferAccounts:ITransferAccounts): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: false };
+		
+		await this._accountAndBalancesAdapter.cancelReservationAndCommit(
+			participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.payeePosAccount.id, participantTransferAccounts.hubAccount.id,
+			transfer.amount, transfer.currencyCode, transfer.transferId
+		).catch((err) => {
+			const errorMessage = `Unable to commit transferId: ${transfer.transferId} for payer: ${transfer.payerFspId} and payee: ${transfer.payeeFspId}`;
+			this._logger.error(errorMessage + " " + err.message);
+			result.errorEvent = createUnableToCancelReservationAndCommitErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.valid = false;
+			return false;
+		});
+
+		result.valid = true;
+		return result;
+	}
 
 	//#region Transfers database operations
 	private async addTransferOrGetErrorEvent(fspId:string, transfer: ITransfer): Promise<{errorEvent: TransferErrorEvent| null, valid: boolean}> {
 		let errorEvent!: TransferErrorEvent | null;
 		const result = { errorEvent, valid: false };
 
-		const transferAddedToDatabase = await this._transfersRepo.addTransfer(transfer)
-			.catch((err) => {
-				this._logger.error(`Error adding transfer ${transfer.transferId} to database - ${err.message}`);
-				return false;
-			});
+		const transferAddedToDatabase = await this._transfersRepo.addTransfer(transfer).catch((err) => {
+			const errorMessage = `Error adding transfer for transferId: ${transfer.transferId}.`;
+			this._logger.error(errorMessage + " " + err.message);
+			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, fspId, transfer.transferId);
+			return false;
+		});
 
 		if(!transferAddedToDatabase){
 			const errorMessage = `Error adding transfer to database: ${transfer.transferId}`;
