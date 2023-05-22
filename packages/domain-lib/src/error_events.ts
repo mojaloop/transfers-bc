@@ -93,7 +93,15 @@ import {
     TransferPreparePayeeLiquidityAccountNotFoundFailedEvt,
     TransferPreparePayeeLiquidityAccountNotFoundFailedEvtPayload,
     TransferCancelReservationFailedEvt,
-    TransferCancelReservationFailedEvtPayload
+    TransferCancelReservationFailedEvtPayload,
+    TransferPreparePayerNotActiveEvt,
+    TransferPreparePayerNotActiveEvtPayload,
+    TransferPreparePayerNotApprovedEvt,
+    TransferPreparePayerNotApprovedEvtPayload,
+    TransferPreparePayeeNotActiveEvt,
+    TransferPreparePayeeNotActiveEvtPayload,
+    TransferPreparePayeeNotApprovedEvt,
+    TransferPreparePayeeNotApprovedEvtPayload,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { ParticipantHubNotFoundError, ParticipantPayeeNotFoundError, ParticipantPayerNotFoundError } from "./errors";
 
@@ -394,6 +402,46 @@ export function createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent(
         errorDescription
     };
     const errorEvent = new TransferPreparePayeeLiquidityAccountNotFoundFailedEvt(payeeParticipantLiquidityAccountNotFoundErrorPayload);
+    return errorEvent;
+}
+
+export function createPreparePayerParticipantNotActiveErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayerNotActiveEvt {
+    const payerParticipantNotActivePayload: TransferPreparePayerNotActiveEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayerNotActiveEvt(payerParticipantNotActivePayload);
+    return errorEvent;
+}
+
+export function createPreparePayerParticipantNotApprovedErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayerNotApprovedEvt {
+    const payerParticipantNotApprovedPayload: TransferPreparePayerNotApprovedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayerNotApprovedEvt(payerParticipantNotApprovedPayload);
+    return errorEvent;
+}
+
+export function createPreparePayeeParticipantNotActiveErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayeeNotActiveEvt {
+    const payeeParticipantNotActivePayload: TransferPreparePayeeNotActiveEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayeeNotActiveEvt(payeeParticipantNotActivePayload);
+    return errorEvent;
+}
+
+export function createPreparePayeeParticipantNotApprovedErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPreparePayeeNotApprovedEvt {
+    const payeeParticipantNotApprovedPayload: TransferPreparePayeeNotApprovedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferPreparePayeeNotApprovedEvt(payeeParticipantNotApprovedPayload);
     return errorEvent;
 }
 
