@@ -436,15 +436,17 @@ export class TransfersAggregate{
 
 		await this._transfersRepo.updateTransfer({
 			...transferRecord,
-			transferState: message.payload.transferState as TransferState,
+			transferState: transferRecord.transferState,
 			fulFillment: message.payload.fulfilment,
 			completedTimestamp: message.payload.completedTimestamp,
 			extensionList: message.payload.extensionList
 		});
 
+		console.log(`Logging messagePayload: ${message.payload}`);
+
 		const payload: TransferCommittedFulfiledEvtPayload = {
 			transferId: message.payload.transferId,
-			transferState: message.payload.transferState,
+			transferState: "COMPLETED",
 			fulfilment: message.payload.fulfilment,
 			completedTimestamp: message.payload.completedTimestamp,
 			extensionList: message.payload.extensionList,
@@ -459,6 +461,10 @@ export class TransfersAggregate{
 		const retEvent = new TransferCommittedFulfiledEvt(payload);
 
 		retEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+
+		console.log(`Logging TransferCommittedFulfiledEvt Payload: ${payload}`);
+
+		console.log(`Logging retEvent.fspiopOpaqueState: ${retEvent.fspiopOpaqueState}`);
 
 		return retEvent;
 	}
