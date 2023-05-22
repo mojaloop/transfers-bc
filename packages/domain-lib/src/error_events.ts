@@ -33,16 +33,16 @@
 "use strict";
 
 
-import { 
+import {
     TransfersBCUnknownErrorEvent,
     TransfersBCUnknownErrorPayload,
     TransferInvalidMessagePayloadEvt,
     TransferInvalidMessagePayloadEvtPayload,
     TransferInvalidMessageTypeEvt,
     TransferInvalidMessageTypeEvtPayload,
-    TransferPrepareInvalidPayerCheckFailedEvt, 
-    TransferPrepareInvalidPayerCheckFailedPayload, 
-    TransferPrepareInvalidPayeeCheckFailedEvt, 
+    TransferPrepareInvalidPayerCheckFailedEvt,
+    TransferPrepareInvalidPayerCheckFailedPayload,
+    TransferPrepareInvalidPayeeCheckFailedEvt,
     TransferPrepareInvalidPayeeCheckFailedPayload,
     TransferPrepareLiquidityCheckFailedEvt,
     TransferPrepareLiquidityCheckFailedPayload,
@@ -91,7 +91,9 @@ import {
     TransferPreparePayeePositionAccountNotFoundFailedEvt,
     TransferPreparePayeePositionAccountNotFoundFailedEvtPayload,
     TransferPreparePayeeLiquidityAccountNotFoundFailedEvt,
-    TransferPreparePayeeLiquidityAccountNotFoundFailedEvtPayload
+    TransferPreparePayeeLiquidityAccountNotFoundFailedEvtPayload,
+    TransferCancelReservationFailedEvt,
+    TransferCancelReservationFailedEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { ParticipantHubNotFoundError, ParticipantPayeeNotFoundError, ParticipantPayerNotFoundError } from "./errors";
 
@@ -292,6 +294,16 @@ export function createTransferDuplicateCheckFailedErrorEvent(errorDescription:st
         errorDescription
     };
     const errorEvent = new TransferPrepareDuplicateCheckFailedEvt(duplicateCheckFailedErrorPayload);
+    return errorEvent;
+}
+
+export function createUnableToCancelReservationErrorEvent(errorDescription:string, transferId:string, fspId:string): TransferCancelReservationFailedEvt {
+    const duplicateCheckFailedErrorPayload: TransferCancelReservationFailedEvtPayload = {
+        transferId,
+        fspId,
+        errorDescription
+    };
+    const errorEvent = new TransferCancelReservationFailedEvt(duplicateCheckFailedErrorPayload);
     return errorEvent;
 }
 

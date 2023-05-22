@@ -114,7 +114,8 @@ import { createInvalidMessagePayloadErrorEvent, createInvalidMessageTypeErrorEve
 	createPreparePayerParticipantPositionAccountNotFoundErrorEvent,
 	createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent,
 	createPreparePayeeParticipantPositionAccountNotFoundErrorEvent,
-	createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent
+	createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent,
+	createUnableToCancelReservationErrorEvent
 } from "./error_events";
 
 export class TransfersAggregate{
@@ -203,10 +204,11 @@ export class TransfersAggregate{
 			eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
 			await this.publishEvent(eventToPublish);
 		}
-	
+
 		eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
 		await this.publishEvent(eventToPublish);
 	}
+
 	private async publishEvent(eventToPublish: TransferPreparedEvt | TransferErrorEvent| TransferErrorEvent[]): Promise<void> {
 		if (Array.isArray(eventToPublish)) {
 			for await (const event of eventToPublish) {
@@ -241,45 +243,43 @@ export class TransfersAggregate{
 			amount: message.payload.amount,
 			expirationTimestamp: message.payload.expiration
 		});
-		
-		const repeatedTransfer = await this._transfersRepo.getTransferById(message.payload.transferId);
 
-		if(repeatedTransfer) {
-			if(repeatedTransfer.hash !== hash) {
+		const repeatedTransfer = await this.getTransferByIrOrGetErrorEvent(message.payload.transferId, message.payload.payerFsp);
+		if(repeatedTransfer.valid && repeatedTransfer.transfer){
+			if(repeatedTransfer.transfer.hash !== hash) {
 				const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
 				this._logger.error(errorMessage);
 				const errorEvent = createTransferDuplicateCheckFailedErrorEvent(errorMessage,message.payload.transferId, message.payload.payerFsp);
 				return errorEvent;
 			}
 
-			switch(repeatedTransfer.transferState) {
-				
-				case TransferState.RECEIVED: 		
+			switch(repeatedTransfer.transfer.transferState) {
+
+				case TransferState.RECEIVED:
 				case TransferState.RESERVED: {
 					// Ignore the request
 					return;
-				}		
-				case TransferState.REJECTED: 		
-				case TransferState.COMMITTED: 	
-				case TransferState.ABORTED: 		
+				}
+				case TransferState.REJECTED:
+				case TransferState.COMMITTED:
+				case TransferState.ABORTED:
 				case TransferState.EXPIRED: {
 					// Send a response event to the payer
 					const payload: TransferQueryResponseEvtPayload = {
-						transferId: repeatedTransfer.transferId,
-						transferState: repeatedTransfer.transferState,
-						completedTimestamp: repeatedTransfer.completedTimestamp as unknown as string,
-						extensionList: repeatedTransfer.extensionList
+						transferId: repeatedTransfer.transfer.transferId,
+						transferState: repeatedTransfer.transfer.transferState,
+						completedTimestamp: repeatedTransfer.transfer.completedTimestamp as unknown as string,
+						extensionList: repeatedTransfer.transfer.extensionList
 					};
-			
+
 					const event = new TransferQueryResponseEvt(payload);
-			
+
 					event.fspiopOpaqueState = message.fspiopOpaqueState;
 					return event;
 				}
 			}
 		}
 
-		
 		const transfer: ITransfer = {
 			createdAt: now,
 			updatedAt: now,
@@ -305,24 +305,24 @@ export class TransfersAggregate{
 			return transferAddedToDatabase.errorEvent as TransferErrorEvent;
 		}
 
-		// Replace this code with corresponding SchedulingBC function call
-		const transferExpiryTime = new Date(transfer.expirationTimestamp).valueOf();
-		const transferTimeout = await this._transfersRepo.getTransferById(message.payload.transferId);
-		const currentTime = Date.now();
+		// // Replace this code with corresponding SchedulingBC function call
+		// const transferExpiryTime = new Date(transfer.expirationTimestamp).valueOf();
+		// const transferTimeout = await this._transfersRepo.getTransferById(message.payload.transferId);
+		// const currentTime = Date.now();
 
-		if(currentTime > transferExpiryTime) {
-			this._logger.error("Throwing a TransferPrepareRequestTimedout event!")
-			
-			const abortedTransfer = await this.abortTransferAndGetErrorEvent(transfer);
+		// if(currentTime > transferExpiryTime) {
+		// 	this._logger.error("Throwing a TransferPrepareRequestTimedout event!")
 
-			if(!abortedTransfer.valid){
-				this._logger.error(`Aborted transfer for transferId: ${transfer.transferId}`);
-				return abortedTransfer.errorEvent as TransferErrorEvent;
-			}
-			this._logger.debug("Current state of transfer during TransferPrepareRequestedEvt: ", transferTimeout?.transferState);
-		}
-		
-		
+		// 	const abortedTransfer = await this.abortTransferAndGetErrorEvent(transfer);
+
+		// 	if(!abortedTransfer.valid){
+		// 		this._logger.error(`Aborted transfer for transferId: ${transfer.transferId}`);
+		// 		return abortedTransfer.errorEvent as TransferErrorEvent;
+		// 	}
+		// 	this._logger.debug("Current state of transfer during TransferPrepareRequestedEvt: ", transferTimeout?.transferState);
+		// }
+
+
 
 		const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transfer.transferId, transfer?.payerFspId, transfer?.payeeFspId);
 
@@ -354,7 +354,13 @@ export class TransfersAggregate{
 			transferState: TransferState.RESERVED
 		};
 
-		const updatedTransfer = await this.updateTransferOrGetErrorEvent(transfer.transferId, transfer.payerFspId, TransferState.RESERVED, transferResponse);
+		const transferRecord = await this.getTransferByIrOrGetErrorEvent(message.payload.transferId, message.payload.payerFsp);
+		if(!transferRecord.valid || !transferRecord.transfer){
+			this._logger.error(`Unable to get transfer from Transfers Repository with transferId: ${message.payload.transferId}`);
+			return transferRecord.errorEvent as TransferErrorEvent;
+		}
+
+		const updatedTransfer = await this.updateTransferOrGetErrorEvent(transferRecord.transfer, transfer.payerFspId, TransferState.RESERVED, transferResponse);
 
 		if(!updatedTransfer.valid){
 			return updatedTransfer.errorEvent as TransferErrorEvent;
@@ -390,12 +396,13 @@ export class TransfersAggregate{
 		const transferId = message.payload.transferId;
 		const requesterFspId = message.payload.transferId;
 
-		const transferRecord = await this._transfersRepo.getTransferById(transferId);
-
-		if(!transferRecord) {
-			const errorEvent = createTransferNotFoundErrorEvent(`Transfer ${transferId} not found`, requesterFspId, transferId);
-			return errorEvent;
+		const foundTransfer = await this.getTransferByIrOrGetErrorEvent(message.payload.transferId, requesterFspId);
+		if(!foundTransfer.valid || !foundTransfer.transfer){
+			this._logger.error(`Unable to get transfer from Transfers Repository with transferId: ${message.payload.transferId}`);
+			return foundTransfer.errorEvent as TransferErrorEvent;
 		}
+
+		const transferRecord = foundTransfer.transfer;
 
 		try{
 			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
@@ -417,10 +424,18 @@ export class TransfersAggregate{
 			}
 
 			participantTransferAccounts = transferParticipantTransferAccounts.participantAccounts;
+
+
 		}
 		catch (error: any){
 			this._logger.error(error.message);
-			await this.cancelTransfer(transferRecord, participantTransferAccounts);
+			if(participantTransferAccounts) {
+				const transferCanceled = await this.cancelReservationOrGetErrorEvent(transferRecord, participantTransferAccounts);
+				if(!transferCanceled.valid){
+					this._logger.error(`Unable to cancel reservation transferId: ${transferRecord.transferId}, payer: ${transferRecord.payerFspId}, payeeFspId: ${transferRecord.payeeFspId}`);
+					return transferCanceled.errorEvent as TransferErrorEvent;
+				}
+			}
 			throw error;
 		}
 
@@ -429,7 +444,7 @@ export class TransfersAggregate{
 			this._logger.error(`Couldn't cancel reservation and commit for transfer: ${transferRecord.transferId}`);
 			return canceledAndCommittedTransfer.errorEvent as TransferErrorEvent;
 		}
-		 
+
 
 		transferRecord.updatedAt = Date.now();
 		transferRecord.transferState = TransferState.COMMITTED;
@@ -470,7 +485,7 @@ export class TransfersAggregate{
 		const requesterFspId = message.fspiopOpaqueState.requesterFspId;
 		const destinationFspId = message.fspiopOpaqueState.destinationFspId;
 		const transferId = message.payload.transferId;
-		
+
 		const requesterParticipant = await this.validatePayerParticipantInfoOrGetErrorEvent(transferId, requesterFspId);
 
 		if(!requesterParticipant.valid){
@@ -486,7 +501,7 @@ export class TransfersAggregate{
 		}
 
 		const transferRecord = await this.getTransferByIrOrGetErrorEvent(transferId, requesterFspId);
-		if(!transferRecord.transfer){
+		if(!transferRecord.valid || !transferRecord.transfer){
 			this._logger.error(`Unable to get transfer from Transfers Repository with transferId: ${transferId}`);
 			return transferRecord.errorEvent as TransferErrorEvent;
 		}
@@ -510,7 +525,13 @@ export class TransfersAggregate{
 
 		let participantTransferAccounts: ITransferAccounts | null = null;
 
-		const transferRecord = await this._transfersRepo.getTransferById(message.payload.transferId);
+		const foundTransfer = await this.getTransferByIrOrGetErrorEvent(message.payload.transferId, message.payload.transferId);
+		if(!foundTransfer.valid){
+			this._logger.error(`Unable to get transfer from Transfers Repository with transferId: ${message.payload.transferId}`);
+			return foundTransfer.errorEvent as TransferErrorEvent;
+		}
+
+		const transferRecord = foundTransfer.transfer;
 
 		try{
 
@@ -518,7 +539,7 @@ export class TransfersAggregate{
 				throw new NoSuchTransferError();
 			}
 			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
-			
+
 			if(participantsInfo.participants.length === 0){
 				this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
 				return participantsInfo.errorEvent as TransferErrorEvent;
@@ -595,7 +616,7 @@ export class TransfersAggregate{
 					const errorMessage = "Invalid participant id for payee: " + payerFspId;
 					errorEvent = createParticipantPayeeInvalidErrorEvent(errorMessage, transferId, payerFspId);
 				}
-				
+
 				result.errorEvent = errorEvent;
 				return result;
 			}
@@ -611,7 +632,7 @@ export class TransfersAggregate{
 			// 	}
 			// 	return result;
 			// }
-			
+
 		}
 
 		result.participants = participantsInfo;
@@ -643,22 +664,22 @@ export class TransfersAggregate{
 		let errorEvent!:TransferErrorEvent | null;
 		const result = {errorEvent, participants: null, valid: false };
 
-		const transferPayerParticipant = participants.find((value: IParticipant) => value.id === transfer.payerFspId) 
-		
+		const transferPayerParticipant = participants.find((value: IParticipant) => value.id === transfer.payerFspId)
+
 		if(!transferPayerParticipant) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayerParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayerParticipantNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
-		
+
 		const transferPayeeParticipant = participants.find((value: IParticipant) => value.id === transfer.payeeFspId)
-		
+
 		if(!transferPayeeParticipant) {
 			const errorMessage = "Payee participant not found " + transfer.payeeFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayeeParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayeeParticipantNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -668,7 +689,7 @@ export class TransfersAggregate{
 		if(!hub) {
 			const errorMessage = "Hub participant not found " + HUB_ID + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPrepareHubParticipantNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPrepareHubParticipantNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -683,13 +704,13 @@ export class TransfersAggregate{
 
 
 		result.valid = true;
-		return { 
-			...result, 
+		return {
+			...result,
 			...{
-				participants: { 
-					hub: hub, 
-					payer: transferPayerParticipant, 
-					payee: transferPayeeParticipant 
+				participants: {
+					hub: hub,
+					payer: transferPayerParticipant,
+					payee: transferPayeeParticipant
 				}
 			}
 		};
@@ -704,11 +725,11 @@ export class TransfersAggregate{
 
 		const hubAccount = hub.participantAccounts
 			.find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode) ?? null;
-		
+
 		if(!hubAccount) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPrepareHubParticipantAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPrepareHubParticipantAccountNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -718,7 +739,7 @@ export class TransfersAggregate{
 		if(!payerPosAccount) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayerParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayerParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -728,7 +749,7 @@ export class TransfersAggregate{
 		if(!payerLiqAccount) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayerParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -738,7 +759,7 @@ export class TransfersAggregate{
 		if(!payeePosAccount) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayeeParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayeeParticipantPositionAccountNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
@@ -748,15 +769,15 @@ export class TransfersAggregate{
 		if(!payeeLiqAccount) {
 			const errorMessage = "Payer participant not found " + transfer.payerFspId + " for transfer " + transfer.transferId;
 			this._logger.error(errorMessage);
-			result.errorEvent = createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createPreparePayeeParticipantLiquidityAccountNotFoundErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return result;
 		}
 
 		result.valid = true;
-		
-		return { 
-			...result, 
+
+		return {
+			...result,
 			...{
 				participantAccounts: {
 					hubAccount: hubAccount,
@@ -803,7 +824,7 @@ export class TransfersAggregate{
 		return result;
 	}
 
-	
+
 	private async validatePayerParticipantInfoOrGetErrorEvent(transferId :string, participantId: string | null):Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
 		let participant: IParticipant | null = null;
 		let errorEvent!: TransferErrorEvent | null;
@@ -894,20 +915,20 @@ export class TransfersAggregate{
 		return result;
 	}
 	//#endregion
-	
-	private async getTransferByIrOrGetErrorEvent(transferId:string, fspId:string): Promise<{errorEvent:TransferErrorEvent, transfer:ITransfer | null}> {
+
+	private async getTransferByIrOrGetErrorEvent(transferId:string, fspId:string): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean, transfer:ITransfer | null}> {
 		let transfer!: ITransfer | null;
 		let errorEvent!: TransferErrorEvent;
 
-		const result = { errorEvent, transfer };
+		const result = { errorEvent, transfer, valid: true };
 
-		try{
+		try {
 			transfer = await this._transfersRepo.getTransferById(transferId);
-		}
-		catch(error:any){
+		} catch(error:any){
 			const errorMessage = `Unable to get transfer record for transferId: ${transferId} from repository`;
 			this._logger.error(errorMessage + error.message);
 			result.errorEvent = createUnableToGetTransferByIdErrorEvent(errorMessage, transferId, fspId);
+			result.valid = false;
 			return result;
 		}
 
@@ -915,6 +936,11 @@ export class TransfersAggregate{
 			const errorMessage = `TransferId: ${transferId} could not be found`;
 			this._logger.debug(errorMessage);
 			result.errorEvent = createTransferNotFoundErrorEvent(errorMessage, transferId, fspId);
+			result.valid = false;
+		};
+
+		if(!result.valid) {
+			return result;
 		}
 
 		result.transfer = transfer;
@@ -926,18 +952,16 @@ export class TransfersAggregate{
 		if (transferRecord && participantAccounts) {
 			transferRecord.transferState = TransferState.ABORTED;
 
-			try{
-				await this._transfersRepo.updateTransfer(transferRecord);
+			// try{
+			await this._transfersRepo.updateTransfer(transferRecord);
 
-				await this._accountAndBalancesAdapter.cancelReservation(
-					participantAccounts.payerPosAccount.id, participantAccounts.hubAccount.id,
-					transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId);
-			}
-			catch(err){
-				const errorMessage = `Error cancelling transfer ${transferRecord.transferId} ${err}`;
-				this._logger.error(errorMessage);
-				throw new UnableToCancelTransferError(errorMessage);
-			}
+			this.cancelReservationOrGetErrorEvent(transferRecord, participantAccounts);
+			// }
+			// catch(err){
+			// 	const errorMessage = `Error cancelling transfer ${transferRecord.transferId} ${err}`;
+			// 	this._logger.error(errorMessage);
+			// 	throw new UnableToCancelTransferError(errorMessage);
+			// }
 		}
 
 	}
@@ -968,51 +992,78 @@ export class TransfersAggregate{
 		const result = { errorEvent, valid: false };
 
 		const previousState = transfer.transferState;
-		
+
 		transfer.transferState = TransferState.ABORTED;
 		await this._transfersRepo.updateTransfer(transfer);
-		
+
 		switch(previousState) {
 			case TransferState.RECEIVED: {
 				const errorMessage = `TransferPrepareRequestTimedoutEvt for transferId: ${transfer.transferId}`;
 				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
 				errorEvent = createTransferPrepareTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
-				result.errorEvent = errorEvent;	
+				result.errorEvent = errorEvent;
 				break;
 			}
 			case TransferState.RESERVED: {
 				const errorMessage = `TransferFulfilPreCommittedRequestTimedoutEvt for transferId: ${transfer.transferId}`;
 				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
 				errorEvent = createTransferPreCommittedTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
-				result.errorEvent = errorEvent;	
+				result.errorEvent = errorEvent;
 				break;
 			}
 			case TransferState.COMMITTED: {
 				const errorMessage = `TransferFulfilPostCommittedRequestedTimedoutEvt for transferId: ${transfer.transferId}`;
 				this._logger.error(`${errorMessage}: ${transfer.transferId}`);
 				errorEvent = createTransferPostCommittedTimedoutErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
-				result.errorEvent = errorEvent;	
+				result.errorEvent = errorEvent;
 				break;
 			}
 		}
 
 		return result;
 	}
-	
-	private async cancelReservationAndCommitOrGetErrorEvent(transfer: ITransfer, participantTransferAccounts:ITransferAccounts): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+
+	private async cancelReservationOrGetErrorEvent(transfer: ITransfer, participantTransferAccounts:ITransferAccounts): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
 		let errorEvent!: TransferErrorEvent | null;
 		const result = { errorEvent, valid: false };
-		
+
+		await this._accountAndBalancesAdapter.cancelReservation(
+			participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.hubAccount.id,
+			transfer.amount, transfer.currencyCode, transfer.transferId
+		).catch((err) => {
+			const errorMessage = `Unable to cancel reservation with transferId: ${transfer.transferId} for payer: ${transfer.payerFspId} and payee: ${transfer.payeeFspId}`;
+			this._logger.error(errorMessage + " " + err.message);
+			result.errorEvent = createUnableToCancelReservationErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+			result.valid = false;
+			return false;
+		});
+
+		if(!result.valid) {
+			return result;
+		}
+
+		result.valid = true;
+		return result;
+	}
+
+	private async cancelReservationAndCommitOrGetErrorEvent(transfer: ITransfer, participantTransferAccounts:ITransferAccounts): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
+		let errorEvent!: TransferErrorEvent | null;
+		const result = { errorEvent, valid: true };
+
 		await this._accountAndBalancesAdapter.cancelReservationAndCommit(
 			participantTransferAccounts.payerPosAccount.id, participantTransferAccounts.payeePosAccount.id, participantTransferAccounts.hubAccount.id,
 			transfer.amount, transfer.currencyCode, transfer.transferId
 		).catch((err) => {
 			const errorMessage = `Unable to commit transferId: ${transfer.transferId} for payer: ${transfer.payerFspId} and payee: ${transfer.payeeFspId}`;
 			this._logger.error(errorMessage + " " + err.message);
-			result.errorEvent = createUnableToCancelReservationAndCommitErrorEvent(errorMessage, transfer.payerFspId, transfer.transferId);
+			result.errorEvent = createUnableToCancelReservationAndCommitErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
 			result.valid = false;
 			return false;
 		});
+
+		if(!result.valid) {
+			return result;
+		}
 
 		result.valid = true;
 		return result;
@@ -1026,13 +1077,13 @@ export class TransfersAggregate{
 		const transferAddedToDatabase = await this._transfersRepo.addTransfer(transfer).catch((err) => {
 			const errorMessage = `Error adding transfer for transferId: ${transfer.transferId}.`;
 			this._logger.error(errorMessage + " " + err.message);
-			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, fspId, transfer.transferId);
+			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, transfer.transferId, fspId);
 			return false;
 		});
 
 		if(!transferAddedToDatabase){
 			const errorMessage = `Error adding transfer to database: ${transfer.transferId}`;
-			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, fspId, transfer.transferId);
+			result.errorEvent = createUnableToAddTransferToDatabaseErrorEvent(errorMessage, transfer.transferId, fspId);
 			return result;
 		}
 
@@ -1040,26 +1091,17 @@ export class TransfersAggregate{
 		return result;
 	}
 
-	private async updateTransferOrGetErrorEvent(transferId:string, requesterFspId: string, status:TransferState, transfer: TransferUpdatableFields): Promise<{errorEvent: TransferErrorEvent| null, valid: boolean}> {
+	private async updateTransferOrGetErrorEvent(transfer:ITransfer, requesterFspId: string, status:TransferState, transferFields: TransferUpdatableFields): Promise<{errorEvent: TransferErrorEvent| null, valid: boolean}> {
 		let errorEvent!: TransferErrorEvent | null;
 		const result = { errorEvent, valid: false };
 
-		const transferInDatabase = await this._transfersRepo.getTransferById(transferId);
+		transfer.transferState = status;
+		transfer.updatedAt = Date.now();
 
-		if (!transferInDatabase) {
-			const errorMessage = `Transfer not found for transferId: ${transferId}`;
-			this._logger.error(errorMessage);
-			result.errorEvent = createTransferNotFoundErrorEvent(errorMessage, requesterFspId, transferId);
-			return result;
-		}
-
-		transferInDatabase.transferState = status;
-		transferInDatabase.updatedAt = Date.now();
-
-		const transferUpdated = await this._transfersRepo.updateTransfer(transferInDatabase).catch((err) => {
-			const errorMessage = `Error updating transfer for transferId: ${transferId}.`;
+		const transferUpdated = await this._transfersRepo.updateTransfer(transfer).catch((err) => {
+			const errorMessage = `Error updating transfer for transferId: ${transfer.transferId}.`;
 			this._logger.error(errorMessage + " " + err.message);
-			result.errorEvent = createUnableToUpdateTransferInDatabaseErrorEvent(errorMessage, requesterFspId, transferId);
+			result.errorEvent = createUnableToUpdateTransferInDatabaseErrorEvent(errorMessage, requesterFspId, transfer.transferId);
 			return false;
 		});
 
@@ -1075,7 +1117,7 @@ export class TransfersAggregate{
 	//#region Hash generation
 	private generateSha256(object:any):string {
 		const hashSha256 = Crypto.createHash('sha256')
-						
+
 		// updating data
 		.update(JSON.stringify(object))
 
