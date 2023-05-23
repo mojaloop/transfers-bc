@@ -371,42 +371,38 @@ export class TransfersAggregate{
 		}
 
 		const transferRecord = foundTransfer.transfer;
+		let transferErrorEvent: TransferErrorEvent|null = null;
 
-		try{
-			const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
-			if(participantsInfo.participants.length === 0){
-				this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
-				return participantsInfo.errorEvent as TransferErrorEvent;
-			}
-
-			const transferParticipants = this.getTransferParticipantsOrGetErrorEvent(participantsInfo.participants, transferRecord);
-			if(!transferParticipants.valid || !transferParticipants.participants){
-				this._logger.error(`Invalid transfer participants for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
-				return transferParticipants.errorEvent as TransferErrorEvent;
-			}
-
-			const transferParticipantTransferAccounts = this.getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants.participants,transferRecord);
-			if(!transferParticipantTransferAccounts.valid || !transferParticipantTransferAccounts.participantAccounts){
-				this._logger.error(`Invalid participants accounts for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
-				return transferParticipantTransferAccounts.errorEvent as TransferErrorEvent;
-			}
-
-			participantTransferAccounts = transferParticipantTransferAccounts.participantAccounts;
-
-
-		} catch (error: any){
-			this._logger.error(error.message);
-			if(participantTransferAccounts) {
-				const transferCanceled = await this.cancelReservationOrGetErrorEvent(transferRecord, participantTransferAccounts);
-				if(!transferCanceled.valid){
-					this._logger.error(`Unable to cancel reservation transferId: ${transferRecord.transferId}, payer: ${transferRecord.payerFspId}, payeeFspId: ${transferRecord.payeeFspId}`);
-					return transferCanceled.errorEvent as TransferErrorEvent;
-				}
-			}
-			throw error;
+		const participantsInfo = await this.getParticipantsInfoOrGetErrorEvent(transferRecord.transferId, transferRecord?.payerFspId, transferRecord?.payeeFspId);
+		if(participantsInfo.participants.length === 0){
+			this._logger.error(`Invalid participants info for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+			transferErrorEvent = participantsInfo.errorEvent;
 		}
 
-		const canceledAndCommittedTransfer = await this.cancelReservationAndCommitOrGetErrorEvent(transferRecord, participantTransferAccounts)
+		const transferParticipants = this.getTransferParticipantsOrGetErrorEvent(participantsInfo.participants, transferRecord);
+		if(!transferParticipants.valid || !transferParticipants.participants){
+			this._logger.error(`Invalid transfer participants for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+			transferErrorEvent = participantsInfo.errorEvent;
+		}
+
+		const transferParticipantTransferAccounts = this.getTransferParticipantsAccountsOrGetErrorEvent(transferParticipants.participants! ,transferRecord);
+		if(!transferParticipantTransferAccounts.valid || !transferParticipantTransferAccounts.participantAccounts){
+			this._logger.error(`Invalid participants accounts for payerFspId: ${transferRecord.payerFspId} and payeeFspId: ${transferRecord.payeeFspId}`);
+			transferErrorEvent = participantsInfo.errorEvent;
+		}
+
+		const transferCanceled = await this.cancelReservationOrGetErrorEvent(transferRecord, transferParticipantTransferAccounts.participantAccounts!);
+		if(!transferCanceled.valid){
+			this._logger.error(`Unable to cancel reservation transferId: ${transferRecord.transferId}, payer: ${transferRecord.payerFspId}, payeeFspId: ${transferRecord.payeeFspId}`);
+			transferErrorEvent = participantsInfo.errorEvent;
+		}
+
+
+		if(transferErrorEvent !== null){
+			return participantsInfo.errorEvent as TransferErrorEvent;
+		}
+
+		const canceledAndCommittedTransfer = await this.cancelReservationAndCommitOrGetErrorEvent(transferRecord, transferParticipantTransferAccounts.participantAccounts!)
 		if(!canceledAndCommittedTransfer.valid){
 			this._logger.error(`Couldn't cancel reservation and commit for transfer: ${transferRecord.transferId}`);
 			return canceledAndCommittedTransfer.errorEvent as TransferErrorEvent;
