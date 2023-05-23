@@ -85,19 +85,19 @@ export class TransfersEventHandler{
 
 				switch (message.msgName) {
 					case TransferPrepareRequestedEvt.name:
-						transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt)
+						transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt);
 						break;
 
 					case TransferFulfilCommittedRequestedEvt.name:
-						transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilCommittedRequestedEvt)
+						transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilCommittedRequestedEvt);
 						break;
 
 					case TransferRejectRequestedEvt.name:
-						transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt)
+						transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt);
 						break;
 
 					case TransferQueryReceivedEvt.name:
-						transferCmd = this._prepareEventToQueryCommand(message as TransferQueryReceivedEvt)
+						transferCmd = this._prepareEventToQueryCommand(message as TransferQueryReceivedEvt);
 						break;
 
 					default: {
@@ -131,7 +131,7 @@ export class TransfersEventHandler{
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
 		return cmd;
 	}
 
@@ -145,7 +145,7 @@ export class TransfersEventHandler{
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
 		return cmd;
 	}
 
@@ -156,7 +156,7 @@ export class TransfersEventHandler{
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new RejectTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
 		return cmd;
 	}
 
@@ -166,7 +166,7 @@ export class TransfersEventHandler{
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new QueryTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
 		return cmd;
 	}
 
