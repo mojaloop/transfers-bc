@@ -140,7 +140,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		endDate?:number,
 		id?:string
 	):Promise<ITransfer[]>{
-		const filter:any = {$and:[]};
+		const filter:{$and: {[key: string]: {[key: string]: string | number} | string | number }[]} = {$and:[]};
 		if(id){
 			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
 		}

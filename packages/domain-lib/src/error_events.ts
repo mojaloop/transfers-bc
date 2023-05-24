@@ -103,7 +103,6 @@ import {
     TransferPreparePayeeNotApprovedEvt,
     TransferPreparePayeeNotApprovedEvtPayload,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import { ParticipantHubNotFoundError, ParticipantPayeeNotFoundError, ParticipantPayerNotFoundError } from "./errors";
 
 export function createUnknownErrorEvent(errorDescription:string, fspId:string, transferId:string): TransfersBCUnknownErrorEvent{
     const unknownErrorPayload: TransfersBCUnknownErrorPayload = {

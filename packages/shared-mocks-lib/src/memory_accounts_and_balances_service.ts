@@ -86,7 +86,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 			pendingCreditBalance: null,
 			balance: null,
 			timestampLastJournalEntry: null
-		} 
+		}; 
 
 		return Promise.resolve(account);
 	}
@@ -104,7 +104,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 			pendingCreditBalance: null,
 			balance: null,
 			timestampLastJournalEntry: null
-		} 
+		}; 
 
 		return Promise.resolve([account]);
 	}
@@ -122,7 +122,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 			pendingCreditBalance: null,
 			balance: null,
 			timestampLastJournalEntry: null
-		} 
+		}; 
 
 		return Promise.resolve([account]);
 	}
@@ -147,7 +147,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 			debitedAccountId: "",
 			creditedAccountId: "",
 			timestamp: null
-		} 
+		}; 
 
 		return Promise.resolve([journalEntry]);
 	}
