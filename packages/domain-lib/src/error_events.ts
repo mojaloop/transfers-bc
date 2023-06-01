@@ -154,13 +154,15 @@ export function createParticipantPayeeInvalidErrorEvent(errorDescription:string,
     return errorEvent;
 }
 
-export function createLiquidityCheckFailedErrorEvent(errorDescription:string, transferId: string, fspId: string): TransferPrepareLiquidityCheckFailedEvt {
+export function createLiquidityCheckFailedErrorEvent(errorDescription:string, transferId: string, fspId: string, amount: string, currency: string): TransferPrepareLiquidityCheckFailedEvt {
     const invalidPayerParticipantErrorPayload: TransferPrepareLiquidityCheckFailedPayload = {
         transferId,
         fspId,
-        errorDescription
+        errorDescription,
+        amount,
+        currency
     };
-    const errorEvent = new TransferPrepareInvalidPayeeCheckFailedEvt(invalidPayerParticipantErrorPayload);
+    const errorEvent = new TransferPrepareLiquidityCheckFailedEvt(invalidPayerParticipantErrorPayload);
     return errorEvent;
 }
 

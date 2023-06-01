@@ -513,7 +513,7 @@ export class TransfersAggregate{
 	}
 
 	private async rejectTransfer(message: TransferRejectRequestedEvt):Promise<TransferRejectRequestProcessedEvt | TransferErrorEvent> {
-		this._logger.debug(`rejectTransfer() - Got transferRejectRequesteddEvt msg for transferId: ${message.payload.transferId}`);
+		this._logger.debug(`rejectTransfer() - Got transferRejectRequestedEvt msg for transferId: ${message.payload.transferId}`);
 
 		const foundTransfer = await this.getTransferByIrOrGetErrorEvent(message.payload.transferId, message.payload.transferId);
 		if(!foundTransfer.valid || !foundTransfer.transfer){
@@ -638,7 +638,7 @@ export class TransfersAggregate{
 			const error = (err as Error).message;
 			const errorMessage = `Unable to check liquidity and reserve for transferId: ${transfer.transferId}`;
 			this._logger.error(`${errorMessage}: ${transfer.transferId} - ${error}`);
-			errorEvent = createLiquidityCheckFailedErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId);
+			errorEvent = createLiquidityCheckFailedErrorEvent(errorMessage, transfer.transferId, transfer.payerFspId, transfer.amount, transfer.currencyCode);
 			result.errorEvent = errorEvent;
 			return result;
 		}
@@ -959,7 +959,7 @@ export class TransfersAggregate{
 
 	}
 
-
+	// A SchedulingBC event should be responsible for triggering this
 	private async abortTransferAndGetErrorEvent(transfer: ITransfer): Promise<{errorEvent:TransferErrorEvent | null, valid: boolean}>{
 		let errorEvent!: TransferErrorEvent | null;
 		const result = { errorEvent, valid: false };
