@@ -64,7 +64,6 @@ import {
 
 /* import configs - other imports stay above */
 import configClient from "./config";
-import path from "path";
 const BC_NAME = configClient.boundedContextName;
 const APP_NAME = configClient.applicationName;
 const APP_VERSION = configClient.applicationVersion;
