@@ -38,7 +38,9 @@ import {
 	TransferPrepareInvalidPayerCheckFailedEvt, 
 	TransferPrepareInvalidPayeeCheckFailedEvt,
 	TransferQueryInvalidPayerCheckFailedEvt, 
-	TransferQueryInvalidPayeeCheckFailedEvt 
+	TransferQueryInvalidPayeeCheckFailedEvt, 
+	TransferUnableToGetTransferByIdEvt,
+	TransferNotFoundEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 
@@ -103,9 +105,6 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
-type OptionalExceptFor<T, TRequired extends keyof T> = Partial<T> & Pick<T, TRequired>
-
-export type TransferUpdatableFields = OptionalExceptFor<ITransfer, "transferState">
-
 export type TransferErrorEvent = TransfersBCUnknownErrorEvent |
-    TransferPrepareInvalidPayerCheckFailedEvt | TransferPrepareInvalidPayeeCheckFailedEvt | TransferQueryInvalidPayerCheckFailedEvt | TransferQueryInvalidPayeeCheckFailedEvt
+    TransferPrepareInvalidPayerCheckFailedEvt | TransferPrepareInvalidPayeeCheckFailedEvt | TransferQueryInvalidPayerCheckFailedEvt | TransferQueryInvalidPayeeCheckFailedEvt |
+	TransferUnableToGetTransferByIdEvt | TransferNotFoundEvt
