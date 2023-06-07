@@ -47,10 +47,8 @@ import {
 export declare const enum TransferState {
     RECEIVED = "RECEIVED", 		// initial state
 	RESERVED = "RESERVED", 		// after prepare
-	REJECTED = "REJECTED", 		// could not prepare (ex: no liquidity)
     COMMITTED = "COMMITTED", 	// after fulfil (final state of successful transfer)
     ABORTED = "ABORTED", 		// this should not be called like this
-    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
 export declare const enum AccountType {

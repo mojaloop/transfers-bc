@@ -136,7 +136,7 @@ export const mockedTransfer3 : ITransfer = {
 		}
 		]
 	},
-	transferState: TransferState.REJECTED,
+	transferState: TransferState.ABORTED,
 	ilpPacket: "omnis",
 	condition: "omnis",
 	fulFillment: 1,
