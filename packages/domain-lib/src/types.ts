@@ -33,15 +33,7 @@
 "use strict";
 
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { 
-	TransfersBCUnknownErrorEvent, 
-	TransferPrepareInvalidPayerCheckFailedEvt, 
-	TransferPrepareInvalidPayeeCheckFailedEvt,
-	TransferQueryInvalidPayerCheckFailedEvt, 
-	TransferQueryInvalidPayeeCheckFailedEvt, 
-	TransferUnableToGetTransferByIdEvt,
-	TransferNotFoundEvt
-} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { DomainErrorEventMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 
 
 export declare const enum TransferState {
@@ -103,6 +95,4 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
-export type TransferErrorEvent = TransfersBCUnknownErrorEvent |
-    TransferPrepareInvalidPayerCheckFailedEvt | TransferPrepareInvalidPayeeCheckFailedEvt | TransferQueryInvalidPayerCheckFailedEvt | TransferQueryInvalidPayeeCheckFailedEvt |
-	TransferUnableToGetTransferByIdEvt | TransferNotFoundEvt
+export type TransferErrorEvent = DomainErrorEventMsg;
