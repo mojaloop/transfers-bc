@@ -147,7 +147,7 @@ export class TransfersAggregate{
 		if(eventMessage) {
 			const errorEvent = eventMessage;
 			errorEvent.fspiopOpaqueState = command.fspiopOpaqueState;
-			await this.publishEvent(errorEvent);
+			await this._messageProducer.send(errorEvent);
 			return;
 		}
 
@@ -198,28 +198,17 @@ export class TransfersAggregate{
 				errorDescription: errorMessage
 			});
 			eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
-			await this.publishEvent(eventToPublish);
+			await this._messageProducer.send(eventToPublish);
 		}
 
 		// The eventToPublish might be void due to the possibility of a repeated transfer request
 		// where we don't want to publish an event and ignore the request
 		if(eventToPublish) {
 			eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
-			await this.publishEvent(eventToPublish);
+			await this._messageProducer.send(eventToPublish);
 		}
 	}
 
-	private async publishEvent(eventToPublish: TransferPreparedEvt | TransferCommittedFulfiledEvt | TransferQueryResponseEvt | TransferRejectRequestProcessedEvt | TransferErrorEvent| TransferErrorEvent[]): Promise<void> {
-		if (Array.isArray(eventToPublish)) {
-			for await (const event of eventToPublish) {
-				await this._messageProducer.send(event);
-			}
-		} else {
-			if (eventToPublish){
-				await this._messageProducer.send(eventToPublish);
-			}
-		}
-	}
 	//#endregion
 
 	//#region TransfersPrepareRequestedEvt
