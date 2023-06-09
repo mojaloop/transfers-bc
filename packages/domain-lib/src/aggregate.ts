@@ -142,7 +142,6 @@ export class TransfersAggregate{
 		const requesterFspId = command.fspiopOpaqueState?.requesterFspId;
 		const transferId = command.payload?.transferId;
 		const eventMessage = this.validateMessage(command);
-		let commandEvt = null;
 		let eventToPublish = null;
 
 		if(eventMessage) {
@@ -155,29 +154,17 @@ export class TransfersAggregate{
 		try {
 			switch(command.msgName) {
 				case PrepareTransferCmd.name:
-					commandEvt = new TransferPrepareRequestedEvt(command.payload);
-					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
-
-					eventToPublish = await this.prepareTransfer(commandEvt);
+					eventToPublish = await this.prepareTransfer(command as PrepareTransferCmd);
 					break;
 				case CommitTransferFulfilCmd.name:
-					commandEvt = new TransferFulfilCommittedRequestedEvt(command.payload);
-					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
-
-					eventToPublish = await this.fulfilTransfer(commandEvt);
+					eventToPublish = await this.fulfilTransfer(command as CommitTransferFulfilCmd);
 					break;
 				case RejectTransferCmd.name:
-					commandEvt = new TransferRejectRequestedEvt(command.payload);
-					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
-
-					eventToPublish = await this.rejectTransfer(commandEvt);
+					eventToPublish = await this.rejectTransfer(command as RejectTransferCmd);
 					break;
 				// TODO move this to the event handler
 				case QueryTransferCmd.name:
-					commandEvt = new TransferQueryReceivedEvt(command.payload);
-					commandEvt.fspiopOpaqueState = command.fspiopOpaqueState;
-
-					eventToPublish = await this.queryTransfer(commandEvt);
+					eventToPublish = await this.queryTransfer(command as QueryTransferCmd);
 					break;
 				default: {
 					const errorMessage = `Message type has invalid format or value ${command.msgName}`;
@@ -208,9 +195,9 @@ export class TransfersAggregate{
 		if(eventToPublish) {
 			eventToPublish.fspiopOpaqueState = command.fspiopOpaqueState;
 
-			if(eventToPublish instanceof DomainErrorEventMsg && commandEvt) {
+			if(eventToPublish instanceof DomainErrorEventMsg) {
 				const domainErrorEvent:DomainErrorEventMsg = eventToPublish as DomainErrorEventMsg;
-				domainErrorEvent.sourceMessageName = commandEvt.msgName;
+				domainErrorEvent.sourceMessageName = command.msgName;
 				eventToPublish = domainErrorEvent; 
 			}
 			await this._messageProducer.send(eventToPublish);
@@ -220,7 +207,7 @@ export class TransfersAggregate{
 	//#endregion
 
 	//#region TransfersPrepareRequestedEvt
-	private async prepareTransfer(message: TransferPrepareRequestedEvt):Promise<DomainEventMsg | DomainErrorEventMsg | void> {
+	private async prepareTransfer(message: PrepareTransferCmd):Promise<DomainEventMsg | DomainErrorEventMsg | void> {
 		this._logger.debug(`prepareTransfer() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
 		const payerFspId = message.payload.payerFsp;
@@ -322,7 +309,7 @@ export class TransfersAggregate{
 			currencyCode: message.payload.currencyCode,
 			ilpPacket: message.payload.ilpPacket,
 			condition: message.payload.condition,
-			expirationTimestamp: message.payload.expiration,
+			expirationTimestamp: message.payload.expiration as unknown as number, // TODO temporary type cast, confirm fields are the same type 
 			transferState: TransferState.RECEIVED,
 			extensionList: message.payload.extensionList,
 			settlementModel: settlementModel,
@@ -419,7 +406,7 @@ export class TransfersAggregate{
 			currencyCode: message.payload.currencyCode,
 			ilpPacket: message.payload.ilpPacket,
 			condition: message.payload.condition,
-			expiration: message.payload.expiration,
+			expiration: message.payload.expiration as unknown as number, // TODO temporary type cast, confirm fields are the same type 
 			extensionList: message.payload.extensionList
 		};
 
@@ -434,7 +421,7 @@ export class TransfersAggregate{
 	//#endregion
 
 	//#region TransfersFulfilCommittedRequestedEvt
-	private async fulfilTransfer(message: TransferFulfilCommittedRequestedEvt):Promise<DomainEventMsg | DomainErrorEventMsg> {
+	private async fulfilTransfer(message: CommitTransferFulfilCmd):Promise<DomainEventMsg | DomainErrorEventMsg> {
 		this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
 		const requesterFspId = message.fspiopOpaqueState.requesterFspId;
@@ -595,7 +582,7 @@ export class TransfersAggregate{
 	//#endregion
 
 	//#region TransferQueryReceivedEvt
-	private async queryTransfer(message: TransferQueryReceivedEvt):Promise<DomainEventMsg | DomainErrorEventMsg> {
+	private async queryTransfer(message: QueryTransferCmd):Promise<DomainEventMsg | DomainErrorEventMsg> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
 
 		const requesterFspId = message.fspiopOpaqueState.requesterFspId;
@@ -655,7 +642,7 @@ export class TransfersAggregate{
 	//#endregion
 
 	//#region TransferRejectRequestedEvt
-	private async rejectTransfer(message: TransferRejectRequestedEvt):Promise<DomainEventMsg | DomainErrorEventMsg> {
+	private async rejectTransfer(message: RejectTransferCmd):Promise<DomainEventMsg | DomainErrorEventMsg> {
 		this._logger.debug(`rejectTransfer() - Got transferRejectRequestedEvt msg for transferId: ${message.payload.transferId}`);
 
 		let getTransferRep:ITransfer | null = null;

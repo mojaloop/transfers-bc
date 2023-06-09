@@ -128,7 +128,8 @@ export class TransfersEventHandler{
 			ilpPacket: evt.payload.ilpPacket,
 			expiration: evt.payload.expiration as unknown as string,
 			condition: evt.payload.condition,
-			prepare: evt.fspiopOpaqueState
+			prepare: evt.fspiopOpaqueState,
+			extensionList: null
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;

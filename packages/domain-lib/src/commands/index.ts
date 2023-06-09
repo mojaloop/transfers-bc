@@ -44,6 +44,12 @@ export type PrepareTransferCmdPayload = {
 	ilpPacket: string;
 	expiration: string;
 	condition: string;
+	extensionList: {
+		extension: {
+			key: string;
+			value: string;
+		}[];
+	} | null;
 	prepare: {
 		headers: { [key: string]: string };
 		payload: string;
