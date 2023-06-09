@@ -85,7 +85,9 @@ import {
 	TransferFulfilCommittedRequestedTimedoutEvt,
 	TransferFulfilPostCommittedRequestedTimedoutEvt,
 	TransferQueryInvalidPayeeCheckFailedEvt,
-	TransferCancelReservationAndCommitFailedEvt
+	TransferCancelReservationAndCommitFailedEvt,
+	TransferUnableToGetSettlementModelEvt,
+	TransferSettlementModelNotFoundEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
 	PrepareTransferCmd,
@@ -93,8 +95,12 @@ import {
 	RejectTransferCmd,
 	QueryTransferCmd
 } from "./commands";
-import {IAccountsBalancesAdapter} from "./interfaces/infrastructure";
-import {IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
+import {
+	ITransfersRepository,
+	IParticipantsServiceAdapter,
+	IAccountsBalancesAdapter,
+	ISettlementsServiceAdapter
+} from "./interfaces/infrastructure";
 import {
 	AccountType,
 	ITransfer,
@@ -113,17 +119,20 @@ export class TransfersAggregate{
 	private _messageProducer: IMessageProducer;
 	private _participantAdapter: IParticipantsServiceAdapter;
 	private _accountAndBalancesAdapter: IAccountsBalancesAdapter;
+	private _settlementsAdapter: ISettlementsServiceAdapter;
 
 	constructor(
 		logger: ILogger,
 		transfersRepo:ITransfersRepository,
 		participantsServiceAdapter: IParticipantsServiceAdapter,
 		messageProducer: IMessageProducer,
-		accountAndBalancesAdapter: IAccountsBalancesAdapter
+		accountAndBalancesAdapter: IAccountsBalancesAdapter,
+		settlementsAdapter: ISettlementsServiceAdapter
 	) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._transfersRepo = transfersRepo;
 		this._participantAdapter = participantsServiceAdapter;
+		this._settlementsAdapter = settlementsAdapter;
 		this._messageProducer = messageProducer;
 		this._accountAndBalancesAdapter = accountAndBalancesAdapter;
 
@@ -230,14 +239,6 @@ export class TransfersAggregate{
 		
 		let transferErrorEvent: TransferErrorEvent|null = null;
 
-		// TODO call the settlements lib to get the correct settlement model
-		// export function obtainSettlementModelFrom(
-		// 	transferAmount: bigint,
-		// 	debitAccountCurrency: string,
-		// 	creditAccountCurrency: string
-		// ): Promise<string> {
-		const settlementModel = "DEFAULT"; // FIXED for now
-
 		const now = Date.now();
 
 		const hash = this.generateSha256({
@@ -297,6 +298,36 @@ export class TransfersAggregate{
 					return event;
 				}
 			}
+		}
+
+		let settlementModel: string | null = null;
+		try {
+			settlementModel = await this._settlementsAdapter.getSettlementModel(BigInt(message.payload.amount), message.payload.currencyCode, message.payload.currencyCode, message.payload.extensionList?.extension ? message.payload.extensionList.extension : []);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			return new TransferUnableToGetSettlementModelEvt({
+				transferId: message.payload.transferId,
+				amount: message.payload.amount,
+				payerCurrency: message.payload.currencyCode,
+				payeeCurrency: message.payload.currencyCode,
+				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
+				errorDescription: errorMessage
+			});
+		}
+
+		if(!settlementModel) {
+			const errorMessage = `SettlementModel not found for transferId: ${message.payload.transferId}`;
+			this._logger.error(errorMessage);
+			return new TransferSettlementModelNotFoundEvt({
+				transferId: message.payload.transferId,
+				amount: message.payload.amount,
+				payerCurrency: message.payload.currencyCode,
+				payeeCurrency: message.payload.currencyCode,
+				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
+				errorDescription: errorMessage
+			});
 		}
 
 		const transfer: ITransfer = {

@@ -35,9 +35,10 @@ import {
 	TransfersAggregate,
 	IParticipantsServiceAdapter,
 	ITransfersRepository,
-	IAccountsBalancesAdapter
+	IAccountsBalancesAdapter,
+	ISettlementsServiceAdapter
 } from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter } from "@mojaloop/transfers-bc-implementations-lib";
+import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
@@ -88,6 +89,7 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 
 const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
 const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
+const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localhost:3600";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
@@ -117,6 +119,7 @@ export class Service {
 	static participantService: IParticipantsServiceAdapter;
 	static transfersRepo: ITransfersRepository;
 	static accountAndBalancesAdapter: IAccountsBalancesAdapter;
+	static settlementsAdapter: ISettlementsServiceAdapter;
 
 	static async start(
 		logger?: ILogger,
@@ -126,6 +129,7 @@ export class Service {
 		participantAdapter?: IParticipantsServiceAdapter,
 		transfersRepo?: ITransfersRepository,
 		accountAndBalancesAdapter?: IAccountsBalancesAdapter,
+		settlementsAdapter?: ISettlementsServiceAdapter,
 		aggregate?: TransfersAggregate
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
@@ -206,8 +210,13 @@ export class Service {
 		}
 		this.accountAndBalancesAdapter = accountAndBalancesAdapter;
 
+		if (!settlementsAdapter) {
+			settlementsAdapter = new SettlementsAdapter(logger, SETTLEMENTS_SVC_URL);
+		}
+		this.settlementsAdapter = settlementsAdapter;
+
 		if (!aggregate) {
-			aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter);
+			aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.settlementsAdapter);
 		}
 		this.aggregate = aggregate;
 

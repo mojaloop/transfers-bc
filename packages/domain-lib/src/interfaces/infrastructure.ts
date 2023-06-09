@@ -102,3 +102,7 @@ export interface IAccountsBalancesAdapter {
         transferAmount: string, currencyCode: string, transferId: string
     ): Promise<void>;
 }
+
+export interface ISettlementsServiceAdapter {
+    getSettlementModel(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string | null>;
+}

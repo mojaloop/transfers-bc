@@ -40,6 +40,8 @@
     "@mojaloop/security-bc-client-lib": "~0.1.31",
     "@mojaloop/security-bc-public-types-lib": "~0.1.19",
     "@mojaloop/participants-bc-client-lib": "~0.1.4",
+    "@mojaloop/settlements-bc-model-lib": "~0.1.1",
+    "@mojaloop/settlements-bc-public-types-lib": "~0.1.1",
     "mongodb": "^5.3.0"
   },
   "devDependencies": {
