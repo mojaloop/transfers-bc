@@ -87,7 +87,8 @@ import {
 	TransferQueryInvalidPayeeCheckFailedEvt,
 	TransferCancelReservationAndCommitFailedEvt,
 	TransferUnableToGetSettlementModelEvt,
-	TransferSettlementModelNotFoundEvt
+	TransferSettlementModelNotFoundEvt,
+	TransferPayerNetDebitCapCurrencyNotFoundEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
 	PrepareTransferCmd,
@@ -367,8 +368,30 @@ export class TransfersAggregate{
 		}
 		//#endregion This will be replaced by cached version
 	
-		// TODO put net debit cap in the participant struct
-		const payerNdc = "0";
+		const payerParticipant = participantsInfo.participants.find(participant => participant.id = payerFspId);
+
+		if(!payerParticipant) {
+			const errorMessage = `Payer participant or Net Debit Cap not found ${transfer.payerFspId}, transferId: ${transfer.transferId}`;
+			this._logger.error(errorMessage);
+			return new TransferPayerNotFoundFailedEvt({
+				transferId: transfer.transferId,
+				payerFspId: transfer.payerFspId,
+				errorDescription: errorMessage
+			});
+		}
+		
+		const payerNdc = payerParticipant.netDebitCaps.find(netDebitCap => netDebitCap.currencyCode === transfer.currencyCode);
+
+		if(!payerNdc) {
+			const errorMessage = `Payer participant has no Net Debit Cap for currency: ${transfer.currencyCode}, participant ${transfer.payerFspId}`;
+			this._logger.error(errorMessage);
+			return new TransferPayerNetDebitCapCurrencyNotFoundEvt({
+				transferId: transfer.transferId,
+				payerFspId: transfer.payerFspId,
+				currencyCode: transfer.currencyCode,
+				errorDescription: errorMessage
+			});
+		}
 
 		// We can simply return the error event here since we have no database operations yet 
 		if(transferErrorEvent) {
@@ -379,7 +402,7 @@ export class TransfersAggregate{
 			if(participantAccounts?.participantAccounts){
 				await this._accountAndBalancesAdapter.checkLiquidAndReserve(
 					participantAccounts.participantAccounts.payerPosAccount.id, participantAccounts.participantAccounts.payerLiqAccount.id, participantAccounts.participantAccounts.hubAccount.id,
-					transfer.amount, transfer.currencyCode, payerNdc, transfer.transferId
+					transfer.amount, transfer.currencyCode, payerNdc.currentValue.toString(), transfer.transferId
 				);
 			}
 		} catch(err: unknown) {
