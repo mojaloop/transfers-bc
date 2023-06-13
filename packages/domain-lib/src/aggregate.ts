@@ -290,6 +290,7 @@ export class TransfersAggregate{
 						transferId: getTransferRep.transferId,
 						transferState: getTransferRep.transferState,
 						completedTimestamp: getTransferRep.completedTimestamp as unknown as string,
+						fulfilment: getTransferRep.fulFillment,
 						extensionList: getTransferRep.extensionList
 					};
 
@@ -684,6 +685,7 @@ export class TransfersAggregate{
 			transferId: getTransferRep.transferId,
 			transferState: getTransferRep.transferState,
 			completedTimestamp: getTransferRep.completedTimestamp as unknown as string,
+			fulfilment: getTransferRep.fulFillment,
 			extensionList: getTransferRep.extensionList
 		};
 
