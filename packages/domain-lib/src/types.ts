@@ -69,7 +69,7 @@ export interface ITransfer {
 	currencyCode: string;
 	ilpPacket: string;				// move to opaque object
 	condition: string;				// move to opaque object
-	fulFillment: number | null,		// move to opaque object
+	fulFillment: string | null,		// move to opaque object
 	expirationTimestamp: number;
 	transferState: TransferState,
 	completedTimestamp: number | null,

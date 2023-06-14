@@ -79,7 +79,7 @@ export class PrepareTransferCmd extends CommandMsg {
 export type CommitTransferFulfilCmdPayload = {
 	transferId: string;
 	transferState: string,
-	fulfilment: number | null,
+	fulfilment: string | null,
 	completedTimestamp: number | null,
 	extensionList: {
         extension: {
