@@ -433,7 +433,7 @@ export class TransfersAggregate{
 					await this._accountAndBalancesAdapter.cancelReservation(
 						participantAccounts.participantAccounts.payerPosAccount.id, participantAccounts.participantAccounts.hubAccount.id,
 						transfer.amount, transfer.currencyCode, transfer.transferId
-					)
+					);
 				} catch(err: unknown) {
 					const error = (err as Error).message;
 					const errorMessage = `Unable to cancel reservation with transferId: ${transfer.transferId} for payer: ${transfer.payerFspId} and payee: ${transfer.payeeFspId}`;
@@ -547,7 +547,7 @@ export class TransfersAggregate{
 					await this._accountAndBalancesAdapter.cancelReservation(
 						transferParticipantTransferAccounts.participantAccounts.payerPosAccount.id, transferParticipantTransferAccounts.participantAccounts.hubAccount.id,
 						getTransferRep.amount, getTransferRep.currencyCode, getTransferRep.transferId
-					)
+					);
 				} catch(err: unknown) {
 					const error = (err as Error).message;
 					const errorMessage = `Unable to cancel reservation with transferId: ${getTransferRep.transferId} for payer: ${getTransferRep.payerFspId} and payee: ${getTransferRep.payeeFspId}`;
@@ -562,7 +562,7 @@ export class TransfersAggregate{
 			
 			try {
 				getTransferRep.transferState = TransferState.ABORTED;
-				await this._transfersRepo.updateTransfer(getTransferRep)
+				await this._transfersRepo.updateTransfer(getTransferRep);
 			} catch(err: unknown) {
 				const error = (err as Error).message;
 				const errorMessage = `Error updating transfer for transferId: ${getTransferRep.transferId}.`;
@@ -582,7 +582,7 @@ export class TransfersAggregate{
 				await this._accountAndBalancesAdapter.cancelReservationAndCommit(
 					transferParticipantTransferAccounts.participantAccounts.payerPosAccount.id, transferParticipantTransferAccounts.participantAccounts.payeePosAccount.id, transferParticipantTransferAccounts.participantAccounts.hubAccount.id,
 					getTransferRep.amount, getTransferRep.currencyCode, getTransferRep.transferId
-				)
+				);
 			}
 		} catch(err: unknown) {
 			const error = (err as Error).message;
@@ -603,7 +603,7 @@ export class TransfersAggregate{
 			getTransferRep.completedTimestamp = message.payload.completedTimestamp;
 			getTransferRep.extensionList = message.payload.extensionList;
 
-			await this._transfersRepo.updateTransfer(getTransferRep)
+			await this._transfersRepo.updateTransfer(getTransferRep);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Error updating transfer for transferId: ${getTransferRep.transferId}.`;
@@ -747,7 +747,7 @@ export class TransfersAggregate{
 			await this._accountAndBalancesAdapter.cancelReservation(
 				transferParticipantTransferAccounts.participantAccounts.payerPosAccount.id, transferParticipantTransferAccounts.participantAccounts.hubAccount.id,
 				getTransferRep.amount, getTransferRep.currencyCode, getTransferRep.transferId
-			)
+			);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to cancel reservation with transferId: ${getTransferRep.transferId} for payer: ${getTransferRep.payerFspId} and payee: ${getTransferRep.payeeFspId}`;
@@ -761,7 +761,7 @@ export class TransfersAggregate{
 
 		try {
 			getTransferRep.transferState = TransferState.ABORTED;
-			await this._transfersRepo.updateTransfer(getTransferRep)
+			await this._transfersRepo.updateTransfer(getTransferRep);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Error updating transfer for transferId: ${getTransferRep.transferId}.`;
@@ -1059,7 +1059,7 @@ export class TransfersAggregate{
 			payeePosAccount: payeePosAccount,
 			payeeLiqAccount: payeeLiqAccount
 			
-		}
+		};
 		
 		return result;
 	}
