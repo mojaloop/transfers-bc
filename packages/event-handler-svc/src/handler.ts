@@ -31,28 +31,41 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IMessage,IMessageConsumer, IMessageProducer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
-	TransfersBCTopics,
-	TransferPrepareRequestedEvt,
-	TransferFulfilCommittedRequestedEvt
+    CommandMsg,
+    IMessage,
+    IMessageConsumer,
+    IMessageProducer,
+    MessageTypes
+} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+    TransferFulfilCommittedRequestedEvt,
+    TransferPrepareRequestedEvt,
+    TransfersBCTopics
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {
-	CommitTransferFulfilCmd,
-	PrepareTransferCmd,
-} from "@mojaloop/transfers-bc-domain-lib";
+import {CommitTransferFulfilCmd, PrepareTransferCmd,} from "@mojaloop/transfers-bc-domain-lib";
+import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
 export class TransfersEventHandler{
 	private _logger: ILogger;
 	private _auditClient: IAuditClient;
 	private _messageConsumer: IMessageConsumer;
 	private _messageProducer: IMessageProducer;
+    private _transferDurationHisto:IHistogram;
+    private _histo:IHistogram;
+    private _eventsCounter:ICounter;
+    private _batchSizeGauge:IGauge;
 
-	constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, messageProducer: IMessageProducer) {
+	constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, messageProducer: IMessageProducer, metrics:IMetrics) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._auditClient = auditClient;
 		this._messageConsumer = messageConsumer;
 		this._messageProducer = messageProducer;
+
+        this._transferDurationHisto = metrics.getHistogram("TransfersDuration", "Transfers duration by leg", ["leg"]);
+        this._histo = metrics.getHistogram("TransfersEventHandler_Calls", "Events funcion calls processed the Transfers Event Handler", ["callName", "success"]);
+        this._eventsCounter = metrics.getCounter("TransfersEventHandler_EventsProcessed", "Events processed by the Transfers Event Handler", ["eventName"]);
+        this._batchSizeGauge = metrics.getGauge("TransfersEventHandler_batchSize");
 	}
 
 	async start():Promise<void>{
@@ -60,73 +73,85 @@ export class TransfersEventHandler{
 		await this._messageProducer.connect();
 
 		// create and start the consumer handler
-		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests]);
+		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents]);
 
-		this._messageConsumer.setCallbackFn(this._msgHandler.bind(this));
-		await this._messageConsumer.connect();
-		await this._messageConsumer.start();
-	}
+		// this._messageConsumer.setCallbackFn(this._msgHandler.bind(this));
+        this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
+        await this._messageConsumer.connect();
+        await this._messageConsumer.startAndWaitForRebalance();
+    }
 
-	private async _msgHandler(message: IMessage): Promise<void>{
-		// eslint-disable-next-line no-async-promise-executor
-		return await new Promise<void>(async (resolve) => {
-			this._logger.debug(`Got message in TransfersEventHandler with name: ${message.msgName}`);
-			try {
-				//let transferEvt: DomainEventMsg | undefined;
-				let transferCmd: CommandMsg | null = null;
+    private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
+        return await new Promise<void>(async (resolve) => {
+            console.log(`Got message batch in TransfersEventHandler batch size: ${receivedMessages.length}`);
+            this._batchSizeGauge.set(receivedMessages.length);
 
-				switch (message.msgName) {
-					case TransferPrepareRequestedEvt.name:
-						// TODO: use this._prepareEventToPrepareCommand() to properly create the cmd from the event (cast is not allowed)
-						//const payload: PrepareTransferCmdPayload = message.payload;
-						transferCmd = new PrepareTransferCmd(message.payload);
-						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
-						break;
+            const startTime = Date.now();
+            const timerEndFn = this._histo.startTimer({ callName: "batchMsgHandler"});
 
-					case TransferFulfilCommittedRequestedEvt.name:
-						// TODO: use this._fulfilEventToFulfilCommand() to properly create the cmd from the event (cast is not allowed)
-						//const payload: PrepareTransferCmdPayload = message.payload;
-						transferCmd = new CommitTransferFulfilCmd(message.payload);
-						transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
-						break;
+            try{
+                const outputCommands:CommandMsg[] = [];
+                for(const message of receivedMessages){
+                    if(message.msgType!=MessageTypes.DOMAIN_EVENT) continue;
 
-					default: {
-						this._logger.isWarnEnabled() && this._logger.warn(`TransfersEventHandler - Skipping unknown event - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
-					}
-				}
+                    let transferCmd: CommandMsg | null = this._getCmdFromEvent(message);
+                    if(transferCmd) {
+                        outputCommands.push(transferCmd)
+                        this._eventsCounter.inc({eventName: message.msgName}, 1);
+                    }
 
-				if (transferCmd) {
-					this._logger.info(`TransfersEventHandler - publishing cmd - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Cmd: ${transferCmd.msgName}:${transferCmd.msgId}`);
-					await this._messageProducer.send(transferCmd);
-					this._logger.info(`TransfersEventHandler - publishing cmd Finished - ${message?.msgName}:${message?.msgKey}:${message?.msgId}`);
-				}
-			}catch(err: unknown){
-				this._logger.error(err, `TransfersEventHandler - processing event - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
-			}finally {
-				resolve();
-			}
-		});
-	}
-/*
-	private _prepareEventToPrepareCommand(evt: TransferPrepareRequestedEvt): PrepareTransferCmd{
-		const cmdPayload: PrepareTransferCmdPayload = {
-			transferId: evt.payload.transferId,
-			amount: evt.payload.amount,
-			currency: evt.payload.currencyCode,
-			payerId: evt.payload.payerFsp,
-			payeeId: evt.payload.payeeFsp,
-			prepare: evt.fspiopOpaqueState
-		};
-		const cmd = new PrepareTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState
-		return cmd;
-	}
+                    // metrics
+                    if(!message.fspiopOpaqueState) continue;
+                    const now = Date.now();
+                    if(message.msgName === "TransferPreparedEvt" && message.fspiopOpaqueState.prepareSendTimestamp){
+                        this._transferDurationHisto.observe({"leg": "prepare"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
+                    }else if(message.msgName === "TransferCommittedFulfiledEvt" && message.fspiopOpaqueState.committedSendTimestamp ){
+                        this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.fspiopOpaqueState.committedSendTimestamp);
+                        if(message.fspiopOpaqueState.prepareSendTimestamp){
+                            this._transferDurationHisto.observe({"leg": "total"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
+                        }
+                    }
+                }
 
-	private _fulfilEventToFulfilCommand(evt: TransferFulfilCommittedRequestedEvt): CommitTransferFulfilCmd {
+                console.log("before messageProducer.send()...");
+                await this._messageProducer.send(outputCommands);
+                console.log("after messageProducer.send()");
+                timerEndFn({ success: "true" });
+            }catch(err: any){
+                this._logger.error(err, `TransfersEventHandler - failed processing batch - Error: ${err.message || err.toString()}`);
+                timerEndFn({ success: "false" });
+            }finally {
+                console.log(`  Completed batch in TransfersEventHandler batch size: ${receivedMessages.length}`);
+                console.log(`  Took: ${Date.now()-startTime}`);
+                console.log("\n\n");
 
-	}
+                resolve();
+            }
+        });
+    }
 
-*/
+    private _getCmdFromEvent(message: IMessage):CommandMsg | null{
+        if(message.msgName === TransferPrepareRequestedEvt.name) {
+            // TODO: use this._prepareEventToPrepareCommand() to properly create the cmd from the event (cast is not allowed)
+            //const payload: PrepareTransferCmdPayload = message.payload;
+            const transferCmd = new PrepareTransferCmd(message.payload);
+            transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
+            transferCmd.msgKey = message.payload.transferId;
+            return transferCmd;
+        }else if(message.msgName === TransferFulfilCommittedRequestedEvt.name){
+            // TODO: use this._fulfilEventToFulfilCommand() to properly create the cmd from the event (cast is not allowed)
+            //const payload: PrepareTransferCmdPayload = message.payload;
+            const transferCmd = new CommitTransferFulfilCmd(message.payload);
+            transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
+            transferCmd.msgKey = message.payload.transferId;
+            return transferCmd;
+        }else{
+            // ignore silently what we don't handle
+            return null;
+        }
+
+    }
+
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}

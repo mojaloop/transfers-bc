@@ -47,11 +47,15 @@ import {
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import process from "process";
+import express, {Express} from "express";
+import {Server} from "net";
 import {TransfersEventHandler} from "./handler";
 
 /* import configs - other imports stay above */
 import configClient from "./config";
 import path from "path";
+import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 
 const BC_NAME = configClient.boundedContextName;
 const APP_NAME = configClient.applicationName;
@@ -65,9 +69,14 @@ const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
 const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
+const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
+const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
+
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
-	kafkaBrokerList: KAFKA_URL,
-	kafkaGroupId: `${BC_NAME}_${APP_NAME}`
+    kafkaBrokerList: KAFKA_URL,
+    kafkaGroupId: `${BC_NAME}_${APP_NAME}`,
+    batchSize: CONSUMER_BATCH_SIZE,
+    batchTimeoutMs: CONSUMER_BATCH_TIMEOUT_MS
 };
 
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
@@ -77,18 +86,25 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
+// Express Server
+const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3502;
+let expressApp: Express;
+let expressServer: Server;
+
 export class Service {
 	static logger: ILogger;
 	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
 	static handler: TransfersEventHandler;
+    static metrics:IMetrics;
 
 	static async start(
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		messageConsumer?: IMessageConsumer,
-		messageProducer?: IMessageProducer
+		messageProducer?: IMessageProducer,
+        metrics?:IMetrics,
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
 
@@ -142,11 +158,45 @@ export class Service {
 		}
 		this.messageProducer = messageProducer;
 
+        if(!metrics){
+            const labels: Map<string, string> = new Map<string, string>()
+            labels.set("bc", BC_NAME);
+            labels.set("app", APP_NAME);
+            labels.set("version", APP_VERSION);
+            PrometheusMetrics.Setup({prefix:"", defaultLabels: labels}, this.logger);
+            metrics = PrometheusMetrics.getInstance();
+        }
+        this.metrics = metrics;
+
 		// create handler and start it
-		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer);
+		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer, this.metrics);
 		await this.handler.start();
 
-		this.logger.info(`Transfer Event Handler Service started, version: ${configClient.applicationVersion}`);
+        // Start express server
+        expressApp = express();
+        expressApp.use(express.json()); // for parsing application/json
+        expressApp.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+
+        // Add health and metrics http routes
+        expressApp.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+        expressApp.get("/metrics", async (req: express.Request, res: express.Response) => {
+            const strMetrics = await (metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
+            return res.send(strMetrics);
+        });
+
+        expressApp.use((req, res) => {
+            // catch all
+            res.send(404);
+        });
+
+        expressServer = expressApp.listen(SVC_DEFAULT_HTTP_PORT, () => {
+            globalLogger.info(
+                `🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`
+            );
+            globalLogger.info(`Transfer Event Handler Service started, version: ${configClient.applicationVersion}`);
+        });
+
+
 	}
 
 	static async stop() {

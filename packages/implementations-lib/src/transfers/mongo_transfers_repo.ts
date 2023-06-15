@@ -61,6 +61,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			this.mongoClient = new MongoClient(this._connectionString);
 			this.mongoClient.connect();
 			this.transfers = this.mongoClient.db(this._dbName).collection(this._collectionName);
+
+            await this.transfers.createIndex({"transferId": 1}, {unique: true});
 		} catch (e: unknown) {
 			this._logger.error(`Unable to connect to the database: ${(e as Error).message}`);
 			throw new UnableToInitTransferRegistryError();
@@ -185,6 +187,32 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			throw new UnableToAddManyTransfersError();
 		});
 	}
+
+    async storeTransfers(transfers:ITransfer[]):Promise<void>{
+        const operations = transfers.map(value=>{
+            return {
+                replaceOne: {
+                    filter: {transferId: value.transferId},
+                    replacement: value,
+                    upsert: true
+                }
+            };
+        });
+
+        let updateResult: any;
+        try {
+            updateResult = await this.transfers.bulkWrite(operations);
+
+            if ((updateResult.upsertedCount + updateResult.modifiedCount) !== transfers.length) {
+                const err = new Error("Could not storeTransfers - mismatch between requests length and MongoDb response length");
+                this._logger.error(err);
+                throw err;
+            }
+        } catch (error: unknown) {
+            this._logger.error(error);
+            throw error;
+        }
+    }
 
 	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);

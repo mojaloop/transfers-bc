@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: command-handler-svc
+  namespace: vnext-apps
+  annotations:
+    prometheus/scrape: "true"
+    prometheus/scheme: "http"
+    prometheus/path: "/metrics"
+    prometheus/port: "3501"
+spec:
+  selector:
+    app: command-handler-svc
+  ports:
+    - port: 3501 #this must match SVC_DEFAULT_HTTP_PORT or metrics port
+  type: LoadBalancer

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-handler-svc
+  namespace: vnext-apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-handler-svc
+  template:
+    metadata:
+      labels:
+        app: event-handler-svc
+        bc: transfers-bc
+    spec:
+      containers:
+        - name: app
+          image: mojaloop/transfers-bc-event-handler-svc:0.1.3_test_6
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: KAFKA_URL
+              value: 192.168.1.94:9094
+            - name: KAFKA_LOGS_TOPIC
+              value: logs
+            - name: KAFKA_AUDITS_TOPIC
+              value: audits
+            - name: PLATFORM_CONFIG_BASE_SVC_URL
+              value: http://192.168.1.94:3100
+            - name: AUDIT_KEY_FILE_PATH
+              value: /tmp/audit_private_key.pem
+            - name: CONSUMER_BATCH_SIZE
+              value: "200"
+          imagePullPolicy: Always

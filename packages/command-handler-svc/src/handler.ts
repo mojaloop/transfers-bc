@@ -31,41 +31,71 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IMessage,IMessageConsumer, CommandMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {CommandMsg, IMessage, IMessageConsumer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
-import {
-	PrepareTransferCmd,
-	TransfersAggregate,
-	CommitTransferFulfilCmd
-} from "@mojaloop/transfers-bc-domain-lib";
+import {TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
 	private _logger: ILogger;
 	private _auditClient: IAuditClient;
 	private _messageConsumer: IMessageConsumer;
 	private _transfersAgg: TransfersAggregate;
+    private _histo:IHistogram;
+    private _batchSizeGauge:IGauge;
 
-    constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, transfersAgg: TransfersAggregate) {
+    constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, metrics:IMetrics, transfersAgg: TransfersAggregate) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._auditClient = auditClient;
 		this._messageConsumer = messageConsumer;
 		this._transfersAgg = transfersAgg;
+
+        this._histo = metrics.getHistogram("TransfersCommandHandler_Calls", "TransfersCommandHandler calls", ["callName", "success"]);
+        this._batchSizeGauge = metrics.getGauge("TransfersCommandHandler_batchSize");
 	}
 
 	async start():Promise<void>{
 		// create and start the consumer handler
-		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests]);
-
-		this._messageConsumer.setCallbackFn(this._msgHandler.bind(this));
-		await this._messageConsumer.connect();
-		await this._messageConsumer.start();
+        this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests]);
+        this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
+        await this._messageConsumer.connect();
+        await this._messageConsumer.startAndWaitForRebalance();
 	}
 
-	private async _msgHandler(message: IMessage): Promise<void>{
+    private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
+        return await new Promise<void>(async (resolve) => {
+            const startTime = Date.now();
+            const timerEndFn = this._histo.startTimer({ callName: "batchMsgHandler"});
+
+            console.log(`Got message batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
+            this._batchSizeGauge.set(receivedMessages.length);
+
+            try{
+                await this._transfersAgg.processCommandBatch(receivedMessages as CommandMsg[]);
+            }catch(err: any){
+                this._logger.error(err, `TransfersCommandHandler - failed processing batch - Error: ${err.message || err.toString()}`);
+                // TODO Don't suppress the exception - find proper exception but make sure the app dies
+                throw err;
+            }finally {
+                timerEndFn({ success: "true" });
+                console.log(`  Completed batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
+                console.log(`  Took: ${Date.now()-startTime}`);
+                console.log("\n\n");
+                resolve();
+            }
+        });
+    }
+
+/*    private async _msgHandler_OLD(message: IMessage): Promise<void>{
 		// eslint-disable-next-line no-async-promise-executor
 		return await new Promise<void>(async (resolve) => {
-			this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
+            if(message.msgType!=MessageTypes.COMMAND){
+                return resolve();
+            }
+
+            this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
+            const timerEndFn = this._histo.startTimer();
 			try {
 
 				switch (message.msgName) {
@@ -82,13 +112,15 @@ export class TransfersCommandHandler{
 					}
 				}
 
+                timerEndFn({ commandName: message.msgName, success: "true" });
 			}catch(err: unknown){
 				this._logger.error(err, `TransfersCommandHandler - processing command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
+                timerEndFn({ commandName: message.msgName, success: "false" });
 			}finally {
 				resolve();
 			}
 		});
-	}
+	}*/
 
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
