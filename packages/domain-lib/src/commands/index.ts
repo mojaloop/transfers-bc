@@ -38,11 +38,18 @@ import {TRANSFERS_BOUNDED_CONTEXT_NAME, TRANSFERS_AGGREGATE_NAME, TransfersBCTop
 export type PrepareTransferCmdPayload = {
 	transferId: string;
 	amount: string;
-	currency: string;
-	payerId: string;
-	payeeId: string;
-	expiration: string;
+	currencyCode: string;
+	payerFsp: string;
+	payeeFsp: string;
+	ilpPacket: string;
+	expiration: number;
 	condition: string;
+	extensionList: {
+		extension: {
+			key: string;
+			value: string;
+		}[];
+	} | null;
 	prepare: {
 		headers: { [key: string]: string };
 		payload: string;
@@ -72,7 +79,7 @@ export class PrepareTransferCmd extends CommandMsg {
 export type CommitTransferFulfilCmdPayload = {
 	transferId: string;
 	transferState: string,
-	fulfilment: number | null,
+	fulfilment: string | null,
 	completedTimestamp: number | null,
 	extensionList: {
         extension: {
@@ -80,6 +87,10 @@ export type CommitTransferFulfilCmdPayload = {
             value: string;
         }[]
     } | null;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
 }
 
 
@@ -92,6 +103,66 @@ export class CommitTransferFulfilCmd extends CommandMsg {
 	payload: CommitTransferFulfilCmdPayload;
 
 	constructor(payload: CommitTransferFulfilCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type RejectTransferCmdPayload = {
+	transferId: string;
+	errorInformation: {
+		errorCode: string;
+		errorDescription: string;
+	};
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class RejectTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: RejectTransferCmdPayload;
+
+	constructor(payload: RejectTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type QueryTransferCmdPayload = {
+	transferId: string;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class QueryTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: QueryTransferCmdPayload;
+
+	constructor(payload: QueryTransferCmdPayload) {
 		super();
 
 		this.aggregateId = this.msgKey = payload.transferId;

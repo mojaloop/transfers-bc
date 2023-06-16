@@ -90,4 +90,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers);
     }
 
+    storeTransfers(transfers:ITransfer[]):Promise<void> {
+        return Promise.resolve();
+    }
 }

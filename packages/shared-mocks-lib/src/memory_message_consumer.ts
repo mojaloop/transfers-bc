@@ -37,35 +37,49 @@
  export class MemoryMessageConsumer implements IMessageConsumer{
 
 
-    setCallbackFn(_handlerCallback: (message: IMessage) => Promise<void>): void {
-         return;
-    }
+      setCallbackFn(_handlerCallback: (message: IMessage) => Promise<void>): void {
+            return;
+      }
 
-    setFilteringFn(_filterFn: (message: IMessage) => boolean): void{
-         return;
-    }
+      setFilteringFn(_filterFn: (message: IMessage) => boolean): void{
+            return;
+      }
 
-    setTopics(_topics: string[]): void {
-         return;
-    }
+      setTopics(_topics: string[]): void {
+            return;
+      }
 
-     async destroy(_force: boolean) : Promise<void>{
-         return Promise.resolve();
-    }
+      async destroy(_force: boolean) : Promise<void>{
+            return Promise.resolve();
+      }
 
-    async connect() : Promise<void> {
-          return Promise.resolve();
-    }
+      async connect() : Promise<void> {
+            return Promise.resolve();
+      }
 
-    async disconnect(_force: boolean) : Promise<void> {
-          return Promise.resolve();
-    }
+      async disconnect(_force: boolean) : Promise<void> {
+            return Promise.resolve();
+      }
 
-    async start() : Promise<void> {
-          return Promise.resolve();
-    }
+      async start() : Promise<void> {
+            return Promise.resolve();
+      }
 
-    async stop (): Promise<void> {
-          return Promise.resolve();
-    }
+      async stop (): Promise<void> {
+            return Promise.resolve();
+      }
+
+      async setBatchCallbackFn (): Promise<void> {
+            return Promise.resolve();
+      }
+      
+      async setBatchSize (): Promise<void> {
+            return Promise.resolve();
+      }
+      
+      async startAndWaitForRebalance (): Promise<void> {
+            return Promise.resolve();
+      }
+
+    
 }

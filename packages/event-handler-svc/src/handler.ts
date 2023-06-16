@@ -41,9 +41,21 @@ import {
 import {
     TransferFulfilCommittedRequestedEvt,
     TransferPrepareRequestedEvt,
+    TransferRejectRequestedEvt,
+	TransferQueryReceivedEvt,
     TransfersBCTopics
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {CommitTransferFulfilCmd, PrepareTransferCmd,} from "@mojaloop/transfers-bc-domain-lib";
+import {
+	CommitTransferFulfilCmd,
+	CommitTransferFulfilCmdPayload,
+	PrepareTransferCmd,
+	PrepareTransferCmdPayload,
+	RejectTransferCmd,
+	RejectTransferCmdPayload,
+	QueryTransferCmd,
+	QueryTransferCmdPayload
+} from "@mojaloop/transfers-bc-domain-lib";
+
 import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
 export class TransfersEventHandler{
@@ -132,18 +144,16 @@ export class TransfersEventHandler{
 
     private _getCmdFromEvent(message: IMessage):CommandMsg | null{
         if(message.msgName === TransferPrepareRequestedEvt.name) {
-            // TODO: use this._prepareEventToPrepareCommand() to properly create the cmd from the event (cast is not allowed)
-            //const payload: PrepareTransferCmdPayload = message.payload;
-            const transferCmd = new PrepareTransferCmd(message.payload);
-            transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
-            transferCmd.msgKey = message.payload.transferId;
+            const transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt);
             return transferCmd;
         }else if(message.msgName === TransferFulfilCommittedRequestedEvt.name){
-            // TODO: use this._fulfilEventToFulfilCommand() to properly create the cmd from the event (cast is not allowed)
-            //const payload: PrepareTransferCmdPayload = message.payload;
-            const transferCmd = new CommitTransferFulfilCmd(message.payload);
-            transferCmd.fspiopOpaqueState = message.fspiopOpaqueState;
-            transferCmd.msgKey = message.payload.transferId;
+            const transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilCommittedRequestedEvt);
+            return transferCmd;
+        }else if(message.msgName === TransferRejectRequestedEvt.name){
+            const transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt);
+            return transferCmd;
+        }else if(message.msgName === TransferQueryReceivedEvt.name){
+            const transferCmd = this._prepareEventToQueryCommand(message as TransferQueryReceivedEvt);
             return transferCmd;
         }else{
             // ignore silently what we don't handle
@@ -152,6 +162,59 @@ export class TransfersEventHandler{
 
     }
 
+    private _prepareEventToPrepareCommand(evt: TransferPrepareRequestedEvt): PrepareTransferCmd{
+		const cmdPayload: PrepareTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			amount: evt.payload.amount,
+			currencyCode: evt.payload.currencyCode,
+			payerFsp: evt.payload.payerFsp,
+			payeeFsp: evt.payload.payeeFsp,
+			ilpPacket: evt.payload.ilpPacket,
+			expiration: evt.payload.expiration,
+			condition: evt.payload.condition,
+			prepare: evt.fspiopOpaqueState,
+			extensionList: evt.payload.extensionList
+		};
+		const cmd = new PrepareTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+	private _fulfilEventToFulfilCommand(evt: TransferFulfilCommittedRequestedEvt): CommitTransferFulfilCmd {
+		const cmdPayload: CommitTransferFulfilCmdPayload = {
+			transferId: evt.payload.transferId,
+			transferState: evt.payload.transferState,
+			fulfilment: evt.payload.fulfilment,
+			completedTimestamp: evt.payload.completedTimestamp,
+			extensionList: evt.payload.extensionList,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new CommitTransferFulfilCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+	private _prepareEventToRejectCommand(evt: TransferRejectRequestedEvt): RejectTransferCmd {
+		const cmdPayload: RejectTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			errorInformation: evt.payload.errorInformation,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new RejectTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+	private _prepareEventToQueryCommand(evt: TransferQueryReceivedEvt): QueryTransferCmd {
+		const cmdPayload: QueryTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new QueryTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+    
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}

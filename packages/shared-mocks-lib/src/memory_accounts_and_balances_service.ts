@@ -33,7 +33,14 @@
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import { IAccountsBalancesAdapter } from "@mojaloop/transfers-bc-domain-lib";
-import {AccountsAndBalancesAccountType, AccountsAndBalancesAccount, AccountsAndBalancesJournalEntry } from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
+import {
+	AccountsAndBalancesAccountType, 
+	AccountsAndBalancesAccount,
+	AccountsAndBalancesJournalEntry,
+    AccountsBalancesHighLevelRequestTypes,
+    IAccountsBalancesHighLevelRequest,
+    IAccountsBalancesHighLevelResponse
+ } from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
 
 export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapter {
 	private readonly logger: ILogger;
@@ -151,27 +158,6 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 
 		return Promise.resolve([journalEntry]);
 	}
-
-    checkLiquidAndReserve(
-        payerPositionAccountId: string, payerLiquidityAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, payerNetDebitCap: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
-
-    cancelReservationAndCommit(
-        payerPositionAccountId: string, payeePositionAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
-
-    cancelReservation(
-        payerPositionAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
 	
 	setUserCredentials(client_id: string, username: string, password: string): void {
         this.client_id = client_id;
@@ -179,4 +165,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
         this.password = password;
     }
 
+	processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]):Promise<IAccountsBalancesHighLevelResponse[]> {
+		return Promise.resolve(requests as unknown as IAccountsBalancesHighLevelResponse[]);
+    }
 }
