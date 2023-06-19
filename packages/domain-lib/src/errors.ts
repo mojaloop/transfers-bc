@@ -76,6 +76,32 @@ export class NoSuchAccountError extends Error {
     }
 }
 
+export class HubAccountNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Hub account not found");
+    }
+}
+export class PayerPositionAccountNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Payer position account not found");
+    }
+}
+export class PayerLiquidityAccountNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Payer liquidity account not found");
+    }
+}
+export class PayeePositionAccountNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Payee position account not found");
+    }
+}
+export class PayeeLiquidityAccountNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Payee liquidity account not found");
+    }
+}
+
 
 // Message Producer
 

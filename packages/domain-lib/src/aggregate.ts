@@ -33,7 +33,7 @@
  ******/
 
 "use strict";
-import {randomUUID} from "crypto";
+import {createHash, randomUUID} from "crypto";
 import {
     AccountsBalancesHighLevelRequestTypes,
     IAccountsBalancesHighLevelRequest,
@@ -50,16 +50,26 @@ import {
     MessageTypes
 } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {PrepareTransferCmd, CommitTransferFulfilCmd, QueryTransferCmd, RejectTransferCmd} from "./commands";
-import {IAccountsBalancesAdapter, IParticipantsServiceAdapter, ITransfersRepository} from "./interfaces/infrastructure";
+import {
+    IAccountsBalancesAdapter, 
+    IParticipantsServiceAdapter, 
+    ITransfersRepository, 
+    ISettlementsServiceAdapter
+} from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
+    HubAccountNotFoundError,
     HubNotFoundError,
     InvalidMessagePayloadError,
     InvalidMessageTypeError,
     NoSuchAccountError,
     NoSuchTransferError,
+    PayeeLiquidityAccountNotFoundError,
     PayeeParticipantNotFoundError,
+    PayeePositionAccountNotFoundError,
+    PayerLiquidityAccountNotFoundError,
     PayerParticipantNotFoundError,
+    PayerPositionAccountNotFoundError,
     RequiredParticipantIsNotActive,
     UnableToCancelTransferError
 } from "./errors";
@@ -135,6 +145,7 @@ export class TransfersAggregate {
         participant: IParticipant;
         timestamp: number
     }>();
+    private _settlementsAdapter: ISettlementsServiceAdapter;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
@@ -150,6 +161,7 @@ export class TransfersAggregate {
         messageProducer: IMessageProducer,
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
         metrics: IMetrics,
+        settlementsAdapter: ISettlementsServiceAdapter
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -157,6 +169,7 @@ export class TransfersAggregate {
         this._messageProducer = messageProducer;
         this._accountAndBalancesAdapter = accountAndBalancesAdapter;
         this._metrics = metrics;
+        this._settlementsAdapter = settlementsAdapter;
 
         this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
@@ -334,14 +347,108 @@ export class TransfersAggregate {
     private async _prepareTransferStart(message: PrepareTransferCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
+		const hash = this.generateSha256({
+			transferId: message.payload.transferId,
+			payeeFspId: message.payload.payeeFsp,
+			payerFspId: message.payload.payerFsp,
+			amount: message.payload.amount,
+			expirationTimestamp: message.payload.expiration
+		});
 
-        // TODO call the settlements lib to get the correct settlement model
-        // export function obtainSettlementModelFrom(
-        // 	transferAmount: bigint,
-        // 	debitAccountCurrency: string,
-        // 	creditAccountCurrency: string
-        // ): Promise<string> {
-        const settlementModel = "DEFAULT"; // FIXED for now
+		let getTransferRep:ITransfer | undefined;
+		try {
+            // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
+			getTransferRep = this._transfersCache.get(message.payload.transferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetTransferByIdEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+        // Duplicate Transfer POST use cases
+		// TODO Use hash repository to fetch the hashes
+		if(getTransferRep) {
+			if(getTransferRep.hash !== hash) {
+				const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
+				this._logger.error(errorMessage);
+				const errorEvent = new TransferDuplicateCheckFailedEvt({
+					transferId: message.payload.transferId,
+					payerFspId: message.payload.payerFsp,
+					errorDescription: errorMessage
+				});
+                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                this._outputEvents.push(errorEvent);
+                return;
+			}
+
+			switch(getTransferRep.transferState) {
+				case TransferState.RECEIVED:
+				case TransferState.RESERVED: {
+					// Ignore the request
+					return;
+				}
+				case TransferState.COMMITTED:
+				case TransferState.ABORTED: {
+					// Send a response event to the payer
+					const payload: TransferQueryResponseEvtPayload = {
+						transferId: getTransferRep.transferId,
+						transferState: getTransferRep.transferState,
+						completedTimestamp: getTransferRep.completedTimestamp as unknown as string,
+						fulfilment: getTransferRep.fulFillment as unknown as string,
+						extensionList: getTransferRep.extensionList
+					};
+
+					const event = new TransferQueryResponseEvt(payload);
+
+					event.fspiopOpaqueState = message.fspiopOpaqueState;
+                    this._outputEvents.push(event);
+					return;
+				}
+			}
+		}
+        
+		let settlementModel: string | null = null;
+		try {
+			settlementModel = await this._settlementsAdapter.getSettlementModel(BigInt(message.payload.amount), message.payload.currencyCode, message.payload.currencyCode, message.payload.extensionList?.extension ? message.payload.extensionList.extension : []);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetSettlementModelEvt({
+				transferId: message.payload.transferId,
+				amount: message.payload.amount,
+				payerCurrency: message.payload.currencyCode,
+				payeeCurrency: message.payload.currencyCode,
+				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+        if(!settlementModel) {
+			const errorMessage = `SettlementModel not found for transferId: ${message.payload.transferId}`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferSettlementModelNotFoundEvt({
+				transferId: message.payload.transferId,
+				amount: message.payload.amount,
+				payerCurrency: message.payload.currencyCode,
+				payeeCurrency: message.payload.currencyCode,
+				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
 
         const now = Date.now();
 
@@ -357,11 +464,12 @@ export class TransfersAggregate {
             condition: message.payload.condition,
             expirationTimestamp: message.payload.expiration,
             transferState: TransferState.RECEIVED,
+            hash: hash,
             fulFillment: null,
             completedTimestamp: null,
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
-            errorInformation: null
+            errorInformation: null,
         };
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
@@ -372,33 +480,26 @@ export class TransfersAggregate {
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
 
-            switch(true) {
-                case(err instanceof HubNotFoundError): {
-                    errorEvent = new TransferHubNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                case(err instanceof PayerParticipantNotFoundError): {
-                    errorEvent = new TransferPayerNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        payerFspId: transfer.payerFspId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                case(err instanceof PayeeParticipantNotFoundError): {
-                    errorEvent = new TransferPayeeNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        payeeFspId: transfer.payerFspId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                default: {
-                    return;
-                }
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _fulfilTransferStart");
+                return;
             }
 
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
@@ -406,12 +507,73 @@ export class TransfersAggregate {
             return;
         }
 
-        const participantAccounts = this.getTransferParticipantsAccounts(participants, transfer);
+        let participantAccounts:ITransferAccounts;
+        try{
+            participantAccounts = this.getTransferParticipantsAccounts(participants, transfer);;
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubAccountNotFoundError) {
+                errorEvent = new TransferHubAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerPositionAccountNotFoundError) {
+                errorEvent = new TransferPayerPositionAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerLiquidityAccountNotFoundError) {
+                errorEvent = new TransferPayerLiquidityAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeePositionAccountNotFoundError) {
+                errorEvent = new TransferPayeePositionAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeLiquidityAccountNotFoundError) {
+                errorEvent = new TransferPayeeLiquidityAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - after getParticipants");
 
         // TODO validate participants and accounts
         // TODO put net debit cap in the participant struct
         const payerNdc = "0";
+        // Uncomment code below when participants has debitCaps in struct
+		// const payerNdc = participants.payer.netDebitCaps((netDebitCap:any) => netDebitCap.currencyCode === transfer.currencyCode);
+
+		// if(!payerNdc) {
+		// 	const errorMessage = `Payer participant has no Net Debit Cap for currency: ${transfer.currencyCode}, participant ${transfer.payerFspId}`;
+		// 	this._logger.error(errorMessage);
+		// 	const errorEvent = new TransferPayerNetDebitCapCurrencyNotFoundEvt({
+		// 		transferId: transfer.transferId,
+		// 		payerFspId: transfer.payerFspId,
+		// 		currencyCode: transfer.currencyCode,
+		// 		errorDescription: errorMessage
+		// 	});
+        //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+        //     this._outputEvents.push(errorEvent);
+        //     return;
+		// }
+
 
         // set transfer in cache
         this._transfersCache.set(transfer.transferId, transfer);
@@ -511,10 +673,14 @@ export class TransfersAggregate {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
 			this._logger.error(err, `${errorMessage}: ${error}`);
-			return new TransferUnableToGetTransferByIdEvt({
-				transferId: message.payload.transferId,
+			const errorEvent = new TransferUnableToGetTransferByIdEvt({
+                transferId: message.payload.transferId,
 				errorDescription: errorMessage
 			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+    
+            this._outputEvents.push(errorEvent);
+            
 		}
 
         if(!transfer){
@@ -527,19 +693,18 @@ export class TransfersAggregate {
             
             try {
                 await this.cancelTransfer(transfer, participantTransferAccounts);
+                
             } catch(err: unknown) {
                 const error = (err as Error).message;
                 const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
                 this._logger.error(err, `${errorMessage}: ${error}`);
-                return new TransferCancelReservationFailedEvt({
+                errorEvent = new TransferCancelReservationFailedEvt({
                     transferId: message.payload.transferId,
                     errorDescription: errorMessage
                 });
             }
 
-
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-    
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -550,48 +715,75 @@ export class TransfersAggregate {
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
 
-            switch(true) {
-                case(err instanceof HubNotFoundError): {
-                    errorEvent = new TransferHubNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                case(err instanceof PayerParticipantNotFoundError): {
-                    errorEvent = new TransferPayerNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        payerFspId: transfer.payerFspId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                case(err instanceof PayeeParticipantNotFoundError): {
-                    errorEvent = new TransferPayeeNotFoundFailedEvt({
-                        transferId: transfer.transferId,
-                        payeeFspId: transfer.payerFspId,
-                        errorDescription: (err as Error).message
-                    }) 
-                    break;
-                }
-                default: {
-                    return;
-                }
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle getParticipantsInfo error - _fulfilTransferStart");
+                return;
             }
 
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
-
-            await this.cancelTransfer(transfer, participantTransferAccounts);
             return;
         }
 
-        try {
-            participantTransferAccounts = this.getTransferParticipantsAccounts(participants, transfer);
-        } catch (error: any) {
-            this._logger.error(error.message);
-            await this.cancelTransfer(transfer, participantTransferAccounts);
-            throw error;
+        try{
+            participantTransferAccounts = this.getTransferParticipantsAccounts(participants, transfer);;
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubAccountNotFoundError) {
+                errorEvent = new TransferHubAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerPositionAccountNotFoundError) {
+                errorEvent = new TransferPayerPositionAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerLiquidityAccountNotFoundError) {
+                errorEvent = new TransferPayerLiquidityAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeePositionAccountNotFoundError) {
+                errorEvent = new TransferPayeePositionAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeLiquidityAccountNotFoundError) {
+                errorEvent = new TransferPayeeLiquidityAccountNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
         }
 
         // // set transfer in cache
@@ -620,9 +812,16 @@ export class TransfersAggregate {
         transfer: ITransfer | null
     ): Promise<void> {
         if (!transfer) {
-            const err = new CheckLiquidityAndReserveFailedError(`Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAccountsBalancesHighLevelResponse`);
-            this._logger.error(err);
-            throw err;
+			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAccountsBalancesHighLevelResponse`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferNotFoundEvt({
+				transferId: originalCmdMsg.payload.transferId,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+    
+            this._outputEvents.push(errorEvent);
+            return;
         }
 
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - started for transferId: ${transfer.transferId}`);
@@ -632,7 +831,16 @@ export class TransfersAggregate {
             this._logger.error(err);
             transfer.transferState = TransferState.REJECTED;
             this._transfersCache.set(transfer.transferId, transfer);
-            throw err;
+
+			const errorMessage = `Unable to commit transfer for transferId: ${request.transferId}`;
+			const errorEvent = new TransferCancelReservationAndCommitFailedEvt({
+				transferId: request.transferId,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+    
+            this._outputEvents.push(errorEvent);
+
         }
 
         // TODO if failed, queue a cancelReservation request to this._abCancelationBatchRequests and add the error event to the events queue
@@ -743,21 +951,39 @@ export class TransfersAggregate {
 
         const {hub, payer: transferPayerParticipant, payee: transferPayeeParticipant} = transferParticipants;
 
-        const hubAccount = hub.participantAccounts
-            .find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode) ?? null;
-        const payerPosAccount = transferPayerParticipant.participantAccounts
-            .find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
-        const payerLiqAccount = transferPayerParticipant.participantAccounts
-            .find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
-        const payeePosAccount = transferPayeeParticipant.participantAccounts
-            .find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode) ?? null;
-        const payeeLiqAccount = transferPayeeParticipant.participantAccounts
-            .find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode) ?? null;
-
-        if (!hubAccount || !payerPosAccount || !payerLiqAccount || !payeePosAccount || !payeeLiqAccount) {
-            const errorMessage = "Could not get hub, payer or payee accounts from participant for transfer " + transfer.transferId;
+        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode);
+        if(!hubAccount) {
+			const errorMessage = "Hub account not found for transfer " + transfer.transferId;
             this._logger.error(errorMessage);
-            throw new NoSuchAccountError(errorMessage);
+            throw new HubAccountNotFoundError(errorMessage);
+        }
+    
+        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        if(!payerPosAccount) {
+			const errorMessage = `Payee position account not found: transferId: ${transfer.transferId}, payer: ${transfer.payeeFspId}`;
+            this._logger.error(errorMessage);
+            throw new PayerPositionAccountNotFoundError(errorMessage);
+        }
+
+        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        if(!payerLiqAccount) {
+			const errorMessage = `Payer liquidity account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
+            this._logger.error(errorMessage);
+            throw new PayerLiquidityAccountNotFoundError(errorMessage);
+        }
+        
+        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        if(!payeePosAccount) {
+			const errorMessage = `Payee position account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
+            this._logger.error(errorMessage);
+            throw new PayeePositionAccountNotFoundError(errorMessage);
+        }
+    
+        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        if(!payeeLiqAccount) {
+			const errorMessage = `Payee liquidity account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
+            this._logger.error(errorMessage);
+            throw new PayeeLiquidityAccountNotFoundError(errorMessage);
         }
 
         return {
@@ -810,4 +1036,16 @@ export class TransfersAggregate {
 
     }
 
+    private generateSha256(object:{[key: string]: string | number}):string {
+		const hashSha256 = createHash('sha256')
+
+		// updating data
+		.update(JSON.stringify(object))
+
+		// Encoding to be used
+		.digest("base64");
+
+		// remove trailing '=' as per specification
+		return hashSha256.slice(0, -1);
+	}
 }

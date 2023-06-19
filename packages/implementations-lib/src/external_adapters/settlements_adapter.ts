@@ -23,14 +23,6 @@
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
 
- * Coil
- - Jason Bruwer <jason.bruwer@coil.com>
-
- * Crosslake
- - Pedro Sousa Barreto <pedrob@crosslaketech.com>
-
- * Gonçalo Garcia <goncalogarcia99@gmail.com>
- 
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
@@ -40,10 +32,33 @@
 
 "use strict";
 
-export * from "./transfers/mongo_transfers_repo";
-export * from "./external_adapters/participant_adapter";
-export * from "./external_adapters/grpc_acc_bal_adapter";
-export * from "./external_adapters/settlements_adapter";
-export * from "./local_cache";
-export * from "./errors";
+import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
+import { SettlementModelClient } from "@mojaloop/settlements-bc-model-lib";
+import { ISettlementsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
 
+export class SettlementsAdapter implements ISettlementsServiceAdapter {
+	private readonly _logger: ILogger;
+	private readonly _clientBaseUrl: string;
+	private readonly _externalSettlementsClient: SettlementModelClient;
+
+	constructor(
+		logger: ILogger,
+		clientBaseUrl: string,
+	) {
+		this._logger = logger.createChild(this.constructor.name);
+		this._clientBaseUrl = clientBaseUrl;
+		this._externalSettlementsClient = new SettlementModelClient(this._clientBaseUrl);
+	}
+
+	async getSettlementModel(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string | null> {
+		try {
+			const result = await this._externalSettlementsClient.getSettlementModel(transferAmount, payerCurrency, payeeCurrency, extensionList);
+
+			return result;
+		} catch (e: unknown) {
+			this._logger.error(e,`getSettlementsInfo: error getting settlements info for transferAmount: ${transferAmount}, payerCurrency: ${payerCurrency}, payeeCurrency: ${payeeCurrency}, extensionList: ${extensionList} - ${e}`);
+            return null;
+        }
+	}
+
+}
