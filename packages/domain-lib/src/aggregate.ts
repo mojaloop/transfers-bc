@@ -71,7 +71,9 @@ import {
     PayerParticipantNotFoundError,
     PayerPositionAccountNotFoundError,
     RequiredParticipantIsNotActive,
-    UnableToCancelTransferError
+    TransferNotFoundError,
+    UnableToCancelTransferError,
+    UnableToCancelTransferNotAvailableError
 } from "./errors";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
@@ -222,7 +224,12 @@ export class TransfersAggregate {
 
             // if the continues queued cancellations, send then now
             if(this._abCancelationBatchRequests.length){
-                ///send cancellations to A&B
+                // send cancellations to A&B
+                const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelCancelationBatch"});
+                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancelationBatchRequests);
+                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                execAB_timerEndFn({success:"true"});
             }
 
         } catch (error: any) {
@@ -375,18 +382,18 @@ export class TransfersAggregate {
         // Duplicate Transfer POST use cases
 		// TODO Use hash repository to fetch the hashes
 		if(getTransferRep) {
-			if(getTransferRep.hash !== hash) {
-				const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
-				this._logger.error(errorMessage);
-				const errorEvent = new TransferDuplicateCheckFailedEvt({
-					transferId: message.payload.transferId,
-					payerFspId: message.payload.payerFsp,
-					errorDescription: errorMessage
-				});
-                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                this._outputEvents.push(errorEvent);
-                return;
-			}
+			// if(getTransferRep.hash !== hash) {
+			// 	const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
+			// 	this._logger.error(errorMessage);
+			// 	const errorEvent = new TransferDuplicateCheckFailedEvt({
+			// 		transferId: message.payload.transferId,
+			// 		payerFspId: message.payload.payerFsp,
+			// 		errorDescription: errorMessage
+			// 	});
+            //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            //     this._outputEvents.push(errorEvent);
+            //     return;
+			// }
 
 			switch(getTransferRep.transferState) {
 				case TransferState.RECEIVED:
@@ -560,19 +567,19 @@ export class TransfersAggregate {
         // Uncomment code below when participants has debitCaps in struct
 		// const payerNdc = participants.payer.netDebitCaps((netDebitCap:any) => netDebitCap.currencyCode === transfer.currencyCode);
 
-		// if(!payerNdc) {
-		// 	const errorMessage = `Payer participant has no Net Debit Cap for currency: ${transfer.currencyCode}, participant ${transfer.payerFspId}`;
-		// 	this._logger.error(errorMessage);
-		// 	const errorEvent = new TransferPayerNetDebitCapCurrencyNotFoundEvt({
-		// 		transferId: transfer.transferId,
-		// 		payerFspId: transfer.payerFspId,
-		// 		currencyCode: transfer.currencyCode,
-		// 		errorDescription: errorMessage
-		// 	});
-        //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-        //     this._outputEvents.push(errorEvent);
-        //     return;
-		// }
+		if(!payerNdc) {
+			const errorMessage = `Payer participant has no Net Debit Cap for currency: ${transfer.currencyCode}, participant ${transfer.payerFspId}`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferPayerNetDebitCapCurrencyNotFoundEvt({
+				transferId: transfer.transferId,
+				payerFspId: transfer.payerFspId,
+				currencyCode: transfer.currencyCode,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
 
 
         // set transfer in cache
@@ -603,10 +610,23 @@ export class TransfersAggregate {
         if (!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
-			const errorEvent = new TransferNotFoundEvt({
+			let errorEvent = new TransferNotFoundEvt({
 				transferId: originalCmdMsg.payload.transferId,
 				errorDescription: errorMessage
 			});
+
+            try {
+                await this._cancelTransfer(originalCmdMsg.payload.transferId);
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to cancel reservation with transferId: ${originalCmdMsg.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                errorEvent = new TransferCancelReservationFailedEvt({
+                    transferId: originalCmdMsg.payload.transferId,
+                    errorDescription: errorMessage
+                });
+            }
+
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
     
             this._outputEvents.push(errorEvent);
@@ -683,7 +703,7 @@ export class TransfersAggregate {
             
 		}
 
-        if(!transfer){
+        if(!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${message.payload.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
 			let errorEvent = new TransferNotFoundEvt({
@@ -692,8 +712,7 @@ export class TransfersAggregate {
 			});
             
             try {
-                await this.cancelTransfer(transfer, participantTransferAccounts);
-                
+                await this._cancelTransfer(transfer, participantTransferAccounts);
             } catch(err: unknown) {
                 const error = (err as Error).message;
                 const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
@@ -710,7 +729,7 @@ export class TransfersAggregate {
         }
 
         let participants:ITransferParticipants;
-        try{
+        try {
             participants = await this.getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
@@ -739,6 +758,18 @@ export class TransfersAggregate {
 
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
+
+            try {
+                await this._cancelTransfer(transfer, participantTransferAccounts);
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                errorEvent = new TransferCancelReservationFailedEvt({
+                    transferId: message.payload.transferId,
+                    errorDescription: errorMessage
+                });
+            }
             return;
         }
 
@@ -781,12 +812,24 @@ export class TransfersAggregate {
                 return;
             }
 
+            try {
+                await this._cancelTransfer(transfer, participantTransferAccounts);
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                errorEvent = new TransferCancelReservationFailedEvt({
+                    transferId: message.payload.transferId,
+                    errorDescription: errorMessage
+                });
+            }
+
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
 
-        // // set transfer in cache
+        // set transfer in cache
         // this._transfersCache.set(transfer.transferId, transfer);
 
         this._abBatchRequests.push({
@@ -814,10 +857,23 @@ export class TransfersAggregate {
         if (!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
-			const errorEvent = new TransferNotFoundEvt({
+			let errorEvent = new TransferNotFoundEvt({
 				transferId: originalCmdMsg.payload.transferId,
 				errorDescription: errorMessage
 			});
+
+            try {
+                await this._cancelTransfer(transfer);
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to cancel reservation with transferId: ${originalCmdMsg.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                errorEvent = new TransferCancelReservationFailedEvt({
+                    transferId: originalCmdMsg.payload.transferId,
+                    errorDescription: errorMessage
+                });
+            }
+
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
     
             this._outputEvents.push(errorEvent);
@@ -833,10 +889,23 @@ export class TransfersAggregate {
             this._transfersCache.set(transfer.transferId, transfer);
 
 			const errorMessage = `Unable to commit transfer for transferId: ${request.transferId}`;
-			const errorEvent = new TransferCancelReservationAndCommitFailedEvt({
+			let errorEvent = new TransferCancelReservationAndCommitFailedEvt({
 				transferId: request.transferId,
 				errorDescription: errorMessage
 			});
+
+            try {
+                await this._cancelTransfer(transfer, null);
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to cancel reservation with transferId: ${originalCmdMsg.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                errorEvent = new TransferCancelReservationFailedEvt({
+                    transferId: originalCmdMsg.payload.transferId,
+                    errorDescription: errorMessage
+                });
+            }
+
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
     
             this._outputEvents.push(errorEvent);
@@ -1014,26 +1083,42 @@ export class TransfersAggregate {
         return;
     }
 
-    private async cancelTransfer(transferRecord: ITransfer | null, participantAccounts: ITransferAccounts | null) {
-        // TODO this must also handle the cases where the transfer is not found and cleanup the accounts
+    private async _cancelTransfer(message:IDomainMessage) {
+        try {
+            const transfer = this._transfersCache.get(message.payload.transferId);
 
-        if (transferRecord && participantAccounts) {
-            transferRecord.transferState = TransferState.REJECTED;
-
-            try {
-                await this._transfersRepo.updateTransfer(transferRecord);
-
-                // TODO accounts and balances needs a sync cancelReservation() for these cases
-                // await this._accountAndBalancesAdapter.cancelReservation(
-                //     participantAccounts.payerPosAccount.id, participantAccounts.hubAccount.id,
-                //     transferRecord.amount, transferRecord.currencyCode, transferRecord.transferId);
-            } catch (err) {
-                const errorMessage = `Error cancelling transfer ${transferRecord.transferId} ${err}`;
+            if(!transfer) {
+                const errorMessage = `Could not find corresponding transfer with id: ${message.payload.transferId} for cancelTransfer`;
                 this._logger.error(errorMessage);
-                throw new UnableToCancelTransferError(errorMessage);
+                throw new TransferNotFoundError(errorMessage);
             }
-        }
+            const participants = await this.getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
+      
 
+            const participantTransferAccounts = this.getTransferParticipantsAccounts(participants, transfer);;
+
+
+            this._abCancelationBatchRequests.push({
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservation,
+                requestId: randomUUID(),
+                payerPositionAccountId: participantTransferAccounts.payerPosAccount.id,
+                payerLiquidityAccountId: participantTransferAccounts.payerLiqAccount.id,
+                hubJokeAccountId: participantTransferAccounts.hubAccount.id,
+                transferId: transfer.transferId,
+                transferAmount: transfer.amount,
+                currencyCode: transfer.currencyCode,
+                payerNetDebitCap: null,
+                payeePositionAccountId: null,
+            });
+
+            transfer.transferState = TransferState.REJECTED;
+
+            await this._transfersRepo.updateTransfer(transfer);
+        } catch (err: unknown) {
+            const errorMessage = `Error cancelling transfer ${message.payload.transferId} ${err}`;
+            this._logger.error(err, errorMessage);
+            throw new UnableToCancelTransferError(errorMessage);
+        }
     }
 
     private generateSha256(object:{[key: string]: string | number}):string {

@@ -33,6 +33,11 @@
 "use strict";
 
 // Transfer
+export class TransferNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Transfer not found");
+    }
+}
 export class InvalidIdError extends Error {
     constructor(message?: string) {
         super(message || "Invalid id");
@@ -53,6 +58,12 @@ export class CheckLiquidityAndReserveFailedError extends Error{
 export class UnableToCancelTransferError extends Error {
     constructor(message?: string) {
         super(message || "Unable to cancel transfer");
+    }
+}
+
+export class UnableToCancelTransferNotAvailableError extends Error {
+    constructor(message?: string) {
+        super(message || "Unable to cancel transfer, not found");
     }
 }
 
