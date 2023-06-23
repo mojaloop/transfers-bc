@@ -391,8 +391,8 @@ export class TransfersAggregate {
 					const payload: TransferQueryResponseEvtPayload = {
 						transferId: getTransferRep.transferId,
 						transferState: getTransferRep.transferState,
-						completedTimestamp: getTransferRep.completedTimestamp as unknown as string,
-						fulfilment: getTransferRep.fulFillment as unknown as string,
+						completedTimestamp: getTransferRep.completedTimestamp,
+						fulfilment: getTransferRep.fulfilment,
 						extensionList: getTransferRep.extensionList
 					};
 
@@ -456,7 +456,7 @@ export class TransfersAggregate {
             expirationTimestamp: message.payload.expiration,
             transferState: TransferState.RECEIVED,
             hash: hash,
-            fulFillment: null,
+            fulfilment: null,
             completedTimestamp: null,
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
@@ -903,7 +903,7 @@ export class TransfersAggregate {
 
         transfer.updatedAt = Date.now();
         transfer.transferState = TransferState.COMMITTED;
-        transfer.fulFillment = message.payload.fulfilment;
+        transfer.fulfilment = message.payload.fulfilment;
         transfer.completedTimestamp = message.payload.completedTimestamp;
         transfer.extensionList = message.payload.extensionList;
 
@@ -1122,8 +1122,8 @@ export class TransfersAggregate {
 		const payload: TransferQueryResponseEvtPayload = {
 			transferId: transfer.transferId,
 			transferState: transfer.transferState,
-			completedTimestamp: transfer.completedTimestamp as unknown as string,
-			fulfilment: transfer.fulFillment as unknown as string,
+			completedTimestamp: transfer.completedTimestamp,
+			fulfilment: transfer.fulfilment,
 			extensionList: transfer.extensionList
 		};
 

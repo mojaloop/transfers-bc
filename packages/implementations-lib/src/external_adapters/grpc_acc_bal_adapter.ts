@@ -90,7 +90,7 @@
          const req: GrpcCreateAccountArray = {
              accountsToCreate: [{
                  requestedId: requestedId,
-                 type: type as string,
+                 type: type,
                  ownerId: ownerId,
                  currencyCode: currencyCode
              }]

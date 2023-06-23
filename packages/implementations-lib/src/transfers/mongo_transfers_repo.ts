@@ -260,7 +260,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			condition: transfer.condition ?? null,
 			expirationTimestamp: transfer.expirationTimestamp ?? null,
 			transferState: transfer.transferState ?? null,
-			fulFillment: transfer.fulFillment ?? null,
+			fulfilment: transfer.fulfilment ?? null,
 			completedTimestamp: transfer.completedTimestamp ?? null,
 			extensionList: transfer.extensionList ?? null,
 			settlementModel: transfer.settlementModel ?? null,
