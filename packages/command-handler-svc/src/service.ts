@@ -40,7 +40,7 @@ import {
 } from "@mojaloop/transfers-bc-domain-lib";
 import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
-import express, {Express, Request} from "express";
+import express, {Express} from "express";
 import {Server} from "net";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
@@ -70,7 +70,7 @@ import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-cli
 /* import configs - other imports stay above */
 import configClient from "./config";
 import path from "path";
-import {RedisTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib/dist/transfers/redis_transfers_repo";
+// import {RedisTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib/dist/transfers/redis_transfers_repo";
 const BC_NAME = configClient.boundedContextName;
 const APP_NAME = configClient.applicationName;
 const APP_VERSION = configClient.applicationVersion;
@@ -80,8 +80,8 @@ const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEB
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:example@localhost:27017/";
 
-const REDIS_HOST = process.env["REDIS_HOST"] || "localhost";
-const REDIS_PORT = (process.env["REDIS_PORT"] && parseInt(process.env["REDIS_PORT"])) || 6379;
+// const REDIS_HOST = process.env["REDIS_HOST"] || "localhost";
+// const REDIS_PORT = (process.env["REDIS_PORT"] && parseInt(process.env["REDIS_PORT"])) || 6379;
 
 const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
@@ -102,7 +102,7 @@ const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localh
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
-const USE_REDIS_TRANSFERS_REPO = (process.env["USE_REDIS_TRANSFERS_REPO"] && process.env["USE_REDIS_TRANSFERS_REPO"].toUpperCase()=="TRUE") || false;
+// const USE_REDIS_TRANSFERS_REPO = (process.env["USE_REDIS_TRANSFERS_REPO"] && process.env["USE_REDIS_TRANSFERS_REPO"].toUpperCase()=="TRUE") || false;
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 100;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 100;
@@ -124,6 +124,7 @@ let globalLogger: ILogger;
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3501;
 let expressApp: Express;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let expressServer: Server;
 
 const DB_NAME_TRANSFERS = "transfers";

@@ -204,8 +204,9 @@ export class TransfersAggregate {
                 execAB_timerEndFn({success:"true"});
             }
 
-        } catch (error: any) {
-            this._logger.error(error);
+        } catch (err: unknown) {
+            const error = (err as Error).message;
+            this._logger.error(err, error);
             throw error;
         } finally {
             // flush in mem repositories
@@ -213,6 +214,7 @@ export class TransfersAggregate {
 
             // send resulting/output events
             await this._messageProducer.send(this._outputEvents);
+            // eslint-disable-next-line no-unsafe-finally
             return Promise.resolve();
         }
     }
@@ -246,7 +248,7 @@ export class TransfersAggregate {
         }
     }
 
-    private async _processAccountsAndBalancesResponse(abResponse: IAccountsBalancesHighLevelResponse): Promise<any> {
+    private async _processAccountsAndBalancesResponse(abResponse: IAccountsBalancesHighLevelResponse): Promise<void> {
         const request = this._abBatchRequests.find(value => value.requestId === abResponse.requestId);
         if (!request) {
             const err = new CheckLiquidityAndReserveFailedError("Could not find corresponding request for checkLiquidAndReserve IAccountsBalancesHighLevelResponse");
@@ -473,19 +475,19 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle _getParticipantsInfo error - _fulfilTransferStart");
                 return;
@@ -498,7 +500,7 @@ export class TransfersAggregate {
 
         let participantAccounts:ITransferAccounts;
         try{
-            participantAccounts = this.getTransferParticipantsAccounts(participants, transfer);;
+            participantAccounts = this.getTransferParticipantsAccounts(participants, transfer);
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
 
@@ -506,31 +508,31 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerPositionAccountNotFoundError) {
                 errorEvent = new TransferPayerPositionAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerLiquidityAccountNotFoundError) {
                 errorEvent = new TransferPayerLiquidityAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeePositionAccountNotFoundError) {
                 errorEvent = new TransferPayeePositionAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeLiquidityAccountNotFoundError) {
                 errorEvent = new TransferPayeeLiquidityAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
                 return;
@@ -626,7 +628,7 @@ export class TransfersAggregate {
 				amount: transfer.amount,
 				currency: transfer.currencyCode,
 				errorDescription: errorMessage
-			})
+			});
 
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
 			this._outputEvents.push(errorEvent);
@@ -718,19 +720,19 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle getParticipantsInfo error - _fulfilTransferStart");
                 return;
@@ -754,7 +756,7 @@ export class TransfersAggregate {
         }
 
         try{
-            participantTransferAccounts = this.getTransferParticipantsAccounts(participants, transfer);;
+            participantTransferAccounts = this.getTransferParticipantsAccounts(participants, transfer);
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
 
@@ -762,31 +764,31 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerPositionAccountNotFoundError) {
                 errorEvent = new TransferPayerPositionAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerLiquidityAccountNotFoundError) {
                 errorEvent = new TransferPayerLiquidityAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeePositionAccountNotFoundError) {
                 errorEvent = new TransferPayeePositionAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeLiquidityAccountNotFoundError) {
                 errorEvent = new TransferPayeeLiquidityAccountNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
                 return;
@@ -973,19 +975,19 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
                 return;
@@ -1092,19 +1094,19 @@ export class TransfersAggregate {
                 errorEvent = new TransferHubNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
-                }) 
+                }); 
             } else {
                 this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
                 return;
@@ -1142,7 +1144,7 @@ export class TransfersAggregate {
         let payer: IParticipant;
         let payee: IParticipant;
 
-        let hubCache: {
+        const hubCache: {
             participant: IParticipant,
             timestamp: number
         } | undefined = this._participantsCache.get(HUB_ID);
@@ -1159,7 +1161,7 @@ export class TransfersAggregate {
             hub = hubCache.participant;
         }
 
-        let payerCache: {
+        const payerCache: {
             participant: IParticipant,
             timestamp: number
         } | undefined = this._participantsCache.get(payerFspId);
@@ -1176,7 +1178,7 @@ export class TransfersAggregate {
             payer = payerCache.participant;
         }
 
-        let payeeCache: {
+        const payeeCache: {
             participant: IParticipant,
             timestamp: number
         } | undefined = this._participantsCache.get(payeeFspId);
@@ -1188,7 +1190,7 @@ export class TransfersAggregate {
                 throw new PayeeParticipantNotFoundError(errorMessage);
             }
             this._participantsCache.set(payeeFspId, {participant: foundPayee, timestamp: Date.now()});
-            payee = foundPayee
+            payee = foundPayee;
         } else {
             payee = payeeCache.participant;
         }
@@ -1249,7 +1251,7 @@ export class TransfersAggregate {
         };
     }
 
-    private async validateParticipant(participantId: string | null): Promise<void> {
+    // private async validateParticipant(participantId: string | null): Promise<void> {
         // TODO: use this when all flags are available
         // if (participantId) {
         //     const participant = await this._participantAdapter.getParticipantInfo(participantId);
@@ -1265,8 +1267,8 @@ export class TransfersAggregate {
         //     }
         // }
 
-        return;
-    }
+        // return;
+    // }
 
     private async _cancelTransfer(transferId: string) {
         try {

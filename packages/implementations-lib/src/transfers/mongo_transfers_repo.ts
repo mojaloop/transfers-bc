@@ -142,6 +142,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		endDate?:number,
 		id?:string
 	):Promise<ITransfer[]>{
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const filter:any = {$and:[]};
 		if(id){
 			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
@@ -199,6 +200,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
             };
         });
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
         let updateResult: any;
         try {
             updateResult = await this.transfers.bulkWrite(operations);

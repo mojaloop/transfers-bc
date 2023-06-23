@@ -31,11 +31,8 @@
 
 "use strict";
 
-import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToAddManyTransfersError, UnableToDeleteTransferError } from '../errors';
-import { randomUUID } from 'crypto';
 
 
 declare type CacheItem = {
@@ -46,16 +43,16 @@ export class InMemoryTransfersRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
     private _cache: Map<string, CacheItem> = new Map<string, CacheItem>();
 
-	constructor(logger: ILogger, dbName: string) {
+	constructor(logger: ILogger, _dbName: string) {
 		this._logger = logger.createChild(this.constructor.name);
 	}
 
 	async init(): Promise<void> {
-
+		return;
 	}
 
 	async destroy(): Promise<void> {
-
+		return;
 	}
 
 	async addTransfer(transfer: ITransfer): Promise<string> {
@@ -78,16 +75,16 @@ export class InMemoryTransfersRepo implements ITransfersRepository {
 	}
 
 	async searchTransfers(
-		state?:string,
-		currencyCode?:string,
-		startDate?:number,
-		endDate?:number,
-		id?:string
+		_state?:string,
+		_currencyCode?:string,
+		_startDate?:number,
+		_endDate?:number,
+		_id?:string
 	):Promise<ITransfer[]>{
 		throw new Error("Not implemented");
 	}
 
-	async addTransfers(transfers: ITransfer[]): Promise<void> {
+	async addTransfers(_transfers: ITransfer[]): Promise<void> {
         throw new Error("Not implemented");
 	}
 

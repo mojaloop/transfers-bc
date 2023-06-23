@@ -31,9 +31,9 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {CommandMsg, IMessage, IMessageConsumer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {CommandMsg, IMessage, IMessageConsumer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
-import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
 import {TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
 
@@ -64,6 +64,7 @@ export class TransfersCommandHandler{
 	}
 
     private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
+		// eslint-disable-next-line no-async-promise-executor
         return await new Promise<void>(async (resolve) => {
             const startTime = Date.now();
             const timerEndFn = this._histo.startTimer({ callName: "batchMsgHandler"});
@@ -73,8 +74,9 @@ export class TransfersCommandHandler{
 
             try{
                 await this._transfersAgg.processCommandBatch(receivedMessages as CommandMsg[]);
-            }catch(err: any){
-                this._logger.error(err, `TransfersCommandHandler - failed processing batch - Error: ${err.message || err.toString()}`);
+            }catch(err: unknown){
+				const error = (err as Error);
+                this._logger.error(err, `TransfersCommandHandler - failed processing batch - Error: ${error.message || error.toString()}`);
                 // TODO Don't suppress the exception - find proper exception but make sure the app dies
                 throw err;
             }finally {

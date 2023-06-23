@@ -36,7 +36,10 @@ import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {ParticipantsHttpClient} from "@mojaloop/participants-bc-client-lib";
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
 import {IParticipantsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
-import { ILocalCache, LocalCache } from "../local_cache";
+import { 
+	ILocalCache, 
+	// LocalCache 
+} from "../local_cache";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-client-lib";
 
 export class ParticipantAdapter implements IParticipantsServiceAdapter {
@@ -53,7 +56,7 @@ export class ParticipantAdapter implements IParticipantsServiceAdapter {
 		clientBaseUrl: string,
 		authRequester: IAuthenticatedHttpRequester,
 		timeoutMs: number,
-		localCache?: ILocalCache,
+		_localCache?: ILocalCache,
 	) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._clientBaseUrl = clientBaseUrl;

@@ -89,6 +89,7 @@ let globalLogger: ILogger;
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3502;
 let expressApp: Express;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let expressServer: Server;
 
 export class Service {
@@ -159,7 +160,7 @@ export class Service {
 		this.messageProducer = messageProducer;
 
         if(!metrics){
-            const labels: Map<string, string> = new Map<string, string>()
+            const labels: Map<string, string> = new Map<string, string>();
             labels.set("bc", BC_NAME);
             labels.set("app", APP_NAME);
             labels.set("version", APP_VERSION);

@@ -93,7 +93,7 @@ export class RedisTransfersRepo implements ITransfersRepository {
 	async removeTransfer(transferId: string): Promise<void> {
         const key: string = this._getKeyWithPrefix(transferId);
 
-        const count = await this._redisClient.del(key)
+        const count = await this._redisClient.del(key);
 
 		if(count == 1){
 			return;
@@ -139,16 +139,16 @@ export class RedisTransfersRepo implements ITransfersRepository {
 	}
 
 	async searchTransfers(
-		state?:string,
-		currencyCode?:string,
-		startDate?:number,
-		endDate?:number,
-		id?:string
+		_state?:string,
+		_currencyCode?:string,
+		_startDate?:number,
+		_endDate?:number,
+		_id?:string
 	):Promise<ITransfer[]>{
         throw new Error("Not implemented");
 	}
 
-	async addTransfers(transfers: ITransfer[]): Promise<void> {
+	async addTransfers(_transfers: ITransfer[]): Promise<void> {
         throw new Error("Not implemented");
 	}
 

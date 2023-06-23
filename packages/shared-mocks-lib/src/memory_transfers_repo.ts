@@ -86,11 +86,11 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers);
     }
 
-    searchTransfers(state?: string, currencyCode?: string, startDate?: number, endDate?: number, id?: string): Promise<ITransfer[]> {
+    searchTransfers(_state?: string, _currencyCode?: string, _startDate?: number, _endDate?: number, _id?: string): Promise<ITransfer[]> {
         return Promise.resolve(this._transfers);
     }
 
-    storeTransfers(transfers:ITransfer[]):Promise<void> {
+    storeTransfers(_transfers:ITransfer[]):Promise<void> {
         return Promise.resolve();
     }
 }

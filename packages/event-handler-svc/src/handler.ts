@@ -94,6 +94,7 @@ export class TransfersEventHandler{
     }
 
     private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
+        // eslint-disable-next-line no-async-promise-executor
         return await new Promise<void>(async (resolve) => {
             console.log(`Got message batch in TransfersEventHandler batch size: ${receivedMessages.length}`);
             this._batchSizeGauge.set(receivedMessages.length);
@@ -106,9 +107,9 @@ export class TransfersEventHandler{
                 for(const message of receivedMessages){
                     if(message.msgType!=MessageTypes.DOMAIN_EVENT) continue;
 
-                    let transferCmd: CommandMsg | null = this._getCmdFromEvent(message);
+                    const transferCmd: CommandMsg | null = this._getCmdFromEvent(message);
                     if(transferCmd) {
-                        outputCommands.push(transferCmd)
+                        outputCommands.push(transferCmd);
                         this._eventsCounter.inc({eventName: message.msgName}, 1);
                     }
 
@@ -129,8 +130,9 @@ export class TransfersEventHandler{
                 await this._messageProducer.send(outputCommands);
                 console.log("after messageProducer.send()");
                 timerEndFn({ success: "true" });
-            }catch(err: any){
-                this._logger.error(err, `TransfersEventHandler - failed processing batch - Error: ${err.message || err.toString()}`);
+            }catch(err: unknown){
+                const error = (err as Error);
+                this._logger.error(err, `TransfersEventHandler - failed processing batch - Error: ${error.message || error.toString()}`);
                 timerEndFn({ success: "false" });
             }finally {
                 console.log(`  Completed batch in TransfersEventHandler batch size: ${receivedMessages.length}`);
