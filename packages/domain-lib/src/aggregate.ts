@@ -62,71 +62,43 @@ import {
     HubNotFoundError,
     InvalidMessagePayloadError,
     InvalidMessageTypeError,
-    NoSuchAccountError,
-    NoSuchTransferError,
     PayeeLiquidityAccountNotFoundError,
     PayeeParticipantNotFoundError,
     PayeePositionAccountNotFoundError,
     PayerLiquidityAccountNotFoundError,
     PayerParticipantNotFoundError,
     PayerPositionAccountNotFoundError,
-    RequiredParticipantIsNotActive,
     TransferNotFoundError,
-    UnableToCancelTransferError,
-    UnableToCancelTransferNotAvailableError
-} from "./errors";
+    UnableToCancelTransferError} from "./errors";
 import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
 	TransferCommittedFulfiledEvt,
-	TransferCommittedFulfiledEvtPayload,
-	TransferFulfilCommittedRequestedEvt,
 	TransferPreparedEvt,
 	TransferPreparedEvtPayload,
-	TransferPrepareRequestedEvt,
-	TransferRejectRequestedEvt,
 	TransferRejectRequestProcessedEvt,
 	TransferRejectRequestProcessedEvtPayload,
-	TransferQueryReceivedEvt,
 	TransferQueryResponseEvt,
 	TransferQueryResponseEvtPayload,
-	TransferInvalidMessagePayloadEvt,
-	TransferInvalidMessageTypeEvt,
-	TransfersBCUnknownErrorEvent,
-	TransferUnableToGetParticipantsInfoEvt,
-	TransferPrepareInvalidPayerCheckFailedEvt,
-	TransferPrepareInvalidPayeeCheckFailedEvt,
-	TransferUnableToAddEvt,
 	TransferUnableToUpdateEvt,
-	TransferQueryInvalidPayeeParticipantIdEvt,
-	TransferQueryPayeeNotFoundFailedEvt,
-	TransferQueryPayerNotFoundFailedEvt,
-	TransferQueryInvalidPayerParticipantIdEvt,
-	TransferQueryInvalidPayerCheckFailedEvt,
 	TransferPrepareLiquidityCheckFailedEvt,
 	TransferUnableToGetTransferByIdEvt,
 	TransferNotFoundEvt,
-	TransferDuplicateCheckFailedEvt,
 	TransferPayerNotFoundFailedEvt,
 	TransferPayeeNotFoundFailedEvt,
 	TransferHubNotFoundFailedEvt,
-	TransferPayerNotApprovedEvt,
-	TransferPayeeNotApprovedEvt,
 	TransferHubAccountNotFoundFailedEvt,
 	TransferPayerPositionAccountNotFoundFailedEvt,
 	TransferPayerLiquidityAccountNotFoundFailedEvt,
 	TransferPayeePositionAccountNotFoundFailedEvt,
 	TransferPayeeLiquidityAccountNotFoundFailedEvt,
 	TransferCancelReservationFailedEvt,
-	TransferPrepareRequestTimedoutEvt,
-	TransferFulfilCommittedRequestedTimedoutEvt,
-	TransferFulfilPostCommittedRequestedTimedoutEvt,
-	TransferQueryInvalidPayeeCheckFailedEvt,
 	TransferCancelReservationAndCommitFailedEvt,
 	TransferUnableToGetSettlementModelEvt,
 	TransferSettlementModelNotFoundEvt,
-	TransferPayerNetDebitCapCurrencyNotFoundEvt
+	TransferPayerNetDebitCapCurrencyNotFoundEvt,
+    TransferInvalidMessageTypeEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 const HUB_ID = "hub"; // move to shared lib
@@ -255,12 +227,22 @@ export class TransfersAggregate {
             return this._prepareTransferStart(cmd as PrepareTransferCmd);
         } else if (cmd.msgName === CommitTransferFulfilCmd.name) {
             return this._fulfilTransferStart(cmd as CommitTransferFulfilCmd);
-        // } else if (cmd.msgName === RejectTransferCmd.name) {
-        //     return this._rejectTransferStart(cmd as RejectTransferCmd);
-        // } else if (cmd.msgName === QueryTransferCmd.name) {
-        //     return this._queryTransferStart(cmd as QueryTransferCmd);
+        } else if (cmd.msgName === RejectTransferCmd.name) {
+            return this._rejectTransfer(cmd as RejectTransferCmd);
+        } else if (cmd.msgName === QueryTransferCmd.name) {
+            return this._queryTransfer(cmd as QueryTransferCmd);
         } else {
-            // TODO throw unhandled cmd
+            const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
+            const transferId = cmd.payload?.transferId;
+			const errorMessage = `Command type is unknown: ${cmd.msgName}`;
+            this._logger.error(errorMessage);
+            const errorEvent = new TransferInvalidMessageTypeEvt({
+                transferId: transferId,
+                payerFspId: requesterFspId,
+                errorDescription: errorMessage
+            });
+            errorEvent.fspiopOpaqueState = cmd.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
         }
     }
 
@@ -606,7 +588,7 @@ export class TransfersAggregate {
         request: IAccountsBalancesHighLevelRequest,
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer | null
-    ): Promise<any> {
+    ): Promise<void> {
         if (!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
@@ -628,7 +610,6 @@ export class TransfersAggregate {
             }
 
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
-    
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -648,7 +629,6 @@ export class TransfersAggregate {
 			})
 
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
-            
 			this._outputEvents.push(errorEvent);
             return;
         }
@@ -681,7 +661,7 @@ export class TransfersAggregate {
         this._outputEvents.push(event);
     }
 
-    private async _fulfilTransferStart(message: CommitTransferFulfilCmd): Promise<any> {
+    private async _fulfilTransferStart(message: CommitTransferFulfilCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
         let participantTransferAccounts: ITransferAccounts | null = null;
@@ -697,10 +677,10 @@ export class TransfersAggregate {
                 transferId: message.payload.transferId,
 				errorDescription: errorMessage
 			});
+
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-    
             this._outputEvents.push(errorEvent);
-            
+            return;
 		}
 
         if(!transfer) {
@@ -756,9 +736,6 @@ export class TransfersAggregate {
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-            this._outputEvents.push(errorEvent);
-
             try {
                 await this._cancelTransfer(transfer.transferId);
             } catch(err: unknown) {
@@ -770,6 +747,9 @@ export class TransfersAggregate {
                     errorDescription: errorMessage
                 });
             }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
             return;
         }
 
@@ -875,7 +855,6 @@ export class TransfersAggregate {
             }
 
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
-    
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -907,9 +886,8 @@ export class TransfersAggregate {
             }
 
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
-    
             this._outputEvents.push(errorEvent);
-
+            return;
         }
 
         // TODO if failed, queue a cancelReservation request to this._abCancelationBatchRequests and add the error event to the events queue
@@ -949,6 +927,213 @@ export class TransfersAggregate {
         this._outputEvents.push(event);
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
     }
+
+    private async _rejectTransfer(message: RejectTransferCmd):Promise<void> {
+		this._logger.debug(`rejectTransfer() - Got transferRejectRequestedEvt msg for transferId: ${message.payload.transferId}`);
+
+		let transfer:ITransfer | null = null;
+
+		try {
+			transfer = await this._getTransfer(message.payload.transferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetTransferByIdEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		if(!transfer) {
+			const errorMessage = `TransferId: ${message.payload.transferId} could not be found`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferNotFoundEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - before getParticipants...");
+        
+        try{
+            await this.getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - after getParticipants");
+
+        try {
+            await this._cancelTransfer(message.payload.transferId);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferCancelReservationFailedEvt({
+                transferId: message.payload.transferId,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+		try {
+			transfer.transferState = TransferState.ABORTED;
+			await this._transfersRepo.updateTransfer(transfer);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Error updating transfer for transferId: ${transfer.transferId}.`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToUpdateEvt({
+				transferId: transfer.transferId,
+				payerFspId: transfer.payerFspId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		const payload: TransferRejectRequestProcessedEvtPayload = {
+			transferId: message.payload.transferId,
+			errorInformation: message.payload.errorInformation
+		};
+
+		const event = new TransferRejectRequestProcessedEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+        this._logger.debug("_rejectTransfer completed for transferId: " + transfer.transferId);
+
+        this._outputEvents.push(event);
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_rejectTransfer() - completed for transferId: ${transfer.transferId}`);
+	}
+
+    private async _queryTransfer(message: QueryTransferCmd):Promise<void> {
+		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
+
+		let transfer:ITransfer | null = null;
+
+		try {
+			transfer = await this._transfersRepo.getTransferById(message.payload.transferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetTransferByIdEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		if(!transfer) {
+			const errorMessage = `TransferId: ${message.payload.transferId} could not be found`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferNotFoundEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+            
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - before getParticipants...");
+        
+        try{
+            await this.getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                }) 
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - after getParticipants");
+
+		const payload: TransferQueryResponseEvtPayload = {
+			transferId: transfer.transferId,
+			transferState: transfer.transferState,
+			completedTimestamp: transfer.completedTimestamp as unknown as string,
+			fulfilment: transfer.fulFillment as unknown as string,
+			extensionList: transfer.extensionList
+		};
+
+		const event = new TransferQueryResponseEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+        this._logger.debug("_queryTransfer completed for transferId: " + transfer.transferId);
+
+        this._outputEvents.push(event);
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_queryTransfer() - completed for transferId: ${transfer.transferId}`);
+	}
 
     private async getParticipantsInfo(payerFspId: string, payeeFspId: string, transferId: string): Promise<ITransferParticipants> {
         // TODO get all participants in a single call with participantsClient.getParticipantsByIds()
