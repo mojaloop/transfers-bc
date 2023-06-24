@@ -53,8 +53,8 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
 export function createTransferCommittedFulfiledEvtPayload(mockedTransfer: ITransfer): TransferCommittedFulfiledEvtPayload {
     return {
         transferId: mockedTransfer.transferId,
-        transferState: mockedTransfer.transferState as any,
-        fulfilment: mockedTransfer.fulFillment,
+        transferState: mockedTransfer.transferState,
+        fulfilment: mockedTransfer.fulfilment,
         completedTimestamp: mockedTransfer.completedTimestamp,
         extensionList: mockedTransfer.extensionList,
         payeeFspId: mockedTransfer.payeeFspId,

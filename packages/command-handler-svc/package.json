@@ -1,6 +1,6 @@
 {
   "name": "@mojaloop/transfers-bc-command-handler-svc",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Mojaloop vNext Transfers BC - Command Handler Service",
   "license": "Apache-2.0",
   "homepage": "https://github.com/mojaloop/transfers-bc/command-handler-svc",
@@ -37,27 +37,32 @@
     "dep:update": "ncu -u"
   },
   "dependencies": {
+    "@mojaloop/auditing-bc-client-lib": "~0.0.14",
+    "@mojaloop/logging-bc-client-lib": "^0.1.24",
+    "@mojaloop/platform-configuration-bc-client-lib": "~0.3.4",
+    "@mojaloop/platform-configuration-bc-public-types-lib": "^0.3.3",
+    "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "^0.3.65",
+    "@mojaloop/platform-shared-lib-observability-client-lib": "~0.1.9",
+    "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.8",
+    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.132",
+    "@mojaloop/security-bc-client-lib": "~0.2.2",
     "@mojaloop/transfers-bc-domain-lib": "*",
     "@mojaloop/transfers-bc-implementations-lib": "*",
-    "@mojaloop/security-bc-client-lib": "~0.1.31",
-    "@mojaloop/logging-bc-client-lib": "^0.1.24",
-    "@mojaloop/platform-configuration-bc-public-types-lib": "^0.2.4",
-    "@mojaloop/platform-configuration-bc-client-lib": "~0.1.21",
-    "@mojaloop/auditing-bc-client-lib": "~0.0.14",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "@mojaloop/transfers-bc-config-lib": "~0.1.0"
   },
   "devDependencies": {
     "@mojaloop/logging-bc-public-types-lib": "^0.1.19",
     "@types/express": "^4.17.17",
-    "@types/jest": "^29.5.1",
-    "@types/node": "^18.15.13",
-    "@typescript-eslint/eslint-plugin": "^5.59.0",
-    "@typescript-eslint/parser": "^5.59.0",
-    "eslint": "^8.38.0",
+    "@types/jest": "^29.5.2",
+    "@types/node": "^20.3.1",
+    "@typescript-eslint/eslint-plugin": "^5.60.0",
+    "@typescript-eslint/parser": "^5.60.0",
+    "eslint": "^8.43.0",
     "husky": "^8.0.3",
     "jest": "^29.5.0",
-    "npm-check-updates": "^16.10.9",
+    "npm-check-updates": "^16.10.13",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.1.3"
   }
 }

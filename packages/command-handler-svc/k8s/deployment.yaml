@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: command-handler-svc
+  namespace: vnext-apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: command-handler-svc
+  template:
+    metadata:
+      labels:
+        app: command-handler-svc
+        bc: transfers-bc
+    spec:
+      containers:
+        - name: app
+          image: mojaloop/transfers-bc-command-handler-svc:0.1.6_test_9
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: KAFKA_URL
+              value: 192.168.1.94:9094
+            - name: KAFKA_LOGS_TOPIC
+              value: logs
+            - name: KAFKA_AUDITS_TOPIC
+              value: audits
+            - name: PLATFORM_CONFIG_BASE_SVC_URL
+              value: http://192.168.1.94:3100
+            - name: AUDIT_KEY_FILE_PATH
+              value: /tmp/audit_private_key.pem
+            - name: REDIS_HOST
+              value: 192.168.1.94
+            - name: MONGO_URL
+              value: mongodb://root:mongoDbPas42@192.168.1.94:27017
+            - name: ACCOUNTS_BALANCES_COA_SVC_URL
+              value: 192.168.1.94:3300
+            - name: PARTICIPANTS_SVC_URL
+              value: http://192.168.1.94:3010
+            - name: AUTH_N_SVC_BASEURL
+              value: http://192.168.1.94:3201
+            - name: USE_REDIS_TRANSFERS_REPO
+              value: "false"
+            - name: CONSUMER_BATCH_SIZE
+              value: "200"
+
+          imagePullPolicy: Always

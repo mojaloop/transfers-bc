@@ -33,7 +33,14 @@
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import { IAccountsBalancesAdapter } from "@mojaloop/transfers-bc-domain-lib";
-import {AccountsAndBalancesAccountType, AccountsAndBalancesAccount, AccountsAndBalancesJournalEntry } from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
+import {
+	AccountsAndBalancesAccountType, 
+	AccountsAndBalancesAccount,
+	AccountsAndBalancesJournalEntry,
+    // AccountsBalancesHighLevelRequestTypes,
+    IAccountsBalancesHighLevelRequest,
+    IAccountsBalancesHighLevelResponse
+ } from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
 
 export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapter {
 	private readonly logger: ILogger;
@@ -69,11 +76,11 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
         this.client_secret = client_secret;
     }
 
-	createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string> {
+	createAccount(_requestedId: string, _ownerId: string, _type: AccountsAndBalancesAccountType, _currencyCode: string): Promise<string> {
 		return Promise.resolve("accountId");
 	}
 
-	getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null> {
+	getAccount(_accountId: string): Promise<AccountsAndBalancesAccount | null> {
 		const account:AccountsAndBalancesAccount = {
 			id: null,
 			ownerId: "",
@@ -91,7 +98,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 		return Promise.resolve(account);
 	}
 
-	getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]> {
+	getAccounts(_accountIds: string[]): Promise<AccountsAndBalancesAccount[]> {
 		const account:AccountsAndBalancesAccount = {
 			id: null,
 			ownerId: "",
@@ -109,7 +116,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 		return Promise.resolve([account]);
 	}
 
-	getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]> {
+	getParticipantAccounts(_participantId: string): Promise<AccountsAndBalancesAccount[]> {
 		const account:AccountsAndBalancesAccount = {
 			id: null,
 			ownerId: "",
@@ -127,17 +134,19 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 		return Promise.resolve([account]);
 	}
 
-	createJournalEntry(requestedId: string, ownerId: string,
-		currencyCode: string,
-		amount: string,
-		pending: boolean,
-		debitedAccountId: string,
-		creditedAccountId: string
+	createJournalEntry(
+		_requestedId: string, 
+		_ownerId: string,
+		_currencyCode: string,
+		_amount: string,
+		_pending: boolean,
+		_debitedAccountId: string,
+		_creditedAccountId: string
 	): Promise<string> {
 		return Promise.resolve("journalEntryId");
 	}
 
-	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
+	getJournalEntriesByAccountId(_accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
 		const journalEntry:AccountsAndBalancesJournalEntry = {
 			id: null,
 			ownerId: null,
@@ -151,27 +160,6 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
 
 		return Promise.resolve([journalEntry]);
 	}
-
-    checkLiquidAndReserve(
-        payerPositionAccountId: string, payerLiquidityAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, payerNetDebitCap: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
-
-    cancelReservationAndCommit(
-        payerPositionAccountId: string, payeePositionAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
-
-    cancelReservation(
-        payerPositionAccountId: string, hubJokeAccountId: string,
-        transferAmount: string, currencyCode: string, transferId: string
-    ): Promise<void> {
-		return Promise.resolve();
-	}
 	
 	setUserCredentials(client_id: string, username: string, password: string): void {
         this.client_id = client_id;
@@ -179,4 +167,7 @@ export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapte
         this.password = password;
     }
 
+	processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]):Promise<IAccountsBalancesHighLevelResponse[]> {
+		return Promise.resolve(requests as unknown as IAccountsBalancesHighLevelResponse[]);
+    }
 }

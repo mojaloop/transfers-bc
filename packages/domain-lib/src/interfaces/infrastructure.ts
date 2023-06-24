@@ -35,7 +35,7 @@ import { ITransfer } from "../types";
 import {
     AccountsAndBalancesAccount,
     AccountsAndBalancesJournalEntry,
-    AccountsAndBalancesAccountType
+    AccountsAndBalancesAccountType, IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
 export interface ITransfersRepository {
@@ -43,7 +43,7 @@ export interface ITransfersRepository {
 	destroy(): Promise<void>;
     addTransfer(transfer: ITransfer):Promise<string>;
 	addTransfers(transfers: ITransfer[]):Promise<void>;
-    updateTransfer(transfer: ITransfer):Promise<ITransfer>;
+    updateTransfer(transfer: ITransfer):Promise<void>;
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
     getTransfers():Promise<ITransfer[]>;
@@ -54,6 +54,8 @@ export interface ITransfersRepository {
 		endDate?:number,
 		id?:string
 	):Promise<ITransfer[]>
+
+    storeTransfers(transfers:ITransfer[]):Promise<void>;
 }
 
 export interface IParticipantsServiceAdapter {
@@ -86,6 +88,10 @@ export interface IAccountsBalancesAdapter {
 
 	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
 
+    processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]):Promise<IAccountsBalancesHighLevelResponse[]>;
+
+/*
+
     // high level
     checkLiquidAndReserve(
         payerPositionAccountId: string, payerLiquidityAccountId: string, hubJokeAccountId: string,
@@ -101,6 +107,8 @@ export interface IAccountsBalancesAdapter {
         payerPositionAccountId: string, hubJokeAccountId: string,
         transferAmount: string, currencyCode: string, transferId: string
     ): Promise<void>;
+
+*/
 }
 
 export interface ISettlementsServiceAdapter {

@@ -32,8 +32,6 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { IParticipant } from "@mojaloop/participant-bc-public-types-lib";
-import { IParticipantsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
 import {AuditEntryLabel, AuditSecurityContext, IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 
 export class MemoryAuditService implements IAuditClient {
@@ -53,7 +51,7 @@ export class MemoryAuditService implements IAuditClient {
         return Promise.resolve();
     }
 
-	audit(actionType: string, actionSuccessful: boolean, securityContext?: AuditSecurityContext | undefined, labels?: AuditEntryLabel[] | undefined): Promise<void> {
+	audit(_actionType: string, _actionSuccessful: boolean, _securityContext?: AuditSecurityContext | undefined, _labels?: AuditEntryLabel[] | undefined): Promise<void> {
         return Promise.resolve();
 	}
 

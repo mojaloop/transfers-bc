@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transfers-api-svc
+  namespace: vnext-apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transfers-api-svc
+  template:
+    metadata:
+      labels:
+        app: transfers-api-svc
+        bc: transfers-bc
+    spec:
+      containers:
+        - name: app
+          image: mojaloop/transfers-bc-transfers-api-svc:alpha-latest
+          ports:
+            - containerPort: 3500
+          env:
+            - name: KAFKA_URL
+              value: 192.168.1.94:9092
+            - name: KAFKA_LOGS_TOPIC
+              value: logs
+            - name: KAFKA_AUDITS_TOPIC
+              value: audits
+            - name: MONGO_URL
+              value: mongodb://root:mongoDbPas42@192.168.1.94:27017/
+            - name: PLATFORM_CONFIG_BASE_SVC_URL
+              value: http://192.168.1.94:3100
+            - name: AUDIT_KEY_FILE_PATH
+              value: /tmp/audit_private_key.pem
+          imagePullPolicy: Always

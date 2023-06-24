@@ -38,6 +38,9 @@ import {
 	KafkaAuditClientDispatcher,
 	LocalAuditClientCryptoProvider
 } from "@mojaloop/auditing-bc-client-lib";
+import {
+    AuthenticatedHttpRequester,
+} from "@mojaloop/security-bc-client-lib";
 import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
 import {
 	MLKafkaJsonConsumer,
@@ -47,15 +50,19 @@ import {
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import process from "process";
+import express, {Express} from "express";
+import {Server} from "net";
 import {TransfersEventHandler} from "./handler";
+import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 
-/* import configs - other imports stay above */
-import configClient from "./config";
-import path from "path";
+import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
+import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
+import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 
-const BC_NAME = configClient.boundedContextName;
-const APP_NAME = configClient.applicationName;
-const APP_VERSION = configClient.applicationVersion;
+const BC_NAME = "transfers-bc";
+const APP_NAME = "event-handler-svc";
+const APP_VERSION = process.env.npm_package_version || "0.0.0";
 const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
@@ -65,9 +72,20 @@ const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
 const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "tmp_audit_key_file";
 
+const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
+const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
+
+const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-event-handler-svc";
+const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+
+const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
+const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
+
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
-	kafkaBrokerList: KAFKA_URL,
-	kafkaGroupId: `${BC_NAME}_${APP_NAME}`
+    kafkaBrokerList: KAFKA_URL,
+    kafkaGroupId: `${BC_NAME}_${APP_NAME}`,
+    batchSize: CONSUMER_BATCH_SIZE,
+    batchTimeoutMs: CONSUMER_BATCH_TIMEOUT_MS
 };
 
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
@@ -77,25 +95,30 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
+// Express Server
+const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3502;
+let expressApp: Express;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let expressServer: Server;
+
 export class Service {
 	static logger: ILogger;
 	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
 	static handler: TransfersEventHandler;
+    static metrics:IMetrics;
+    static configClient: IConfigurationClient;
 
 	static async start(
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		messageConsumer?: IMessageConsumer,
-		messageProducer?: IMessageProducer
+		messageProducer?: IMessageProducer,
+        metrics?:IMetrics,
+        configProvider?: IConfigProvider,
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
-
-		/// start config client - this is not mockable (can use STANDALONE MODE if desired)
-		await configClient.init();
-		await configClient.bootstrap(true);
-		await configClient.fetch();
 
 		if (!logger) {
 			logger = new KafkaLogger(
@@ -109,6 +132,24 @@ export class Service {
 			await (logger as KafkaLogger).init();
 		}
 		globalLogger = this.logger = logger;
+
+        /// start config client - this is not mockable (can use STANDALONE MODE if desired)
+        if(!configProvider) {
+            // create the instance of IAuthenticatedHttpRequester
+            const authRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
+            authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+
+            const messageConsumer = new MLKafkaJsonConsumer({
+                kafkaBrokerList: KAFKA_URL,
+                kafkaGroupId: `${APP_NAME}_${Date.now()}` // unique consumer group - use instance id when possible
+            }, this.logger.createChild("configClient.consumer"));
+            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
+        }
+
+        this.configClient = GetTransfersConfigSet(configProvider, BC_NAME, APP_NAME, APP_VERSION);
+        await this.configClient.init();
+        await this.configClient.bootstrap(true);
+        await this.configClient.fetch();
 
 		/// start auditClient
 		if (!auditClient) {
@@ -142,11 +183,45 @@ export class Service {
 		}
 		this.messageProducer = messageProducer;
 
+        if(!metrics){
+            const labels: Map<string, string> = new Map<string, string>();
+            labels.set("bc", BC_NAME);
+            labels.set("app", APP_NAME);
+            labels.set("version", APP_VERSION);
+            PrometheusMetrics.Setup({prefix:"", defaultLabels: labels}, this.logger);
+            metrics = PrometheusMetrics.getInstance();
+        }
+        this.metrics = metrics;
+
 		// create handler and start it
-		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer);
+		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer, this.metrics);
 		await this.handler.start();
 
-		this.logger.info(`Transfer Event Handler Service started, version: ${configClient.applicationVersion}`);
+        // Start express server
+        expressApp = express();
+        expressApp.use(express.json()); // for parsing application/json
+        expressApp.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+
+        // Add health and metrics http routes
+        expressApp.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+        expressApp.get("/metrics", async (req: express.Request, res: express.Response) => {
+            const strMetrics = await (metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
+            return res.send(strMetrics);
+        });
+
+        expressApp.use((req, res) => {
+            // catch all
+            res.send(404);
+        });
+
+        expressServer = expressApp.listen(SVC_DEFAULT_HTTP_PORT, () => {
+            globalLogger.info(
+                `🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`
+            );
+            globalLogger.info(`Transfer Event Handler Service started, version: ${this.configClient.applicationVersion}`);
+        });
+
+
 	}
 
 	static async stop() {

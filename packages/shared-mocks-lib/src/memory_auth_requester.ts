@@ -29,7 +29,7 @@
  "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-client-lib";
+import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
 
 export class MemoryAuthenticatedHttpRequesterMock implements IAuthenticatedHttpRequester {
     private readonly logger: ILogger;

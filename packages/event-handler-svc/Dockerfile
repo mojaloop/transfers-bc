@@ -18,6 +18,7 @@ COPY packages/public-types-lib/package.json ./packages/public-types-lib/
 COPY packages/implementations-lib/package.json ./packages/implementations-lib/
 COPY packages/domain-lib/package.json ./packages/domain-lib/
 COPY packages/event-handler-svc/package.json ./packages/event-handler-svc/
+COPY packages/transfers-config-lib/package.json ./packages/transfers-config-lib/
 
 #RUN ls -la
 
@@ -39,6 +40,7 @@ COPY tsconfig.json ./
 COPY packages/public-types-lib ./packages/public-types-lib
 COPY packages/implementations-lib ./packages/implementations-lib
 COPY packages/domain-lib ./packages/domain-lib
+COPY packages/transfers-config-lib ./packages/transfers-config-lib
 
 # copy service code
 COPY packages/event-handler-svc ./packages/event-handler-svc

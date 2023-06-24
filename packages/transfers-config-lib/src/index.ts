@@ -22,44 +22,39 @@
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
 
- * Arg Software
- - Jose Francisco Antunes <jfantunes@arg.software>
- - Rui Rocha <rui.rocha@arg.software>
+ * Crosslake
+ - Pedro Sousa Barreto <pedrob@crosslaketech.com>
 
  --------------
  ******/
 
 "use strict";
 
-import {
-    ConfigurationClient,
-    DefaultConfigProvider
-} from "@mojaloop/platform-configuration-bc-client-lib";
+import { ConfigurationClient,IConfigProvider } from "@mojaloop/platform-configuration-bc-client-lib";
+import {ConfigParameterTypes} from "@mojaloop/platform-configuration-bc-public-types-lib";
 
 // configs - constants / code dependent
-const BC_NAME = "transfers-bc";
-const APP_NAME = "transfers-api-svc";
-const APP_VERSION = process.env.npm_package_version || "0.0.0";
-const CONFIGSET_VERSION = "0.0.1";
+const CONFIGSET_VERSION = "0.1.0";
 
-// configs - non-constants
-const ENV_NAME = process.env["ENV_NAME"] || "dev";
+export function GetTransfersConfigSet(
+    configProvider: IConfigProvider,
+    bcName:string,
+    appName:string,
+    appVersion:string
+): ConfigurationClient {
+    const configClient = new ConfigurationClient(
+        bcName, appName, appVersion, CONFIGSET_VERSION, configProvider
+    );
 
-// use default url from PLATFORM_CONFIG_CENTRAL_URL env var
-const defaultConfigProvider: DefaultConfigProvider = new DefaultConfigProvider();
+    /*
+    * Add application parameters here
+    * */
+    // configClient.bcConfigs.addNewParam(
+    //     "MAKER_CHECKER_ENABLED",
+    //     ConfigParameterTypes.BOOL,
+    //     true,
+    //     "Enable maker-checker enforcement in participants"
+    // );
 
-const configClient = new ConfigurationClient(ENV_NAME, BC_NAME, APP_NAME, APP_VERSION, CONFIGSET_VERSION, defaultConfigProvider);
-
-/*
-* Add application parameters here
-* */
-
-// configClient.appConfigs.addNewParam(
-//         "PARAM_NAME",
-//         ConfigParameterTypes.BOOL,
-//         true,
-//         "param description"
-// );
-
-export = configClient;
-
+    return configClient;
+}

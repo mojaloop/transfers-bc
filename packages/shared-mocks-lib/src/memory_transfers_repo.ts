@@ -47,7 +47,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
     init(): Promise<void> {
         return Promise.resolve();
     }
-    
+
     destroy(): Promise<void> {
         return Promise.resolve();
     }
@@ -62,7 +62,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve();
     }
 
-    updateTransfer(transfer: ITransfer): Promise<ITransfer> {
+    updateTransfer(transfer: ITransfer): Promise<void> {
         const transferToUpdate = this._transfers.find(q => q.transferId === transfer.transferId);
         if (transferToUpdate) {
             Object.assign(transferToUpdate, transfer);
@@ -70,9 +70,9 @@ export class MemoryTransferRepo implements ITransfersRepository {
         else{
             throw new Error(`Transfer with id ${transfer.transferId} not found`);
         }
-        return Promise.resolve(transferToUpdate);
+        return Promise.resolve();
     }
-    
+
     removeTransfer(id: string): Promise<void> {
         this._transfers.splice(this._transfers.findIndex(q => q.transferId === id), 1);
         return Promise.resolve();
@@ -86,8 +86,11 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers);
     }
 
-    searchTransfers(state?: string, currencyCode?: string, startDate?: number, endDate?: number, id?: string): Promise<ITransfer[]> {
+    searchTransfers(_state?: string, _currencyCode?: string, _startDate?: number, _endDate?: number, _id?: string): Promise<ITransfer[]> {
         return Promise.resolve(this._transfers);
     }
 
+    storeTransfers(_transfers:ITransfer[]):Promise<void> {
+        return Promise.resolve();
+    }
 }

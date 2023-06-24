@@ -42,7 +42,7 @@ export type PrepareTransferCmdPayload = {
 	payerFsp: string;
 	payeeFsp: string;
 	ilpPacket: string;
-	expiration: string;
+	expiration: number;
 	condition: string;
 	extensionList: {
 		extension: {

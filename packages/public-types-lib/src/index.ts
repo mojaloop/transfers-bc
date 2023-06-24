@@ -30,4 +30,5 @@
 
 "use strict";
 
+// TODO pedro: what's this for?
 export type Transfer = object;

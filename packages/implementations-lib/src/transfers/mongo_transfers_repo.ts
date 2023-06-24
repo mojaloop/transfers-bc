@@ -61,6 +61,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			this.mongoClient = new MongoClient(this._connectionString);
 			this.mongoClient.connect();
 			this.transfers = this.mongoClient.db(this._dbName).collection(this._collectionName);
+
+            await this.transfers.createIndex({"transferId": 1}, {unique: true});
 		} catch (e: unknown) {
 			this._logger.error(`Unable to connect to the database: ${(e as Error).message}`);
 			throw new UnableToInitTransferRegistryError();
@@ -140,7 +142,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		endDate?:number,
 		id?:string
 	):Promise<ITransfer[]>{
-		const filter:{$and: {[key: string]: {[key: string]: string | number} | string | number }[]} = {$and:[]};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const filter:any = {$and:[]};
 		if(id){
 			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
 		}
@@ -186,7 +189,34 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		});
 	}
 
-	async updateTransfer(transfer: ITransfer): Promise<ITransfer> {
+    async storeTransfers(transfers:ITransfer[]):Promise<void>{
+        const operations = transfers.map(value=>{
+            return {
+                replaceOne: {
+                    filter: {transferId: value.transferId},
+                    replacement: value,
+                    upsert: true
+                }
+            };
+        });
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let updateResult: any;
+        try {
+            updateResult = await this.transfers.bulkWrite(operations);
+
+            if ((updateResult.upsertedCount + updateResult.modifiedCount) !== transfers.length) {
+                const err = new Error("Could not storeTransfers - mismatch between requests length and MongoDb response length");
+                this._logger.error(err);
+                throw err;
+            }
+        } catch (error: unknown) {
+            this._logger.error(error);
+            throw error;
+        }
+    }
+
+	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 
 		if(!existingTransfer || !existingTransfer.transferId) {
@@ -200,8 +230,6 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			this._logger.error(`Unable to insert transfer: ${(e as Error).message}`);
 			throw new UnableToUpdateTransferError();
 		});
-
-		return updatedTransfer;
 	}
 
 	private async checkIfTransferExists(transfer: ITransfer) {
@@ -232,7 +260,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			condition: transfer.condition ?? null,
 			expirationTimestamp: transfer.expirationTimestamp ?? null,
 			transferState: transfer.transferState ?? null,
-			fulFillment: transfer.fulFillment ?? null,
+			fulfilment: transfer.fulfilment ?? null,
 			completedTimestamp: transfer.completedTimestamp ?? null,
 			extensionList: transfer.extensionList ?? null,
 			settlementModel: transfer.settlementModel ?? null,

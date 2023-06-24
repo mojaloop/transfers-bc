@@ -34,10 +34,12 @@
  import {AccountsAndBalancesAccountType} from "@mojaloop/accounts-and-balances-bc-public-types-lib";
  import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
  import {LoginHelper} from "@mojaloop/security-bc-client-lib";
- import {IAccountsBalancesAdapter} from "@mojaloop/transfers-bc-domain-lib";
+ import {
+    IAccountsBalancesAdapter,
+ } from "@mojaloop/transfers-bc-domain-lib";
 
  import {
-         AccountsAndBalancesAccount,
+         AccountsAndBalancesAccount,IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse
  } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
  import {
@@ -88,7 +90,7 @@
          const req: GrpcCreateAccountArray = {
              accountsToCreate: [{
                  requestedId: requestedId,
-                 type: type as string,
+                 type: type,
                  ownerId: ownerId,
                  currencyCode: currencyCode
              }]
@@ -132,7 +134,6 @@
          return createdId.grpcIdArray![0].grpcId!;
      }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
      async getJournalEntriesByAccountId(_accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
          // TODO @pedro, please complete:
          return Promise.resolve([]);
@@ -168,6 +169,15 @@
          await this._client.destroy();
      }
 
+     async processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]): Promise<IAccountsBalancesHighLevelResponse[]>{
+        if(this._logger.isDebugEnabled()) this._logger.debug("GrpcAccountsAndBalancesAdapter.processHighLevelBatch() - start");
+        const resp = await this._client.processHighLevelBatch(requests);
+         if(this._logger.isDebugEnabled()) this._logger.debug("GrpcAccountsAndBalancesAdapter.processHighLevelBatch() - end");
+        return resp;
+     }
+
+/*
+
          // high level
     async checkLiquidAndReserve(
         payerPositionAccountId: string, payerLiquidityAccountId: string, hubJokeAccountId: string,
@@ -195,4 +205,7 @@
             payerPositionAccountId, hubJokeAccountId,
             transferAmount, currencyCode, transferId);
     }
+
+*/
+
  }

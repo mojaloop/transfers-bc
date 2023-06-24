@@ -33,14 +33,16 @@
 "use strict";
 
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { DomainErrorEventMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
+
 
 
 export declare const enum TransferState {
     RECEIVED = "RECEIVED", 		// initial state
 	RESERVED = "RESERVED", 		// after prepare
+	REJECTED = "REJECTED", 		// could not prepare (ex: no liquidity)
     COMMITTED = "COMMITTED", 	// after fulfil (final state of successful transfer)
     ABORTED = "ABORTED", 		// this should not be called like this
+    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
 export declare const enum AccountType {
@@ -69,7 +71,7 @@ export interface ITransfer {
 	currencyCode: string;
 	ilpPacket: string;				// move to opaque object
 	condition: string;				// move to opaque object
-	fulFillment: string | null,		// move to opaque object
+	fulfilment: string | null,		// move to opaque object
 	expirationTimestamp: number;
 	transferState: TransferState,
 	completedTimestamp: number | null,
@@ -95,4 +97,3 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
-export type TransferErrorEvent = DomainErrorEventMsg;
