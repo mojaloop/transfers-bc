@@ -276,6 +276,7 @@ export class Service {
             const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
             authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
 			settlementsAdapter = new SettlementsAdapter(logger, SETTLEMENTS_SVC_URL, authRequester);
+            //await (settlementsAdapter as SettlementsAdapter).init();
 		}
 		this.settlementsAdapter = settlementsAdapter;
 

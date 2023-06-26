@@ -36,6 +36,7 @@ import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { SettlementModelClient } from "@mojaloop/settlements-bc-model-lib";
 import { ISettlementsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
 import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
+import {DEFAULT_SETTLEMENT_MODEL_ID} from "@mojaloop/settlements-bc-public-types-lib";
 
 export class SettlementsAdapter implements ISettlementsServiceAdapter {
 	private readonly _logger: ILogger;
@@ -52,13 +53,18 @@ export class SettlementsAdapter implements ISettlementsServiceAdapter {
 		this._externalSettlementsClient = new SettlementModelClient(this._logger, this._clientBaseUrl, authRequester);
 	}
 
+    async init():Promise<void>{
+        await this._externalSettlementsClient.init();
+    }
+
 	async getSettlementModelId(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string> {
 		try {
 			const modelId = await this._externalSettlementsClient.getSettlementModelId(transferAmount, payerCurrency, payeeCurrency, extensionList);
-			return modelId;
+			return modelId || DEFAULT_SETTLEMENT_MODEL_ID;
 		} catch (e: unknown) {
 			this._logger.error(e,`getSettlementsInfo: error getting settlements info for transferAmount: ${transferAmount}, payerCurrency: ${payerCurrency}, payeeCurrency: ${payeeCurrency}, extensionList: ${extensionList} - ${e}`);
-            throw e;
+            //throw e;
+            return DEFAULT_SETTLEMENT_MODEL_ID;
         }
 	}
 
