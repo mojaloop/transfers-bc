@@ -29,9 +29,16 @@
  ******/
 
 "use strict";
+export enum TransfersPrivileges {
+    VIEW_ALL_TRANSFERS = "TRANSFERS_VIEW_ALL_TRANSFERS",
+}
 
-export * from "./commands";
-export * from "./aggregate";
-export * from "./interfaces/infrastructure";
-export * from "./types";
-export * from "./privileges";
+export const TransfersPrivilegesDefinition = [
+    {
+        privId: TransfersPrivileges.VIEW_ALL_TRANSFERS,
+        labelName: "View All Transfers",
+        description: "Allows for the retrieval of any transfers"
+    }
+];
+
+

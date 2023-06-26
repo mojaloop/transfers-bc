@@ -35,6 +35,7 @@
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { SettlementModelClient } from "@mojaloop/settlements-bc-model-lib";
 import { ISettlementsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
+import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
 
 export class SettlementsAdapter implements ISettlementsServiceAdapter {
 	private readonly _logger: ILogger;
@@ -44,20 +45,20 @@ export class SettlementsAdapter implements ISettlementsServiceAdapter {
 	constructor(
 		logger: ILogger,
 		clientBaseUrl: string,
+        authRequester:IAuthenticatedHttpRequester
 	) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._clientBaseUrl = clientBaseUrl;
-		this._externalSettlementsClient = new SettlementModelClient(this._clientBaseUrl);
+		this._externalSettlementsClient = new SettlementModelClient(this._logger, this._clientBaseUrl, authRequester);
 	}
 
-	async getSettlementModel(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string | null> {
+	async getSettlementModelId(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string> {
 		try {
-			const result = await this._externalSettlementsClient.getSettlementModel(transferAmount, payerCurrency, payeeCurrency, extensionList);
-
-			return result;
+			const modelId = await this._externalSettlementsClient.getSettlementModelId(transferAmount, payerCurrency, payeeCurrency, extensionList);
+			return modelId;
 		} catch (e: unknown) {
 			this._logger.error(e,`getSettlementsInfo: error getting settlements info for transferAmount: ${transferAmount}, payerCurrency: ${payerCurrency}, payeeCurrency: ${payeeCurrency}, extensionList: ${extensionList} - ${e}`);
-            return null;
+            throw e;
         }
 	}
 

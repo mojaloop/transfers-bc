@@ -59,7 +59,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	async init(): Promise<void> {
 		try {
 			this.mongoClient = new MongoClient(this._connectionString);
-			this.mongoClient.connect();
+			await this.mongoClient.connect();
 			this.transfers = this.mongoClient.db(this._dbName).collection(this._collectionName);
 
             await this.transfers.createIndex({"transferId": 1}, {unique: true});

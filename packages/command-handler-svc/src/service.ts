@@ -30,6 +30,8 @@
 
 "use strict";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJSON = require("../package.json");
 
 import {
 	TransfersAggregate,
@@ -73,7 +75,7 @@ import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
-const APP_VERSION = process.env.npm_package_version || "0.0.0";
+const APP_VERSION = packageJSON.version;
 const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
@@ -123,15 +125,16 @@ let globalLogger: ILogger;
 
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3501;
-let expressApp: Express;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let expressServer: Server;
 
 const DB_NAME_TRANSFERS = "transfers";
 const HTTP_CLIENT_TIMEOUT_MS = 10_000;
 
+const SERVICE_START_TIMEOUT_MS = 30_000;
+
 export class Service {
 	static logger: ILogger;
+    static app: Express;
+    static expressServer: Server;
 	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
@@ -143,6 +146,7 @@ export class Service {
     static metrics:IMetrics;
 	static settlementsAdapter: ISettlementsServiceAdapter;
     static configClient: IConfigurationClient;
+    static startupTimer: NodeJS.Timeout;
 
     static async start(
         logger?: ILogger,
@@ -158,6 +162,11 @@ export class Service {
         aggregate?: TransfersAggregate
     ): Promise<void> {
         console.log(`Service starting with PID: ${process.pid}`);
+
+        this.startupTimer = setTimeout(()=>{
+            throw new Error("Service start timed-out");
+        }, SERVICE_START_TIMEOUT_MS);
+
 
         if (!logger) {
             logger = new KafkaLogger(
@@ -264,7 +273,9 @@ export class Service {
 
 
 		if (!settlementsAdapter) {
-			settlementsAdapter = new SettlementsAdapter(logger, SETTLEMENTS_SVC_URL);
+            const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
+            authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+			settlementsAdapter = new SettlementsAdapter(logger, SETTLEMENTS_SVC_URL, authRequester);
 		}
 		this.settlementsAdapter = settlementsAdapter;
 
@@ -277,34 +288,41 @@ export class Service {
         this.handler = new TransfersCommandHandler(this.logger, this.auditClient, this.messageConsumer, this.metrics, this.aggregate);
         await this.handler.start();
 
-        // Start express server
-        expressApp = express();
-        expressApp.use(express.json()); // for parsing application/json
-        expressApp.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+        await this.setupExpress();
 
-        // Add health and metrics http routes
-        expressApp.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
-        expressApp.get("/metrics", async (req: express.Request, res: express.Response) => {
-            const strMetrics = await (metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
-            return res.send(strMetrics);
-        });
-
-        expressApp.use((req, res) => {
-            // catch all
-            res.send(404);
-        });
-
-        expressServer = expressApp.listen(SVC_DEFAULT_HTTP_PORT, () => {
-            globalLogger.info(
-                `🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`
-            );
-            globalLogger.info(`Transfer Command Handler Service started, version: ${this.configClient.applicationVersion}`);
-        });
-
-
+        // remove startup timeout
+        clearTimeout(this.startupTimer);
     }
 
-	static async stop() {
+    static setupExpress(): Promise<void> {
+        return new Promise<void>(resolve => {
+            this.app = express();
+            this.app.use(express.json()); // for parsing application/json
+            this.app.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+
+            // Add health and metrics http routes
+            this.app.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+            this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
+                const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
+                return res.send(strMetrics);
+            });
+
+            this.app.use((req, res) => {
+                // catch all
+                res.send(404);
+            });
+
+            this.expressServer = this.app.listen(SVC_DEFAULT_HTTP_PORT, () => {
+                globalLogger.info(`🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`);
+                globalLogger.info(`Transfer Command Handler Service started, version: ${this.configClient.applicationVersion}`);
+                resolve();
+            });
+
+        });
+    }
+
+
+    static async stop() {
 		if (this.handler) await this.handler.stop();
 		if (this.messageConsumer) await this.messageConsumer.destroy(true);
 

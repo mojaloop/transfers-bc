@@ -41,82 +41,190 @@
 "use strict";
 
 import express from "express";
-import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
-import { check } from "express-validator";
-import { BaseRoutes } from "./base/base_routes";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import {ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
+import {
+    ForbiddenError,
+    MakerCheckerViolationError,
+    UnauthorizedError,
+    CallSecurityContext, IAuthorizationClient,
+} from "@mojaloop/security-bc-public-types-lib";
+import {TokenHelper} from "@mojaloop/security-bc-client-lib";
 
-export class TransferAdminExpressRoutes extends BaseRoutes {
-  constructor(repository: ITransfersRepository, logger: ILogger) {
-    super(logger, repository);
-    this.logger.createChild(this.constructor.name);
-
-    this.mainRouter.get(
-      "/transfers/:id",
-      [
-        check("id")
-          .isString()
-          .notEmpty()
-          .withMessage("id must be a non empty string"),
-      ],
-      this.getTransferById.bind(this)
-    );
-
-    this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
-  }
-
-  private async getAllTransfers(req: express.Request, res: express.Response) {
-    const id = req.query.id as string;
-    const state = req.query.state as string;
-    const startDateStr = req.query.startDate as string || req.query.startdate as string;
-    const startDate = startDateStr ? parseInt(startDateStr) : undefined;
-    const endDateStr = req.query.endDate as string || req.query.enddate as string;
-    const endDate = endDateStr ? parseInt(endDateStr) : undefined;
-    const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
-
-    this.logger.debug("Fetching all transfers");
-    try {
-      let fetched = [];
-      if(!id && !state && !startDate && !endDate && !currencyCode){
-        fetched = await this.repo.getTransfers();
-      }else{
-        fetched = await this.repo.searchTransfers(state, currencyCode, startDate, endDate, id);
-      }
-      res.send(fetched);
-    } catch (err: unknown) {
-      this.logger.error(err);
-      res.status(500).json({
-        status: "error",
-        msg: (err as Error).message,
-      });
+// Extend express request to include our security fields
+declare module "express-serve-static-core" {
+    export interface Request {
+        securityContext: null | CallSecurityContext;
     }
-  }
+}
 
-  private async getTransferById(req: express.Request, res: express.Response  ) {
-    if (!this.validateRequest(req, res)) {
-      return;
+export class TransferAdminExpressRoutes {
+    private readonly _mainRouter: express.Router;
+    private readonly _logger: ILogger;
+    private readonly _repo: ITransfersRepository;
+    private readonly _tokenHelper: TokenHelper;
+    private readonly _authorizationClient: IAuthorizationClient;
+
+    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: TokenHelper, authorizationClient: IAuthorizationClient) {
+        this._mainRouter = express.Router();
+        this._logger = logger.createChild(this.constructor.name);
+        this._repo = repo;
+        this._tokenHelper = tokenHelper;
+        this._authorizationClient = authorizationClient;
+
+        // inject authentication - all request below this require a valid token
+        this._mainRouter.use(this._authenticationMiddleware.bind(this));
+
+        this.mainRouter.get("/transfers/:id", this.getTransferById.bind(this));
+        this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
     }
 
-    const id = req.params["id"] ?? null;
-    this.logger.debug("Fetching transfer by id " + id);
-
-    try {
-      const fetched = await this.repo.getTransferById(id);
-      if (!fetched) {
-        res.status(404).json({
-          status: "error",
-          msg: "Transfer not found",
-        });
-
-        return;
-      }
-      res.send(fetched);
-    } catch (err: unknown) {
-      this.logger.error(err);
-      res.status(500).json({
-        status: "error",
-        msg: (err as Error).message,
-      });
+    public get logger(): ILogger {
+        return this._logger;
     }
-  }
+
+    get mainRouter(): express.Router {
+        return this._mainRouter;
+    }
+
+    get repo(): ITransfersRepository {
+        return this._repo;
+    }
+
+    private async _authenticationMiddleware(
+        req: express.Request,
+        res: express.Response,
+        next: express.NextFunction
+    ) {
+        const authorizationHeader = req.headers["authorization"];
+
+        if (!authorizationHeader) return res.sendStatus(401);
+
+        const bearer = authorizationHeader.trim().split(" ");
+        if (bearer.length != 2) {
+            return res.sendStatus(401);
+        }
+
+        const bearerToken = bearer[1];
+        let verified;
+        try {
+            verified = await this._tokenHelper.verifyToken(bearerToken);
+        } catch (err) {
+            this._logger.error(err, "unable to verify token");
+            return res.sendStatus(401);
+        }
+        if (!verified) {
+            return res.sendStatus(401);
+        }
+
+        const decoded = this._tokenHelper.decodeToken(bearerToken);
+        if (!decoded.sub || decoded.sub.indexOf("::") == -1) {
+            return res.sendStatus(401);
+        }
+
+        const subSplit = decoded.sub.split("::");
+        const subjectType = subSplit[0];
+        const subject = subSplit[1];
+
+        req.securityContext = {
+            accessToken: bearerToken,
+            clientId: subjectType.toUpperCase().startsWith("APP") ? subject : null,
+            username: subjectType.toUpperCase().startsWith("USER") ? subject : null,
+            rolesIds: decoded.roles,
+        };
+
+        return next();
+    }
+
+    private _handleUnauthorizedError(err: Error, res: express.Response): boolean {
+        if (err instanceof UnauthorizedError) {
+            this._logger.warn(err.message);
+            res.status(401).json({
+                status: "error",
+                msg: err.message,
+            });
+            return true;
+        } else if (err instanceof ForbiddenError) {
+            this._logger.warn(err.message);
+            res.status(403).json({
+                status: "error",
+                msg: err.message,
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    private _enforcePrivilege(secCtx: CallSecurityContext, privilegeId: string): void {
+        for (const roleId of secCtx.rolesIds) {
+            if (this._authorizationClient.roleHasPrivilege(roleId, privilegeId)) {
+                return;
+            }
+        }
+        const error = new ForbiddenError("Caller is missing role with privilegeId: " + privilegeId);
+        this._logger.isWarnEnabled() && this._logger.warn(error.message);
+        throw error;
+    }
+
+    private async getAllTransfers(req: express.Request, res: express.Response) {
+        try {
+            this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
+
+            const id = req.query.id as string;
+            const state = req.query.state as string;
+            const startDateStr = req.query.startDate as string || req.query.startdate as string;
+            const startDate = startDateStr ? parseInt(startDateStr) : undefined;
+            const endDateStr = req.query.endDate as string || req.query.enddate as string;
+            const endDate = endDateStr ? parseInt(endDateStr) : undefined;
+            const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+
+            this.logger.debug("Fetching all transfers");
+
+            let fetched = [];
+            if (!id && !state && !startDate && !endDate && !currencyCode) {
+                fetched = await this.repo.getTransfers();
+            } else {
+                fetched = await this.repo.searchTransfers(state, currencyCode, startDate, endDate, id);
+            }
+            res.send(fetched);
+        } catch (err: any) {
+            if (this._handleUnauthorizedError(err, res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+
+    private async getTransferById(req: express.Request, res: express.Response) {
+        try {
+            this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
+
+            const id = req.params["id"] ?? null;
+            this.logger.debug("Fetching transfer by id " + id);
+
+            const fetched = await this.repo.getTransferById(id);
+
+            if (fetched) {
+                res.send(fetched);
+                return;
+            }
+
+            res.status(404).json({
+                status: "error",
+                msg: "Transfer not found",
+            });
+        } catch (err: any) {
+            if (this._handleUnauthorizedError(err, res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
 }

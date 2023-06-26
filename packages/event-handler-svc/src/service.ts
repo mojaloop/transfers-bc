@@ -81,6 +81,8 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
 
+const SERVICE_START_TIMEOUT_MS = 30_000;
+
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
     kafkaBrokerList: KAFKA_URL,
     kafkaGroupId: `${BC_NAME}_${APP_NAME}`,
@@ -97,18 +99,18 @@ let globalLogger: ILogger;
 
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3502;
-let expressApp: Express;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let expressServer: Server;
 
 export class Service {
 	static logger: ILogger;
+    static app: Express;
+    static expressServer: Server;
 	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
 	static handler: TransfersEventHandler;
     static metrics:IMetrics;
     static configClient: IConfigurationClient;
+    static startupTimer: NodeJS.Timeout;
 
 	static async start(
 		logger?: ILogger,
@@ -120,7 +122,12 @@ export class Service {
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
 
-		if (!logger) {
+        this.startupTimer = setTimeout(()=>{
+            throw new Error("Service start timed-out");
+        }, SERVICE_START_TIMEOUT_MS);
+
+
+        if (!logger) {
 			logger = new KafkaLogger(
 				BC_NAME,
 				APP_NAME,
@@ -197,34 +204,40 @@ export class Service {
 		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer, this.metrics);
 		await this.handler.start();
 
-        // Start express server
-        expressApp = express();
-        expressApp.use(express.json()); // for parsing application/json
-        expressApp.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+        await this.setupExpress();
 
-        // Add health and metrics http routes
-        expressApp.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
-        expressApp.get("/metrics", async (req: express.Request, res: express.Response) => {
-            const strMetrics = await (metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
-            return res.send(strMetrics);
-        });
-
-        expressApp.use((req, res) => {
-            // catch all
-            res.send(404);
-        });
-
-        expressServer = expressApp.listen(SVC_DEFAULT_HTTP_PORT, () => {
-            globalLogger.info(
-                `🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`
-            );
-            globalLogger.info(`Transfer Event Handler Service started, version: ${this.configClient.applicationVersion}`);
-        });
-
-
+        // remove startup timeout
+        clearTimeout(this.startupTimer);
 	}
 
-	static async stop() {
+    static setupExpress(): Promise<void> {
+        return new Promise<void>(resolve => {
+            this.app = express();
+            this.app.use(express.json()); // for parsing application/json
+            this.app.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+
+
+            // Add health and metrics http routes
+            this.app.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+            this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
+                const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
+                return res.send(strMetrics);
+            });
+
+            this.app.use((req, res) => {
+                // catch all
+                res.send(404);
+            });
+
+            this.expressServer = this.app.listen(SVC_DEFAULT_HTTP_PORT, () => {
+                globalLogger.info(`🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`);
+                globalLogger.info(`Transfer Event Handler Service started, version: ${this.configClient.applicationVersion}`);
+                resolve();
+            });
+        });
+    }
+
+        static async stop() {
 		if (this.handler) await this.handler.stop();
 		if (this.messageConsumer) await this.messageConsumer.destroy(true);
 

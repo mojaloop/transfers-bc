@@ -45,14 +45,19 @@ import {MLKafkaJsonConsumer, MLKafkaJsonProducerOptions} from "@mojaloop/platfor
 import express, {Express} from "express";
 import {Server} from "net";
 import process from "process";
-import { AuthenticatedHttpRequester } from "@mojaloop/security-bc-client-lib";
+import {AuthenticatedHttpRequester, AuthorizationClient, TokenHelper} from "@mojaloop/security-bc-client-lib";
 import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 
 import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
 import {ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
 import * as path from "path";
+import {IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
+import util from "util";
+import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 
 const BC_NAME = "transfers-bc";
 const APP_NAME = "transfers-api-svc";
@@ -71,9 +76,20 @@ const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || path.join(__di
 
 const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
 const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
+const AUTH_N_TOKEN_ISSUER_NAME = process.env["AUTH_N_TOKEN_ISSUER_NAME"] || "mojaloop.vnext.dev.default_issuer";
+const AUTH_N_TOKEN_AUDIENCE = process.env["AUTH_N_TOKEN_AUDIENCE"] || "mojaloop.vnext.dev.default_audience";
 
-const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-api";
+const AUTH_N_SVC_JWKS_URL = process.env["AUTH_N_SVC_JWKS_URL"] || `${AUTH_N_SVC_BASEURL}/.well-known/jwks.json`;
+
+const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
+
+const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-api-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+
+// Express Server
+const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
+
+const SERVICE_START_TIMEOUT_MS = 30_000;
 
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL,
@@ -81,27 +97,31 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 
 let globalLogger: ILogger;
 
-// Express Server
-const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
-let expressApp: Express;
-let expressServer: Server;
-
-// Transfer routes
-let transferAdminRoutes: TransferAdminExpressRoutes;
-
 export class Service {
 	static logger: ILogger;
+    static app: Express;
+    static expressServer: Server;
 	static auditClient: IAuditClient;
 	static transfersRepo: ITransfersRepository;
     static configClient: IConfigurationClient;
+    static tokenHelper: TokenHelper;
+    static metrics:IMetrics;
+    static authorizationClient: IAuthorizationClient;
+    static startupTimer: NodeJS.Timeout;
 
 	static async start(
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		transfersRepo?: ITransfersRepository,
         configProvider?: IConfigProvider,
+        metrics?:IMetrics,
+        authorizationClient?: IAuthorizationClient
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
+
+        this.startupTimer = setTimeout(()=>{
+            throw new Error("Service start timed-out");
+        }, SERVICE_START_TIMEOUT_MS);
 
 
 		if (!logger) {
@@ -180,40 +200,89 @@ export class Service {
 			await transfersRepo.init();
 			logger.info("Transfer Registry Repo Initialized");
 		}
-
 		this.transfersRepo = transfersRepo;
 
-		// Start express server
-		expressApp = express();
-		expressApp.use(express.json()); // for parsing application/json
-		expressApp.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+        // authorization client
+        if (!authorizationClient) {
+            // setup privileges - bootstrap app privs and get priv/role associations
+            authorizationClient = new AuthorizationClient(BC_NAME, APP_NAME, APP_VERSION, AUTH_Z_SVC_BASEURL, logger);
+            authorizationClient.addPrivilegesArray(TransfersPrivilegesDefinition);
+            await (authorizationClient as AuthorizationClient).bootstrap(true);
+            await (authorizationClient as AuthorizationClient).fetch();
+       }
+        this.authorizationClient = authorizationClient;
 
-		// Add admin and client http routes
-		transferAdminRoutes = new TransferAdminExpressRoutes(transfersRepo, logger);
-		expressApp.use("", transferAdminRoutes.mainRouter);
+        // token helper
+        this.tokenHelper = new TokenHelper(AUTH_N_SVC_JWKS_URL, logger, AUTH_N_TOKEN_ISSUER_NAME, AUTH_N_TOKEN_AUDIENCE);
+        await this.tokenHelper.init();
 
-		expressApp.use((req, res) => {
-			// catch all
-			res.send(404);
-		});
+        // metrics client
+        if(!metrics){
+            const labels: Map<string, string> = new Map<string, string>();
+            labels.set("bc", BC_NAME);
+            labels.set("app", APP_NAME);
+            labels.set("version", APP_VERSION);
+            PrometheusMetrics.Setup({prefix:"", defaultLabels: labels}, this.logger);
+            metrics = PrometheusMetrics.getInstance();
+        }
+        this.metrics = metrics;
 
-		expressServer = expressApp.listen(SVC_DEFAULT_HTTP_PORT, () => {
-			globalLogger.info(
-				`🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`
-			);
-			globalLogger.info("Transfer Admin server started");
-		});
+        await this.setupExpress();
+
+        // remove startup timeout
+        clearTimeout(this.startupTimer);
 	}
 
+    static setupExpress(): Promise<void> {
+        return new Promise<void>(resolve => {
+            this.app = express();
+            this.app.use(express.json()); // for parsing application/json
+            this.app.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
+
+            // Add health and metrics http routes - before others (to avoid authZ middleware)
+            this.app.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+            this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
+                const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
+                return res.send(strMetrics);
+            });
+
+            // Add admin and client http routes
+            const transferAdminRoutes = new TransferAdminExpressRoutes(this.logger, this.transfersRepo, this.tokenHelper, this.authorizationClient);
+
+            this.app.use("/", transferAdminRoutes.mainRouter);
+
+            this.app.use((req, res) => {
+                // catch all
+                res.send(404);
+            });
+
+            let portNum = SVC_DEFAULT_HTTP_PORT;
+            if (process.env["SVC_HTTP_PORT"] && !isNaN(parseInt(process.env["SVC_HTTP_PORT"]))) {
+                portNum = parseInt(process.env["SVC_HTTP_PORT"]);
+            }
+
+            this.expressServer = this.app.listen(portNum, () => {
+                globalLogger.info(`🚀Server ready at port: ${SVC_DEFAULT_HTTP_PORT}`);
+                globalLogger.info(`Transfer Admin server v: ${APP_VERSION} started`);
+                resolve();
+            });
+        });
+    }
+
 	static async stop() {
-		if (expressServer) {
-			expressServer.close();
+        if (this.expressServer){
+            const closeExpress = util.promisify(this.expressServer.close);
+            await closeExpress();
+        }
+
+        await this.configClient.destroy();
+        if (this.auditClient) {
+            await this.auditClient.destroy();
+
 		}
-		if (this.auditClient) {
-			await this.auditClient.destroy();
-		}
-		if (this.logger && this.logger instanceof KafkaLogger) {
-			await this.logger.destroy();
+        if (this.logger && this.logger instanceof KafkaLogger) {
+            await this.logger.destroy();
+
 		}
 	}
 }
@@ -222,20 +291,18 @@ export class Service {
  * process termination and cleanup
  */
 
-async function _handle_int_and_term_signals(
-	signal: NodeJS.Signals
-): Promise<void> {
-	console.info(`Service - ${signal} received - cleaning up...`);
-	let clean_exit = false;
-	setTimeout(() => {
-		clean_exit || process.abort();
-	}, 5000);
+async function _handle_int_and_term_signals(signal: NodeJS.Signals): Promise<void> {
+    console.info(`Service - ${signal} received - cleaning up...`);
+    let clean_exit = false;
+    setTimeout(() => {
+        clean_exit || process.exit(99);
+    }, 5000);
 
-	// call graceful stop routine
-	await Service.stop();
+    // call graceful stop routine
+    await Service.stop();
 
-	clean_exit = true;
-	process.exit();
+    clean_exit = true;
+    process.exit();
 }
 
 //catches ctrl+c event
@@ -245,9 +312,10 @@ process.on("SIGTERM", _handle_int_and_term_signals);
 
 //do something when app is closing
 process.on("exit", async () => {
-	console.info("Microservice - exiting...");
+    globalLogger.info("Microservice - exiting...");
 });
 process.on("uncaughtException", (err: Error) => {
-	console.error(err, "UncaughtException - EXITING...");
-	process.exit(999);
+    globalLogger.error(err);
+    console.log("UncaughtException - EXITING...");
+    process.exit(999);
 });
