@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/transfers-bc-transfers-api-svc",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "Mojaloop vNext Transfers BC - Transfers REST API Service",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/transfers-bc/transfers-api-svc",
@@ -36,7 +36,6 @@
         "dep:check": "ncu -e 2",
         "dep:update": "ncu -u"
     },
-
     "dependencies": {
         "@mojaloop/platform-shared-lib-observability-client-lib": "~0.1.9",
         "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.8",
