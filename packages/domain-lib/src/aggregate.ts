@@ -405,7 +405,12 @@ export class TransfersAggregate {
 
 		let settlementModel: string;
 		try {
-			settlementModel = await this._settlementsAdapter.getSettlementModelId(BigInt(message.payload.amount), message.payload.currencyCode, message.payload.currencyCode, message.payload.extensionList?.extension ? message.payload.extensionList.extension : []);
+			settlementModel = await this._settlementsAdapter.getSettlementModelId(
+                BigInt(message.payload.amount),
+                message.payload.currencyCode,
+                message.payload.currencyCode,
+                message.payload.extensionList?.extension ? message.payload.extensionList.extension : []
+            );
             if(!settlementModel) throw new Error("Invalid settlementModelId from settlementsAdapter.getSettlementModelId()");
 		} catch(err: unknown) {
 			const error = (err as Error).message;
