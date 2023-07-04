@@ -6,9 +6,9 @@ import PubMessages, {TransferFulfilCommittedRequestedEvt} from "@mojaloop/platfo
 import { MLKafkaJsonConsumer, MLKafkaJsonProducer } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {ConsoleLogger} from "@mojaloop/logging-bc-public-types-lib";
 
-const KAFKA_URL = process.env["KAFKA_URL"] || "192.168.1.94:9094";
+const KAFKA_URL = process.env["KAFKA_URL"] || "192.168.1.94:9092";
 const SINGLE_MODE = process.env["SINGLE_MODE"] && Boolean(process.env["SINGLE_MODE"]) || false;
-const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 300;
+const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 200;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
 
 

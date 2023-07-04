@@ -31,7 +31,7 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {CommandMsg, IMessage, IMessageConsumer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {CommandMsg, IMessage, IMessageConsumer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
@@ -66,6 +66,11 @@ export class TransfersCommandHandler{
     private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
 		// eslint-disable-next-line no-async-promise-executor
         return await new Promise<void>(async (resolve) => {
+            // filter out non-commands
+            receivedMessages = receivedMessages.filter(msg => msg.msgType===MessageTypes.COMMAND);
+            if(!receivedMessages || receivedMessages.length<=0)
+                return resolve();
+
             const startTime = Date.now();
             const timerEndFn = this._histo.startTimer({ callName: "batchMsgHandler"});
 

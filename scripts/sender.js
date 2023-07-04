@@ -25,8 +25,8 @@ const kafkaProducerOptions = {
 let messageProducer = new MLKafkaJsonProducer(kafkaProducerOptions, logger);
 await messageProducer.connect();
 
-const MESSAGE_COUNT = 0;
-const BATCH_SIZE = 100;
+const MESSAGE_COUNT = 1440000;
+const BATCH_SIZE = 52;
 const BATCH_WAIT_MS = 500;
 
 let sent=0;

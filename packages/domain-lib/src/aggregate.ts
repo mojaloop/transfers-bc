@@ -156,72 +156,84 @@ export class TransfersAggregate {
 
     async processCommandBatch(cmdMessages: CommandMsg[]): Promise<void> {
         // TODO make sure we're not processing another batch already
-        this._abBatchRequests = [];
-        this._abCancelationBatchRequests = [];
-        this._abBatchResponses = [];
-        this._outputEvents = [];
-        this._batchCommands.clear();
+        // eslint-disable-next-line no-async-promise-executor
+        return new Promise<void>(async (resolve) => {
+            this._abBatchRequests = [];
+            this._abCancelationBatchRequests = [];
+            this._abBatchResponses = [];
+            this._outputEvents = [];
+            this._batchCommands.clear();
 
-        try {
-            // execute starts
-            const execStarts_timerEndFn = this._histo.startTimer({ callName: "executeStarts"});
-            for (const cmd of cmdMessages) {
-                if(cmd.msgType !== MessageTypes.COMMAND) continue;
-                await this._processCommand(cmd);
-                this._commandsCounter.inc({commandName: cmd.msgName}, 1);
-            }
-            execStarts_timerEndFn({success:"true"});
+            try {
+                // execute starts
+                const execStarts_timerEndFn = this._histo.startTimer({ callName: "executeStarts"});
+                for (const cmd of cmdMessages) {
+                    if(cmd.msgType !== MessageTypes.COMMAND) continue;
+                    await this._processCommand(cmd);
+                    this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+                }
+                execStarts_timerEndFn({success:"true"});
 
-            if(this._abBatchRequests.length<=0){
-                return Promise.resolve();
-            }
+                if(this._abBatchRequests.length<=0){
+                    // return Promise.resolve();
+                    resolve();
+                    return;
+                }
 
-            // send to A&B
-            const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
-            if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()`);
-            this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
-            if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()`);
-            execAB_timerEndFn({success:"true"});
+                // if(this._abBatchRequests.length !== cmdMessages.length)
+                //     // eslint-disable-next-line no-debugger
+                //     debugger;
 
-            // peek first and check count to establish no errors - or any other way to determine error
-
-            // execute continues
-            const executeContinues_timerEndFn = this._histo.startTimer({ callName: "executeContinues"});
-            for (const abResponse of this._abBatchResponses) {
-                await this._processAccountsAndBalancesResponse(abResponse);
-            }
-            executeContinues_timerEndFn({success:"true"});
-
-            // if the continues queued cancellations, send then now
-            if(this._abCancelationBatchRequests.length){
-                // send cancellations to A&B
-                const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelCancelationBatch"});
-                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
-                this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancelationBatchRequests);
-                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                // send to A&B
+                const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
+                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()`);
+                this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
+                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()`);
                 execAB_timerEndFn({success:"true"});
+
+                // peek first and check count to establish no errors - or any other way to determine error
+
+                // execute continues
+                const executeContinues_timerEndFn = this._histo.startTimer({ callName: "executeContinues"});
+                for (const abResponse of this._abBatchResponses) {
+                    await this._processAccountsAndBalancesResponse(abResponse);
+                }
+                executeContinues_timerEndFn({success:"true"});
+
+                // if the continues queued cancellations, send then now
+                if(this._abCancelationBatchRequests.length){
+                    // send cancellations to A&B
+                    const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelCancelationBatch"});
+                    if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                    this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancelationBatchRequests);
+                    if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                    execAB_timerEndFn({success:"true"});
+                }
+
+            } catch (err: unknown) {
+                const error = (err as Error).message;
+                this._logger.error(err, error);
+                throw error;
+            } finally {
+                // flush in mem repositories
+                await this._flush();
+
+                // send resulting/output events
+                await this._messageProducer.send(this._outputEvents);
+
+                // eslint-disable-next-line no-unsafe-finally
+                // return Promise.resolve();
+                resolve();
             }
-
-        } catch (err: unknown) {
-            const error = (err as Error).message;
-            this._logger.error(err, error);
-            throw error;
-        } finally {
-            // flush in mem repositories
-            await this._flush();
-
-            // send resulting/output events
-            await this._messageProducer.send(this._outputEvents);
-            // eslint-disable-next-line no-unsafe-finally
-            return Promise.resolve();
-        }
+        });
     }
 
     private async _processCommand(cmd: CommandMsg): Promise<void> {
+        // cache command for later retrieval in continue methods - do this first!
+        this._batchCommands.set(cmd.payload.transferId, cmd);
+
         // validate message
         this._ensureValidMessage(cmd);
-        // cache command for later retrieval in continue methods
-        this._batchCommands.set(cmd.payload.transferId, cmd);
 
         if (cmd.msgName === PrepareTransferCmd.name) {
             return this._prepareTransferStart(cmd as PrepareTransferCmd);
@@ -344,6 +356,10 @@ export class TransfersAggregate {
 			expirationTimestamp: message.payload.expiration
 		});
 
+
+
+        // TODO implement the duplicate check redis repo, with an index for the hash and transferId
+/*
 		let getTransferRep:ITransfer | undefined;
 		try {
             // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
@@ -402,6 +418,7 @@ export class TransfersAggregate {
 				}
 			}
 		}
+*/
 
 		let settlementModel: string;
 		try {
@@ -576,6 +593,7 @@ export class TransfersAggregate {
 			});
 
             try {
+                // FIXME _cancelTransfer will fail if not transfer is found, which at this point is a guarantee
                 await this._cancelTransfer(originalCmdMsg.payload.transferId);
             } catch(err: unknown) {
                 const error = (err as Error).message;
@@ -1125,65 +1143,31 @@ export class TransfersAggregate {
     private async _getParticipantsInfo(payerFspId: string, payeeFspId: string, transferId: string): Promise<ITransferParticipants> {
         // TODO get all participants in a single call with participantsClient.getParticipantsByIds()
 
-        let hub: IParticipant;
-        let payer: IParticipant;
-        let payee: IParticipant;
-
-        const hubCache: {
-            participant: IParticipant,
-            timestamp: number
-        } | undefined = this._participantsCache.get(HUB_ID);
-        if (!hubCache) {
-            const foundHub = await this._participantAdapter.getParticipantInfo(HUB_ID);
-            if (!foundHub) {
-                const errorMessage = "Hub not found " + HUB_ID + " for transfer " + transferId;
-                this._logger.error(errorMessage);
-                throw new HubNotFoundError(errorMessage);
-            }
-            this._participantsCache.set(HUB_ID, {participant: foundHub, timestamp: Date.now()});
-            hub = foundHub;
-        } else {
-            hub = hubCache.participant;
+        const foundHub = await this._participantAdapter.getParticipantInfo(HUB_ID);
+        if (!foundHub) {
+            const errorMessage = "Hub not found " + HUB_ID + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new HubNotFoundError(errorMessage);
         }
 
-        const payerCache: {
-            participant: IParticipant,
-            timestamp: number
-        } | undefined = this._participantsCache.get(payerFspId);
-        if (!payerCache) {
-            const foundPayer = await this._participantAdapter.getParticipantInfo(payerFspId);
-            if (!foundPayer) {
-                const errorMessage = "Payer participant not found " + payerFspId + " for transfer " + transferId;
-                this._logger.error(errorMessage);
-                throw new PayerParticipantNotFoundError(errorMessage);
-            }
-            this._participantsCache.set(payerFspId, {participant: foundPayer, timestamp: Date.now()});
-            payer = foundPayer;
-        } else {
-            payer = payerCache.participant;
+        const foundPayer = await this._participantAdapter.getParticipantInfo(payerFspId);
+        if (!foundPayer) {
+            const errorMessage = "Payer participant not found " + payerFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayerParticipantNotFoundError(errorMessage);
         }
 
-        const payeeCache: {
-            participant: IParticipant,
-            timestamp: number
-        } | undefined = this._participantsCache.get(payeeFspId);
-        if (!payeeCache) {
-            const foundPayee = await this._participantAdapter.getParticipantInfo(payeeFspId);
-            if (!foundPayee) {
-                const errorMessage = "Payee participant not found " + payeeFspId + " for transfer " + transferId;
-                this._logger.error(errorMessage);
-                throw new PayeeParticipantNotFoundError(errorMessage);
-            }
-            this._participantsCache.set(payeeFspId, {participant: foundPayee, timestamp: Date.now()});
-            payee = foundPayee;
-        } else {
-            payee = payeeCache.participant;
+        const foundPayee = await this._participantAdapter.getParticipantInfo(payeeFspId);
+        if (!foundPayee) {
+            const errorMessage = "Payee participant not found " + payeeFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayeeParticipantNotFoundError(errorMessage);
         }
 
         return {
-            hub: hub,
-            payer: payer,
-            payee: payee
+            hub: foundHub,
+            payer: foundPayer,
+            payee: foundPayee
         };
     }
 
@@ -1257,7 +1241,8 @@ export class TransfersAggregate {
 
     private async _cancelTransfer(transferId: string) {
         try {
-            const transfer = this._transfersCache.get(transferId);
+            //const transfer = this._transfersCache.get(transferId);
+            const transfer = await this._getTransfer(transferId);
 
             if(!transfer) {
                 const errorMessage = `Could not find corresponding transfer with id: ${transferId} for cancelTransfer`;

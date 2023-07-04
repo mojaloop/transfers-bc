@@ -127,9 +127,9 @@ let globalLogger: ILogger;
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3501;
 
 const DB_NAME_TRANSFERS = "transfers";
-const HTTP_CLIENT_TIMEOUT_MS = 10_000;
+const PARTICIPANTS_CLIENT_CACHE_MS = 10_000;
 
-const SERVICE_START_TIMEOUT_MS = 30_000;
+const SERVICE_START_TIMEOUT_MS = 60_000;
 
 export class Service {
 	static logger: ILogger;
@@ -166,7 +166,6 @@ export class Service {
         this.startupTimer = setTimeout(()=>{
             throw new Error("Service start timed-out");
         }, SERVICE_START_TIMEOUT_MS);
-
 
         if (!logger) {
             logger = new KafkaLogger(
@@ -247,7 +246,7 @@ export class Service {
         if (!participantAdapter) {
             const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
             authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
-            participantAdapter = new ParticipantAdapter(this.logger, PARTICIPANTS_SVC_URL, authRequester, HTTP_CLIENT_TIMEOUT_MS);
+            participantAdapter = new ParticipantAdapter(this.logger, PARTICIPANTS_SVC_URL, authRequester, PARTICIPANTS_CLIENT_CACHE_MS);
         }
         this.participantService = participantAdapter;
 
@@ -326,7 +325,8 @@ export class Service {
     static async stop() {
 		if (this.handler) await this.handler.stop();
 		if (this.messageConsumer) await this.messageConsumer.destroy(true);
-
+		if (this.messageProducer) await this.messageProducer.destroy();
+        if (this.configClient) await this.configClient.destroy();
 		if (this.auditClient) await this.auditClient.destroy();
 		if (this.logger && this.logger instanceof KafkaLogger) await this.logger.destroy();
 	}
