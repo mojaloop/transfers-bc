@@ -38,9 +38,10 @@ import {
 	IParticipantsServiceAdapter,
 	ITransfersRepository,
 	IAccountsBalancesAdapter,
-    ISettlementsServiceAdapter
+    ISettlementsServiceAdapter,
+    ISchedulingServiceAdapter
 } from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter } from "@mojaloop/transfers-bc-implementations-lib";
+import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter, SchedulingAdapter } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
 import {Server} from "net";
@@ -72,6 +73,7 @@ import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-cli
 import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import path from "path";
 
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
@@ -101,6 +103,7 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
 const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
 const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localhost:3600";
+const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhost:1234/reminders";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
@@ -145,6 +148,7 @@ export class Service {
 	static accountAndBalancesAdapter: IAccountsBalancesAdapter;
     static metrics:IMetrics;
 	static settlementsAdapter: ISettlementsServiceAdapter;
+	static schedulingAdapter: ISchedulingServiceAdapter;
     static configClient: IConfigurationClient;
     static startupTimer: NodeJS.Timeout;
 
@@ -158,6 +162,7 @@ export class Service {
         accountAndBalancesAdapter?: IAccountsBalancesAdapter,
         metrics?:IMetrics,
         settlementsAdapter?: ISettlementsServiceAdapter,
+        schedulingAdapter?: ISchedulingServiceAdapter,
         configProvider?: IConfigProvider,
         aggregate?: TransfersAggregate
     ): Promise<void> {
@@ -278,9 +283,14 @@ export class Service {
             await (settlementsAdapter as SettlementsAdapter).init();
 		}
 		this.settlementsAdapter = settlementsAdapter;
+        
+		if (!schedulingAdapter) {
+			schedulingAdapter = new SchedulingAdapter(logger, SCHEDULING_SVC_URL);
+		}
+		this.schedulingAdapter = schedulingAdapter;
 
         if (!aggregate) {
-            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter);
+            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
         }
         this.aggregate = aggregate;
 

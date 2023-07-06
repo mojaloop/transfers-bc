@@ -37,6 +37,7 @@ import {
     AccountsAndBalancesJournalEntry,
     AccountsAndBalancesAccountType, IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
+import { IReminder } from "@mojaloop/scheduling-bc-client";
 
 export interface ITransfersRepository {
     init(): Promise<void>;
@@ -113,4 +114,10 @@ export interface IAccountsBalancesAdapter {
 
 export interface ISettlementsServiceAdapter {
     getSettlementModelId(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string>;
+}
+
+export interface ISchedulingServiceAdapter {
+    createReminder(id: string, time: string, payload: any): Promise<string>;
+	getReminder(reminderId: string): Promise<IReminder | null>;
+	deleteReminder(reminderId: string): Promise<void>;
 }

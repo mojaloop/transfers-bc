@@ -54,7 +54,8 @@ import {
     IAccountsBalancesAdapter,
     IParticipantsServiceAdapter,
     ITransfersRepository,
-    ISettlementsServiceAdapter
+    ISettlementsServiceAdapter,
+    ISchedulingServiceAdapter
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -118,6 +119,7 @@ export class TransfersAggregate {
         timestamp: number
     }>();
     private _settlementsAdapter: ISettlementsServiceAdapter;
+    private _schedulingAdapter: ISchedulingServiceAdapter;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
@@ -133,7 +135,8 @@ export class TransfersAggregate {
         messageProducer: IMessageProducer,
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
         metrics: IMetrics,
-        settlementsAdapter: ISettlementsServiceAdapter
+        settlementsAdapter: ISettlementsServiceAdapter,
+        schedulingAdapter: ISchedulingServiceAdapter
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -142,6 +145,7 @@ export class TransfersAggregate {
         this._accountAndBalancesAdapter = accountAndBalancesAdapter;
         this._metrics = metrics;
         this._settlementsAdapter = settlementsAdapter;
+        this._schedulingAdapter = schedulingAdapter;
 
         this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
@@ -359,7 +363,7 @@ export class TransfersAggregate {
 
 
         // TODO implement the duplicate check redis repo, with an index for the hash and transferId
-/*
+
 		let getTransferRep:ITransfer | undefined;
 		try {
             // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
@@ -418,7 +422,7 @@ export class TransfersAggregate {
 				}
 			}
 		}
-*/
+
 
 		let settlementModel: string;
 		try {
@@ -637,6 +641,12 @@ export class TransfersAggregate {
             return;
         }
 
+        try {
+            await this._schedulingAdapter.createReminder(transfer.transferId, "*/15 * * * * *", transfer)
+        } catch (e: unknown) {
+            debugger
+        }
+            
         // TODO validate type
         const message = originalCmdMsg;// as PrepareTransferCmd;
 
