@@ -35,6 +35,7 @@
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { SchedulingClient, ReminderTaskType, IReminder } from "@mojaloop/scheduling-bc-client";
 import { ISchedulingServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
+import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 export class SchedulingAdapter implements ISchedulingServiceAdapter {
 	private readonly _logger: ILogger;
@@ -59,7 +60,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 				taskType: ReminderTaskType.EVENT,
 				httpPostTaskDetails: null,
 				eventTaskDetails: {
-					topic: "TransferSchedule" // TODO: name correct topic here from a const
+					topic: TransfersBCTopics.TimeoutEvents
 				}
 			}
 		);

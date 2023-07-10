@@ -49,7 +49,7 @@ import {
     IMessageProducer,
     MessageTypes
 } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import {PrepareTransferCmd, CommitTransferFulfilCmd, QueryTransferCmd, RejectTransferCmd} from "./commands";
+import {PrepareTransferCmd, CommitTransferFulfilCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd} from "./commands";
 import {
     IAccountsBalancesAdapter,
     IParticipantsServiceAdapter,
@@ -97,7 +97,9 @@ import {
 	TransferCancelReservationFailedEvt,
 	TransferCancelReservationAndCommitFailedEvt,
 	TransferUnableToGetSettlementModelEvt,
-    TransferInvalidMessageTypeEvt
+    TransferInvalidMessageTypeEvt,
+    TransferDuplicateCheckFailedEvt,
+    TransferUnableToDeleteTransferReminderEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 const HUB_ID = "hub"; // move to shared lib
@@ -247,6 +249,8 @@ export class TransfersAggregate {
             return this._rejectTransfer(cmd as RejectTransferCmd);
         } else if (cmd.msgName === QueryTransferCmd.name) {
             return this._queryTransfer(cmd as QueryTransferCmd);
+        } else if (cmd.msgName === TimeoutTransferCmd.name) {
+            return this._timeoutTransferStart(cmd as TimeoutTransferCmd);
         } else {
             const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
             const transferId = cmd.payload?.transferId;
@@ -349,25 +353,12 @@ export class TransfersAggregate {
         timerEndFn({success: "true"});
     }
 
-    private async _prepareTransferStart(message: PrepareTransferCmd): Promise<void> {
-        if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
+    private async _timeoutTransferStart(message: TimeoutTransferCmd): Promise<void> {
+        if(this._logger.isDebugEnabled()) this._logger.debug(`transferTimeoutStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		const hash = this._generateSha256({
-			transferId: message.payload.transferId,
-			payeeFspId: message.payload.payeeFsp,
-			payerFspId: message.payload.payerFsp,
-			amount: message.payload.amount,
-			expirationTimestamp: message.payload.expiration
-		});
-
-
-
-        // TODO implement the duplicate check redis repo, with an index for the hash and transferId
-
-		let getTransferRep:ITransfer | undefined;
+		let getTransferRep:ITransfer | null;
 		try {
-            // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
-			getTransferRep = this._transfersCache.get(message.payload.transferId);
+			getTransferRep = await this._getTransfer(message.payload.transferId);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
@@ -381,7 +372,6 @@ export class TransfersAggregate {
             return;
 		}
 
-        // Duplicate Transfer POST use cases
 		// TODO Use hash repository to fetch the hashes
 		if(getTransferRep) {
 			// if(getTransferRep.hash !== hash) {
@@ -405,6 +395,22 @@ export class TransfersAggregate {
 				}
 				case TransferState.COMMITTED:
 				case TransferState.ABORTED: {
+                    try {
+                        this._schedulingAdapter.deleteReminder(getTransferRep.transferId);
+                    } catch(err: unknown) {
+                        const error = (err as Error).message;
+                        const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+                        this._logger.error(err, `${errorMessage}: ${error}`);
+                        const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
+                            transferId: message.payload.transferId,
+                            errorDescription: errorMessage
+                        });
+                        errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                        this._outputEvents.push(errorEvent);
+                        return;
+                    }
+            
+
 					// Send a response event to the payer
 					const payload: TransferQueryResponseEvtPayload = {
 						transferId: getTransferRep.transferId,
@@ -421,7 +427,40 @@ export class TransfersAggregate {
 					return;
 				}
 			}
+
+            const now = new Date().getTime();
+            if(now > getTransferRep.expirationTimestamp) {
+                try {
+                    getTransferRep.transferState = TransferState.ABORTED;
+                    await this._transfersRepo.updateTransfer(getTransferRep);
+                } catch(err: unknown) {
+                    const error = (err as Error).message;
+                    const errorMessage = `Error deleting reminder for transferId: ${getTransferRep.transferId}.`;
+                    this._logger.error(err, `${errorMessage}: ${error}`);
+                    const errorEvent = new TransferUnableToUpdateEvt({
+                        transferId: getTransferRep.transferId,
+                        payerFspId: getTransferRep.payerFspId,
+                        errorDescription: errorMessage
+                    });
+        
+                    errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                    this._outputEvents.push(errorEvent);
+                    return;
+                }
+            }
 		}
+    }
+
+    private async _prepareTransferStart(message: PrepareTransferCmd): Promise<void> {
+        if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
+
+		const hash = this._generateSha256({
+			transferId: message.payload.transferId,
+			payeeFspId: message.payload.payeeFsp,
+			payerFspId: message.payload.payerFsp,
+			amount: message.payload.amount,
+			expirationTimestamp: message.payload.expiration
+		});
 
 
 		let settlementModel: string;

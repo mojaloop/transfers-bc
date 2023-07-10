@@ -43,6 +43,7 @@ import {
     TransferPrepareRequestedEvt,
     TransferRejectRequestedEvt,
 	TransferQueryReceivedEvt,
+    TransferTimeoutEvt,
     TransfersBCTopics
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
@@ -53,7 +54,9 @@ import {
 	RejectTransferCmd,
 	RejectTransferCmdPayload,
 	QueryTransferCmd,
-	QueryTransferCmdPayload
+	QueryTransferCmdPayload,
+    TimeoutTransferCmd,
+    TimeoutTransferCmdPayload
 } from "@mojaloop/transfers-bc-domain-lib";
 
 import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
@@ -85,7 +88,7 @@ export class TransfersEventHandler{
 		await this._messageProducer.connect();
 
 		// create and start the consumer handler
-		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents]);
+		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents, TransfersBCTopics.TimeoutEvents]);
 
 		// this._messageConsumer.setCallbackFn(this._msgHandler.bind(this));
         this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
@@ -157,6 +160,9 @@ export class TransfersEventHandler{
         }else if(message.msgName === TransferQueryReceivedEvt.name){
             const transferCmd = this._prepareEventToQueryCommand(message as TransferQueryReceivedEvt);
             return transferCmd;
+        }else if(message.msgName === TransferTimeoutEvt.name){
+            const transferCmd = this._prepareEventToTimeoutCommand(message as TransferTimeoutEvt);
+            return transferCmd;
         }else{
             // ignore silently what we don't handle
             return null;
@@ -213,6 +219,16 @@ export class TransfersEventHandler{
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new QueryTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+    private _prepareEventToTimeoutCommand(evt: TransferTimeoutEvt): TimeoutTransferCmd {
+		const cmdPayload: TimeoutTransferCmdPayload = {
+			transferId: evt.payload.transferId,
+			timeout: evt.fspiopOpaqueState
+		};
+		const cmd = new TimeoutTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
 		return cmd;
 	}

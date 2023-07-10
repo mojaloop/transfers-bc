@@ -173,3 +173,31 @@ export class QueryTransferCmd extends CommandMsg {
 		// TODO
 	}
 }
+
+export type TimeoutTransferCmdPayload = {
+	transferId: string;
+	timeout: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class TimeoutTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: TimeoutTransferCmdPayload;
+
+	constructor(payload: TimeoutTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
