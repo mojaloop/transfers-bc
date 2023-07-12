@@ -99,7 +99,11 @@ import {
 	TransferUnableToGetSettlementModelEvt,
     TransferInvalidMessageTypeEvt,
     TransferDuplicateCheckFailedEvt,
-    TransferUnableToDeleteTransferReminderEvt
+    TransferUnableToDeleteTransferReminderEvt,
+    TransferPrepareRequestTimedoutEvt,
+    TransferPrepareRequestTimedoutEvtPayload,
+    TransferFulfilCommittedRequestedTimedoutEvt,
+    TransferFulfilCommittedRequestedTimedoutEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 const HUB_ID = "hub"; // move to shared lib
@@ -250,7 +254,7 @@ export class TransfersAggregate {
         } else if (cmd.msgName === QueryTransferCmd.name) {
             return this._queryTransfer(cmd as QueryTransferCmd);
         } else if (cmd.msgName === TimeoutTransferCmd.name) {
-            return this._timeoutTransferStart(cmd as TimeoutTransferCmd);
+            return this._timeoutTransfer(cmd as TimeoutTransferCmd);
         } else {
             const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
             const transferId = cmd.payload?.transferId;
@@ -353,12 +357,12 @@ export class TransfersAggregate {
         timerEndFn({success: "true"});
     }
 
-    private async _timeoutTransferStart(message: TimeoutTransferCmd): Promise<void> {
+    private async _timeoutTransfer(message: TimeoutTransferCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`transferTimeoutStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		let getTransferRep:ITransfer | null;
+		let transfer:ITransfer | undefined;
 		try {
-			getTransferRep = await this._getTransfer(message.payload.transferId);
+			transfer = this._transfersCache.get(message.payload.transferId);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
@@ -373,8 +377,8 @@ export class TransfersAggregate {
 		}
 
 		// TODO Use hash repository to fetch the hashes
-		if(getTransferRep) {
-			// if(getTransferRep.hash !== hash) {
+		 if(transfer) {
+			// if(transfer.hash !== hash) {
 			// 	const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
 			// 	this._logger.error(errorMessage);
 			// 	const errorEvent = new TransferDuplicateCheckFailedEvt({
@@ -387,19 +391,143 @@ export class TransfersAggregate {
             //     return;
 			// }
 
-			switch(getTransferRep.transferState) {
-				case TransferState.RECEIVED:
+			switch(transfer.transferState) {
+				case TransferState.RECEIVED: {
+                    const now = new Date().getTime();
+                    const expirationTime = new Date(transfer.expirationTimestamp).getTime();
+
+                    if(now > expirationTime) {
+                        try {
+                            transfer.transferState = TransferState.ABORTED;
+                            // set transfer in cache
+                            this._transfersCache.set(transfer.transferId, transfer);
+                            await this._transfersRepo.updateTransfer(transfer);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferUnableToUpdateEvt({
+                                transferId: transfer.transferId,
+                                payerFspId: transfer.payerFspId,
+                                errorDescription: errorMessage
+                            });
+                
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+                        
+                        try {
+                            this._schedulingAdapter.deleteReminder(transfer.transferId);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
+                                transferId: message.payload.transferId,
+                                errorDescription: errorMessage
+                            });
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+
+                        // Send a response event to the payer
+                        const payload: TransferPrepareRequestTimedoutEvtPayload = {
+                            transferId: transfer.transferId,
+                            payerFspId: transfer.payerFspId,
+                            errorDescription: `Timedout received transfer request for transferId: ${transfer.transferId}`
+                        };
+
+                        const event = new TransferPrepareRequestTimedoutEvt(payload);
+
+                        event.fspiopOpaqueState = message.fspiopOpaqueState;
+                        this._outputEvents.push(event);
+                    }
+                    
+					// Ignore the request
+					return;
+				}
 				case TransferState.RESERVED: {
+                    const now = new Date().getTime();
+                    const expirationTime = new Date(transfer.expirationTimestamp).getTime();
+
+                    if(now > expirationTime) {
+                        try {
+                            transfer.transferState = TransferState.ABORTED;
+                            // set transfer in cache
+                            this._transfersCache.set(transfer.transferId, transfer);
+                            await this._transfersRepo.updateTransfer(transfer);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferUnableToUpdateEvt({
+                                transferId: transfer.transferId,
+                                payerFspId: transfer.payerFspId,
+                                errorDescription: errorMessage
+                            });
+                
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+        
+                        try {
+                            await this._cancelTransfer(message.payload.transferId);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferCancelReservationFailedEvt({
+                                transferId: message.payload.transferId,
+                                errorDescription: errorMessage
+                            });
+
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+                        
+                        try {
+                            this._schedulingAdapter.deleteReminder(transfer.transferId);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
+                                transferId: message.payload.transferId,
+                                errorDescription: errorMessage
+                            });
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+
+                        // Send a response event to the payer and payee
+                        const payload: TransferFulfilCommittedRequestedTimedoutEvtPayload = {
+                            transferId: transfer.transferId,
+                            payerFspId: transfer.payerFspId,
+                            payeeFspId: transfer.payeeFspId,
+                            errorDescription: `Timedout reserved transfer request for transferId: ${transfer.transferId}`
+                        };
+
+                        const event = new TransferFulfilCommittedRequestedTimedoutEvt(payload);
+
+                        event.fspiopOpaqueState = message.fspiopOpaqueState;
+                        this._outputEvents.push(event);
+                    }
+                    
 					// Ignore the request
 					return;
 				}
 				case TransferState.COMMITTED:
 				case TransferState.ABORTED: {
                     try {
-                        this._schedulingAdapter.deleteReminder(getTransferRep.transferId);
+                        this._schedulingAdapter.deleteReminder(transfer.transferId);
                     } catch(err: unknown) {
                         const error = (err as Error).message;
-                        const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+                        const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
                         this._logger.error(err, `${errorMessage}: ${error}`);
                         const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
                             transferId: message.payload.transferId,
@@ -410,44 +538,9 @@ export class TransfersAggregate {
                         return;
                     }
             
-
-					// Send a response event to the payer
-					const payload: TransferQueryResponseEvtPayload = {
-						transferId: getTransferRep.transferId,
-						transferState: getTransferRep.transferState,
-						completedTimestamp: getTransferRep.completedTimestamp,
-						fulfilment: getTransferRep.fulfilment,
-						extensionList: getTransferRep.extensionList
-					};
-
-					const event = new TransferQueryResponseEvt(payload);
-
-					event.fspiopOpaqueState = message.fspiopOpaqueState;
-                    this._outputEvents.push(event);
 					return;
 				}
 			}
-
-            const now = new Date().getTime();
-            if(now > getTransferRep.expirationTimestamp) {
-                try {
-                    getTransferRep.transferState = TransferState.ABORTED;
-                    await this._transfersRepo.updateTransfer(getTransferRep);
-                } catch(err: unknown) {
-                    const error = (err as Error).message;
-                    const errorMessage = `Error deleting reminder for transferId: ${getTransferRep.transferId}.`;
-                    this._logger.error(err, `${errorMessage}: ${error}`);
-                    const errorEvent = new TransferUnableToUpdateEvt({
-                        transferId: getTransferRep.transferId,
-                        payerFspId: getTransferRep.payerFspId,
-                        errorDescription: errorMessage
-                    });
-        
-                    errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                    this._outputEvents.push(errorEvent);
-                    return;
-                }
-            }
 		}
     }
 
@@ -605,6 +698,19 @@ export class TransfersAggregate {
         // set transfer in cache
         this._transfersCache.set(transfer.transferId, transfer);
 
+        try {
+            await this._schedulingAdapter.createReminder(
+                transfer.transferId, 
+                "*/15 * * * * *", 
+                {
+                    payload: transfer,
+                    fspiopOpaqueState: message.fspiopOpaqueState
+                }
+            )
+        } catch (e: unknown) {
+            debugger
+        }
+
         this._abBatchRequests.push({
             requestType: AccountsBalancesHighLevelRequestTypes.checkLiquidAndReserve,
             requestId: randomUUID(),
@@ -678,12 +784,6 @@ export class TransfersAggregate {
             errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
 			this._outputEvents.push(errorEvent);
             return;
-        }
-
-        try {
-            await this._schedulingAdapter.createReminder(transfer.transferId, "*/15 * * * * *", transfer)
-        } catch (e: unknown) {
-            debugger
         }
             
         // TODO validate type
