@@ -33,9 +33,10 @@
 "use strict";
 
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import { SchedulingClient, ReminderTaskType, IReminder } from "@mojaloop/scheduling-bc-client";
+import { SchedulingClient } from "@mojaloop/scheduling-bc-client-lib";
 import { ISchedulingServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
-import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { TransfersBCTopics } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { ReminderTaskType, IReminder } from "@mojaloop/scheduling-bc-public-types-lib";
 
 export class SchedulingAdapter implements ISchedulingServiceAdapter {
 	private readonly _logger: ILogger;
@@ -51,7 +52,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 		this._externalSchedulingClient = new SchedulingClient(logger, this._clientBaseUrl, 5000);
 	}
 
-	async createReminder(id: string, time: string, payload: any): Promise<string> {
+	async createReminder(id: string, time: string, payload: any): Promise<string | void> {
 		try {
 			const result = await this._externalSchedulingClient.createReminder({ 
 				id: id, 
@@ -68,18 +69,18 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 			return result;
 		} catch (e: unknown) {
 			this._logger.error(e,`createReminder: error creating reminder - ${e}`);
-			throw e;
+			return;
         }
 	}
 
-	async getReminder(id: string): Promise<IReminder | null> {
+	async getReminder(id: string): Promise<IReminder | null | void> {
 		try {
 			const result = await this._externalSchedulingClient.getReminder(id);
 
 			return result;
 		} catch (e: unknown) {
 			this._logger.error(e,`createReminder: error getting reminder - ${e}`);
-			throw e;
+			return;
         }
 	}
 
@@ -90,7 +91,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 			return result;
 		} catch (e: unknown) {
 			this._logger.error(e,`createReminder: error deleting reminder - ${e}`);
-			throw e;
+			return;
         }
 	}
 

@@ -360,9 +360,9 @@ export class TransfersAggregate {
     private async _timeoutTransfer(message: TimeoutTransferCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`transferTimeoutStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		let transfer:ITransfer | undefined;
+		let transfer:ITransfer | null;
 		try {
-			transfer = this._transfersCache.get(message.payload.transferId);
+			transfer = await this._getTransfer(message.payload.transferId);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
@@ -454,6 +454,22 @@ export class TransfersAggregate {
 
                     if(now > expirationTime) {
                         try {
+                            await this._cancelTransfer(message.payload.transferId);
+                        } catch(err: unknown) {
+                            const error = (err as Error).message;
+                            const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                            this._logger.error(err, `${errorMessage}: ${error}`);
+                            const errorEvent = new TransferCancelReservationFailedEvt({
+                                transferId: message.payload.transferId,
+                                errorDescription: errorMessage
+                            });
+                            
+                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            this._outputEvents.push(errorEvent);
+                            return;
+                        }
+
+                        try {
                             transfer.transferState = TransferState.ABORTED;
                             // set transfer in cache
                             this._transfersCache.set(transfer.transferId, transfer);
@@ -468,22 +484,6 @@ export class TransfersAggregate {
                                 errorDescription: errorMessage
                             });
                 
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
-        
-                        try {
-                            await this._cancelTransfer(message.payload.transferId);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-                            const errorEvent = new TransferCancelReservationFailedEvt({
-                                transferId: message.payload.transferId,
-                                errorDescription: errorMessage
-                            });
-
                             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
@@ -555,6 +555,65 @@ export class TransfersAggregate {
 			expirationTimestamp: message.payload.expiration
 		});
 
+        // Duplicate Transfer POST use cases
+        let getTransferRep:ITransfer | undefined;
+		try {
+            // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
+			getTransferRep = this._transfersCache.get(message.payload.transferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetTransferByIdEvt({
+				transferId: message.payload.transferId,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		// TODO Use hash repository to fetch the hashes
+		if(getTransferRep) {
+			// if(getTransferRep.hash !== hash) {
+			// 	const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
+			// 	this._logger.error(errorMessage);
+			// 	const errorEvent = new TransferDuplicateCheckFailedEvt({
+			// 		transferId: message.payload.transferId,
+			// 		payerFspId: message.payload.payerFsp,
+			// 		errorDescription: errorMessage
+			// 	});
+            //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            //     this._outputEvents.push(errorEvent);
+            //     return;
+			// }
+
+			switch(getTransferRep.transferState) {
+				case TransferState.RECEIVED:
+				case TransferState.RESERVED: {
+					// Ignore the request
+					return;
+				}
+				case TransferState.COMMITTED:
+				case TransferState.ABORTED: {
+					// Send a response event to the payer
+					const payload: TransferQueryResponseEvtPayload = {
+						transferId: getTransferRep.transferId,
+						transferState: getTransferRep.transferState,
+						completedTimestamp: getTransferRep.completedTimestamp,
+						fulfilment: getTransferRep.fulfilment,
+						extensionList: getTransferRep.extensionList
+					};
+
+					const event = new TransferQueryResponseEvt(payload);
+
+					event.fspiopOpaqueState = message.fspiopOpaqueState;
+                    this._outputEvents.push(event);
+					return;
+				}
+			}
+		}
+        
 
 		let settlementModel: string;
 		try {
@@ -707,8 +766,21 @@ export class TransfersAggregate {
                     fspiopOpaqueState: message.fspiopOpaqueState
                 }
             )
-        } catch (e: unknown) {
-            debugger
+        } catch (err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetSettlementModelEvt({
+				transferId: message.payload.transferId,
+				amount: message.payload.amount,
+				payerCurrency: message.payload.currencyCode,
+				payeeCurrency: message.payload.currencyCode,
+				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
+				errorDescription: errorMessage
+			});
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
         }
 
         this._abBatchRequests.push({
