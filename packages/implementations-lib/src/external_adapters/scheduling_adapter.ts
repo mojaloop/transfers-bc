@@ -73,6 +73,27 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
         }
 	}
 
+	async createSingleReminder(id: string, time: string  | number, payload: any): Promise<string | void> {
+		try {
+			const result = await this._externalSchedulingClient.createSingleReminder({ 
+				id: id, 
+				time: time, 
+				payload: payload,
+				taskType: ReminderTaskType.EVENT,
+				httpPostTaskDetails: null,
+				eventTaskDetails: {
+					topic: TransfersBCTopics.TimeoutEvents
+				}
+			}
+		);
+
+			return result;
+		} catch (e: unknown) {
+			this._logger.error(e,`createReminder: error creating reminder - ${e}`);
+			return;
+        }
+	}
+
 	async getReminder(id: string): Promise<IReminder | null | void> {
 		try {
 			const result = await this._externalSchedulingClient.getReminder(id);

@@ -117,6 +117,7 @@ export interface ISettlementsServiceAdapter {
 
 export interface ISchedulingServiceAdapter {
     createReminder(id: string, time: string, payload: any): Promise<string | void>;
+    createSingleReminder(id: string, time: string | number, payload: any): Promise<string | void>;
 	getReminder(reminderId: string): Promise<IReminder | null | void>;
 	deleteReminder(reminderId: string): Promise<void>;
 }

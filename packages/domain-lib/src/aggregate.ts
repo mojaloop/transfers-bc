@@ -416,21 +416,6 @@ export class TransfersAggregate {
                             this._outputEvents.push(errorEvent);
                             return;
                         }
-                        
-                        try {
-                            this._schedulingAdapter.deleteReminder(transfer.transferId);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-                            const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
-                                transferId: message.payload.transferId,
-                                errorDescription: errorMessage
-                            });
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
 
                         // Send a response event to the payer
                         const payload: TransferPrepareRequestTimedoutEvtPayload = {
@@ -488,21 +473,6 @@ export class TransfersAggregate {
                             this._outputEvents.push(errorEvent);
                             return;
                         }
-                        
-                        try {
-                            this._schedulingAdapter.deleteReminder(transfer.transferId);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-                            const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
-                                transferId: message.payload.transferId,
-                                errorDescription: errorMessage
-                            });
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
 
                         // Send a response event to the payer and payee
                         const payload: TransferFulfilCommittedRequestedTimedoutEvtPayload = {
@@ -518,26 +488,11 @@ export class TransfersAggregate {
                         this._outputEvents.push(event);
                     }
                     
-					// Ignore the request
 					return;
 				}
 				case TransferState.COMMITTED:
 				case TransferState.ABORTED: {
-                    try {
-                        this._schedulingAdapter.deleteReminder(transfer.transferId);
-                    } catch(err: unknown) {
-                        const error = (err as Error).message;
-                        const errorMessage = `Unable to delete reminder for transferId: ${message.payload.transferId}`;
-                        this._logger.error(err, `${errorMessage}: ${error}`);
-                        const errorEvent = new TransferUnableToDeleteTransferReminderEvt({
-                            transferId: message.payload.transferId,
-                            errorDescription: errorMessage
-                        });
-                        errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                        this._outputEvents.push(errorEvent);
-                        return;
-                    }
-            
+                    // Ignore
 					return;
 				}
 			}
@@ -758,9 +713,9 @@ export class TransfersAggregate {
         this._transfersCache.set(transfer.transferId, transfer);
 
         try {
-            await this._schedulingAdapter.createReminder(
+            await this._schedulingAdapter.createSingleReminder(
                 transfer.transferId, 
-                "*/15 * * * * *", 
+                transfer.expirationTimestamp, 
                 {
                     payload: transfer,
                     fspiopOpaqueState: message.fspiopOpaqueState
