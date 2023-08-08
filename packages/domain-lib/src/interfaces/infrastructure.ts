@@ -112,7 +112,7 @@ export interface IAccountsBalancesAdapter {
 }
 
 export interface ISettlementsServiceAdapter {
-    getSettlementModelId(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string>;
+    getSettlementModelId(transferAmount: string, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string>;
 }
 
 export interface ISchedulingServiceAdapter {

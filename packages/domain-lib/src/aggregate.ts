@@ -377,7 +377,7 @@ export class TransfersAggregate {
 		}
 
 		// TODO Use hash repository to fetch the hashes
-		 if(transfer) {
+        if(transfer) {
 			// if(transfer.hash !== hash) {
 			// 	const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
 			// 	this._logger.error(errorMessage);
@@ -411,7 +411,7 @@ export class TransfersAggregate {
                                 payerFspId: transfer.payerFspId,
                                 errorDescription: errorMessage
                             });
-                
+
                             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
@@ -429,7 +429,7 @@ export class TransfersAggregate {
                         event.fspiopOpaqueState = message.fspiopOpaqueState;
                         this._outputEvents.push(event);
                     }
-                    
+
 					// Ignore the request
 					return;
 				}
@@ -448,7 +448,7 @@ export class TransfersAggregate {
                                 transferId: message.payload.transferId,
                                 errorDescription: errorMessage
                             });
-                            
+
                             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
@@ -468,7 +468,7 @@ export class TransfersAggregate {
                                 payerFspId: transfer.payerFspId,
                                 errorDescription: errorMessage
                             });
-                
+
                             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
@@ -487,7 +487,7 @@ export class TransfersAggregate {
                         event.fspiopOpaqueState = message.fspiopOpaqueState;
                         this._outputEvents.push(event);
                     }
-                    
+
 					return;
 				}
 				case TransferState.COMMITTED:
@@ -568,12 +568,12 @@ export class TransfersAggregate {
 				}
 			}
 		}
-        
+
 
 		let settlementModel: string;
 		try {
 			settlementModel = await this._settlementsAdapter.getSettlementModelId(
-                BigInt(message.payload.amount),
+                message.payload.amount,
                 message.payload.currencyCode,
                 message.payload.currencyCode,
                 message.payload.extensionList?.extension ? message.payload.extensionList.extension : []
@@ -714,8 +714,8 @@ export class TransfersAggregate {
 
         try {
             await this._schedulingAdapter.createSingleReminder(
-                transfer.transferId, 
-                transfer.expirationTimestamp, 
+                transfer.transferId,
+                transfer.expirationTimestamp,
                 {
                     payload: transfer,
                     fspiopOpaqueState: message.fspiopOpaqueState
@@ -812,7 +812,7 @@ export class TransfersAggregate {
 			this._outputEvents.push(errorEvent);
             return;
         }
-            
+
         // TODO validate type
         const message = originalCmdMsg;// as PrepareTransferCmd;
 

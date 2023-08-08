@@ -57,7 +57,7 @@ export class SettlementsAdapter implements ISettlementsServiceAdapter {
         await this._externalSettlementsClient.init();
     }
 
-	async getSettlementModelId(transferAmount: bigint, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string> {
+	async getSettlementModelId(transferAmount: string, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string> {
 		try {
 			const modelId = await this._externalSettlementsClient.getSettlementModelId(transferAmount, payerCurrency, payeeCurrency, extensionList);
 			return modelId || DEFAULT_SETTLEMENT_MODEL_ID;
