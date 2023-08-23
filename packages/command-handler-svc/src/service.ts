@@ -30,9 +30,6 @@
 
 "use strict";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const packageJSON = require("../package.json");
-
 import {
 	TransfersAggregate,
 	IParticipantsServiceAdapter,
@@ -74,6 +71,9 @@ import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-t
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 import path from "path";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJSON = require("../package.json");
 
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
@@ -283,7 +283,7 @@ export class Service {
             await (settlementsAdapter as SettlementsAdapter).init();
 		}
 		this.settlementsAdapter = settlementsAdapter;
-        
+
 		if (!schedulingAdapter) {
 			schedulingAdapter = new SchedulingAdapter(logger, SCHEDULING_SVC_URL);
 		}
