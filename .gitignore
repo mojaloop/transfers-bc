@@ -125,3 +125,14 @@ devspace*
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# --------------- #
+# IntelliJ #
+# --------------- #
+.idea
+**/*.iml
+
+# --------------- #
+# Visual Studio Code #
+# --------------- #
+.vscode/*
