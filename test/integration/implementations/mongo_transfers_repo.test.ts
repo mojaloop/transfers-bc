@@ -34,10 +34,10 @@
 
 import { Collection, MongoClient } from "mongodb";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
-import { NoSuchTransferError, TransferAlreadyExistsError } from "../../../packages/implementations-lib/src/errors";
+import { NoSuchTransferError, TransferAlreadyExistsError } from "@mojaloop/transfers-bc-implementations-lib/src/errors";
 import { mockedTransfer1, mockedTransfer2, mockedTransfer3, mockedTransfer4 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
-import { MongoTransfersRepo } from "../../../packages/implementations-lib/src/transfers/mongo_transfers_repo";
+import { MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations-lib/src/transfers/mongo_transfers_repo";
 import { TransferState } from "@mojaloop/transfers-bc-domain-lib";
 
 const logger: ILogger = new ConsoleLogger();

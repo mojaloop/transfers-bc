@@ -31,46 +31,46 @@
 "use strict";
 
 import {
-	TransfersAggregate,
-	IParticipantsServiceAdapter,
-	ITransfersRepository,
-	IAccountsBalancesAdapter,
-    ISettlementsServiceAdapter,
-    ISchedulingServiceAdapter
-} from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter, SchedulingAdapter } from "@mojaloop/transfers-bc-implementations-lib";
-import {existsSync} from "fs";
-import express, {Express} from "express";
-import {Server} from "net";
-import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
-import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
-import {
 	AuditClient,
 	KafkaAuditClientDispatcher,
 	LocalAuditClientCryptoProvider
 } from "@mojaloop/auditing-bc-client-lib";
-import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
-import {
-	MLKafkaJsonConsumer,
-	MLKafkaJsonProducer,
-	MLKafkaJsonConsumerOptions,
-	MLKafkaJsonProducerOptions
-} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
-import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import process from "process";
-import {TransfersCommandHandler} from "./handler";
 import {
 	AuthenticatedHttpRequester,
-    LoginHelper
+	LoginHelper
 } from "@mojaloop/security-bc-client-lib";
-import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
-import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
-import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
-
-import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
+import { GrpcAccountsAndBalancesAdapter, MongoTransfersRepo, ParticipantAdapter, SchedulingAdapter, SettlementsAdapter } from "@mojaloop/transfers-bc-implementations-lib";
+import {
+	IAccountsBalancesAdapter,
+	IParticipantsServiceAdapter,
+	ISchedulingServiceAdapter,
+	ISettlementsServiceAdapter,
+	ITransfersRepository,
+	TransfersAggregate
+} from "@mojaloop/transfers-bc-domain-lib";
+import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+	MLKafkaJsonConsumer,
+	MLKafkaJsonConsumerOptions,
+	MLKafkaJsonProducer,
+	MLKafkaJsonProducerOptions
+} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
+import express, {Express} from "express";
+
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
+import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
+import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
+import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
+import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
+import {Server} from "net";
+import {TransfersCommandHandler} from "./handler";
+import {existsSync} from "fs";
 import path from "path";
+import process from "process";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -82,7 +82,7 @@ const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
-const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:example@localhost:27017/";
+const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
 
 // const REDIS_HOST = process.env["REDIS_HOST"] || "localhost";
 // const REDIS_PORT = (process.env["REDIS_PORT"] && parseInt(process.env["REDIS_PORT"])) || 6379;
@@ -108,6 +108,8 @@ const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhos
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
 // const USE_REDIS_TRANSFERS_REPO = (process.env["USE_REDIS_TRANSFERS_REPO"] && process.env["USE_REDIS_TRANSFERS_REPO"].toUpperCase()=="TRUE") || false;
+
+const CONFIGURATION_SVC_URL = process.env["CONFIG_SVC_URL"] || "http://localhost:3100";
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 100;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 100;
@@ -195,7 +197,7 @@ export class Service {
                 kafkaBrokerList: KAFKA_URL,
                 kafkaGroupId: `${APP_NAME}_${Date.now()}` // unique consumer group - use instance id when possible
             }, this.logger.createChild("configClient.consumer"));
-            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
+            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer,CONFIGURATION_SVC_URL);
         }
 
         this.configClient = GetTransfersConfigSet(configProvider, BC_NAME, APP_NAME, APP_VERSION);

@@ -30,35 +30,35 @@
 
 "use strict";
 
-import {existsSync} from "fs";
-import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
-import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import {
 	AuditClient,
 	KafkaAuditClientDispatcher,
 	LocalAuditClientCryptoProvider
 } from "@mojaloop/auditing-bc-client-lib";
+import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
+import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+	MLKafkaJsonConsumer,
+	MLKafkaJsonConsumerOptions,
+	MLKafkaJsonProducer,
+	MLKafkaJsonProducerOptions
+} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
+import express, {Express} from "express";
+
 import {
     AuthenticatedHttpRequester,
 } from "@mojaloop/security-bc-client-lib";
+import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
+import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
+import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
-import {
-	MLKafkaJsonConsumer,
-	MLKafkaJsonProducer,
-	MLKafkaJsonConsumerOptions,
-	MLKafkaJsonProducerOptions
-} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
-import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import process from "process";
-import express, {Express} from "express";
+import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 import {Server} from "net";
 import {TransfersEventHandler} from "./handler";
-import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
-import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
-
-import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
-import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
-import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {existsSync} from "fs";
+import process from "process";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -83,6 +83,8 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
+
+const CONFIGURATION_SVC_URL = process.env["CONFIG_SVC_URL"] || "http://localhost:3100";
 
 const SERVICE_START_TIMEOUT_MS = 30_000;
 
@@ -153,7 +155,7 @@ export class Service {
                 kafkaBrokerList: KAFKA_URL,
                 kafkaGroupId: `${APP_NAME}_${Date.now()}` // unique consumer group - use instance id when possible
             }, this.logger.createChild("configClient.consumer"));
-            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
+            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer, CONFIGURATION_SVC_URL);
         }
 
         this.configClient = GetTransfersConfigSet(configProvider, BC_NAME, APP_NAME, APP_VERSION);
