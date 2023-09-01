@@ -76,6 +76,7 @@ import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
 	TransferCommittedFulfiledEvt,
+    TransferReserveFulfiledEvt,
 	TransferPreparedEvt,
 	TransferPreparedEvtPayload,
 	TransferRejectRequestProcessedEvt,
@@ -133,6 +134,7 @@ export class TransfersAggregate {
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abBatchResponses: IAccountsBalancesHighLevelResponse[] = [];
     private _outputEvents: DomainEventMsg[] = [];
+	private readonly _payeeConfirmationMode: boolean;
 
     constructor(
         logger: ILogger,
@@ -142,7 +144,8 @@ export class TransfersAggregate {
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
-        schedulingAdapter: ISchedulingServiceAdapter
+        schedulingAdapter: ISchedulingServiceAdapter,
+        payeeConfirmationMode: boolean
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -157,6 +160,7 @@ export class TransfersAggregate {
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
         this._aandbHisto = metrics.getHistogram("TransfersAggregate_aandbAdapter", "A&B adapter timings on the Transfers Aggregate", ["callName", "success"]);
         this._participantsHisto = metrics.getHistogram("TransfersAggregate_participantsAdapter", "Participants adapter timings on the Transfers Aggregate", ["callName", "success"]);
+        this._payeeConfirmationMode = payeeConfirmationMode ?? false;
     }
 
     async init(): Promise<void> {
@@ -1088,17 +1092,35 @@ export class TransfersAggregate {
 
         this._transfersCache.set(transfer.transferId, transfer);
 
-        const event: TransferCommittedFulfiledEvt = new TransferCommittedFulfiledEvt({
-            transferId: message.payload.transferId,
-            fulfilment: message.payload.fulfilment,
-            completedTimestamp: message.payload.completedTimestamp,
-            extensionList: message.payload.extensionList,
-            payerFspId: transfer.payerFspId,
-            payeeFspId: transfer.payeeFspId,
-            amount: transfer.amount,
-            currencyCode: transfer.currencyCode,
-            settlementModel: transfer.settlementModel,
-        });
+        let event: TransferCommittedFulfiledEvt | TransferReserveFulfiledEvt;
+        if(!this._payeeConfirmationMode)
+		{
+            event = new TransferCommittedFulfiledEvt({
+                transferId: message.payload.transferId,
+                fulfilment: message.payload.fulfilment,
+                completedTimestamp: message.payload.completedTimestamp,
+                extensionList: message.payload.extensionList,
+                payerFspId: transfer.payerFspId,
+                payeeFspId: transfer.payeeFspId,
+                amount: transfer.amount,
+                currencyCode: transfer.currencyCode,
+                settlementModel: transfer.settlementModel,
+            });
+		} else {
+            event = new TransferReserveFulfiledEvt({
+                transferId: message.payload.transferId,
+                fulfilment: message.payload.fulfilment,
+                completedTimestamp: message.payload.completedTimestamp,
+                extensionList: message.payload.extensionList,
+                payerFspId: transfer.payerFspId,
+                payeeFspId: transfer.payeeFspId,
+                amount: transfer.amount,
+                currencyCode: transfer.currencyCode,
+                settlementModel: transfer.settlementModel,
+            });
+        }
+
+
 
         // carry over opaque state fields
         event.fspiopOpaqueState = message.fspiopOpaqueState;
