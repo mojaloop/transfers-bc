@@ -26,6 +26,11 @@ describe("Implementations - Settlements Adapter Integration tests", () => {
 		settlementAdapter = new SettlementsAdapter(logger, SETTLEMENTS_SVC_URL, authRequester);
     });
 
+    test("should be able to init settlement models", async () => {
+        // Act & Assert
+        await expect(settlementAdapter.init()).resolves.not.toThrow();
+    });
+
     test("should be able to get a settlement model id", async () => {
         // Arrange
         const transferAmount = "3000";
