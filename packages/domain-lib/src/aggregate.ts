@@ -1252,6 +1252,46 @@ export class TransfersAggregate {
 
     private async _queryTransfer(message: QueryTransferCmd):Promise<void> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
+        
+		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
+		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
+        const transferId = message.payload.transferId;
+        
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - before getParticipants...");
+
+        try{
+            await this._getParticipantsInfo(requesterFspId, destinationFspId, message.payload.transferId);
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transferId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _queryTransfer");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - after getParticipants");
 
 		let transfer:ITransfer | null = null;
 
@@ -1283,42 +1323,6 @@ export class TransfersAggregate {
             this._outputEvents.push(errorEvent);
             return;
 		}
-
-        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - before getParticipants...");
-
-        try{
-            await this._getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
-        } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
-
-            if(err instanceof HubNotFoundError) {
-                errorEvent = new TransferHubNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    errorDescription: (err as Error).message
-                });
-            } else if (err instanceof PayerParticipantNotFoundError) {
-                errorEvent = new TransferPayerNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    payerFspId: transfer.payerFspId,
-                    errorDescription: (err as Error).message
-                });
-            } else if (err instanceof PayeeParticipantNotFoundError) {
-                errorEvent = new TransferPayeeNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
-                    errorDescription: (err as Error).message
-                });
-            } else {
-                this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
-                return;
-            }
-
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-            this._outputEvents.push(errorEvent);
-            return;
-        }
-
-        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - after getParticipants");
 
 		const payload: TransferQueryResponseEvtPayload = {
 			transferId: transfer.transferId,
