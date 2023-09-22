@@ -66,7 +66,7 @@ async function handler(message){
             eventsToPublish.push(evt);
             batchProcessed++;
         }
-    }else if(message.msgName === "TransferCommittedFulfiledEvt"){
+    }else if(message.msgName === "TransferFulfiledEvt"){
         //completed
         const now = Date.now();
 
@@ -81,7 +81,7 @@ async function handler(message){
         batchTotalDuration += transferDurationMs;
 
         if(SINGLE_MODE)
-            console.log(`TransferCommittedFulfiledEvt with id: ${message.payload.transferId} received - took: ${transferDurationMsprepareSendTimestamp} ms`);
+            console.log(`TransferFulfiledEvt with id: ${message.payload.transferId} received - took: ${transferDurationMsprepareSendTimestamp} ms`);
         else
             batchProcessed++;
     }

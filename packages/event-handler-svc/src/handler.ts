@@ -39,7 +39,7 @@ import {
     MessageTypes
 } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
-    TransferFulfilCommittedRequestedEvt,
+    TransferFulfilRequestedEvt,
     TransferPrepareRequestedEvt,
     TransferRejectRequestedEvt,
 	TransferQueryReceivedEvt,
@@ -121,7 +121,7 @@ export class TransfersEventHandler{
                     const now = Date.now();
                     if(message.msgName === "TransferPreparedEvt" && message.fspiopOpaqueState.prepareSendTimestamp){
                         this._transferDurationHisto.observe({"leg": "prepare"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
-                    }else if(message.msgName === "TransferCommittedFulfiledEvt" && message.fspiopOpaqueState.committedSendTimestamp ){
+                    }else if(message.msgName === "TransferFulfiledEvt" && message.fspiopOpaqueState.committedSendTimestamp ){
                         this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.fspiopOpaqueState.committedSendTimestamp);
                         if(message.fspiopOpaqueState.prepareSendTimestamp){
                             this._transferDurationHisto.observe({"leg": "total"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
@@ -151,8 +151,8 @@ export class TransfersEventHandler{
         if(message.msgName === TransferPrepareRequestedEvt.name) {
             const transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt);
             return transferCmd;
-        }else if(message.msgName === TransferFulfilCommittedRequestedEvt.name){
-            const transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilCommittedRequestedEvt);
+        }else if(message.msgName === TransferFulfilRequestedEvt.name){
+            const transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilRequestedEvt);
             return transferCmd;
         }else if(message.msgName === TransferRejectRequestedEvt.name){
             const transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt);
@@ -188,7 +188,7 @@ export class TransfersEventHandler{
 		return cmd;
 	}
 
-	private _fulfilEventToFulfilCommand(evt: TransferFulfilCommittedRequestedEvt): CommitTransferFulfilCmd {
+	private _fulfilEventToFulfilCommand(evt: TransferFulfilRequestedEvt): CommitTransferFulfilCmd {
 		const cmdPayload: CommitTransferFulfilCmdPayload = {
 			transferId: evt.payload.transferId,
 			transferState: evt.payload.transferState,

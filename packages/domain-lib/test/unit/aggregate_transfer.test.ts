@@ -46,10 +46,10 @@ describe("Empty - RE-ENABLE", () => {
 
 import { CommandMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-import { TransferCommittedFulfiledEvtPayload, TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferPrepareRequestedEvtPayload} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { TransferFulfiledEvtPayload, TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferPrepareRequestedEvtPayload} from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { InvalidParticipantIdError, NoSuchAccountError, NoSuchParticipantError, RequiredParticipantIsNotActive} from "../../src/errors";
 import { TransferState } from '../../src/types';
-import { createCommand,  createTransferCommittedFulfiledEvtPayload,  createTransferPreparedEvtPayload } from "../utils/helpers";
+import { createCommand,  createTransferFulfiledEvtPayload,  createTransferPreparedEvtPayload } from "../utils/helpers";
 import { aggregate, transferRepo, messageProducer, participantService, accountsAndBalancesService } from "../utils/mocked_variables";
 import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import {
@@ -377,7 +377,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         // Arrange
         const mockedTransfer = mockedTransfer1 as any;
 
-        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+        const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
 
         const requesterFspId = "payer";
         const destinationFspId = "payee";
@@ -416,7 +416,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         // Arrange
         const mockedTransfer = mockedTransfer1 as any;
 
-        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+        const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
 
         const requesterFspId = "payer";
         const destinationFspId = "payee";
@@ -455,7 +455,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         // Arrange
         const mockedTransfer = mockedTransfer1 as any;
 
-        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+        const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
 
         const requesterFspId = "payer";
         const destinationFspId = "payee";
@@ -497,7 +497,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         // Arrange
         const mockedTransfer = mockedTransfer1 as any;
 
-        const payload: TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+        const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
 
         const requesterFspId = "payer";
         const destinationFspId = "payee";
@@ -538,10 +538,10 @@ describe("Domain - Unit Tests for Transfer Events", () => {
         }));
     });
 
-    test("handleTransferFulfillEvt - should publish TransferCommittedFulfiledEvt if event runs successfully", async () => {
+    test("handleTransferFulfillEvt - should publish TransferFulfiledEvt if event runs successfully", async () => {
         // Arrange
         const mockedTransfer = mockedTransfer1 as any;
-        const payload:TransferCommittedFulfiledEvtPayload = createTransferCommittedFulfiledEvtPayload(mockedTransfer);
+        const payload:TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
 
         const payerFspId = "payer";
         const payeeFspId = "payee";
@@ -552,7 +552,7 @@ describe("Domain - Unit Tests for Transfer Events", () => {
 
         const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
 
-        const responsePayload: TransferCommittedFulfiledEvtPayload = {
+        const responsePayload: TransferFulfiledEvtPayload = {
             transferId: payload.transferId,
             transferState: payload.transferState as any,
             fulfilment: payload.fulfilment,

@@ -123,10 +123,6 @@ const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL
 };
 
-// Application variables
-const PAYEE_CONFIRMATION_MODE = true; // Replace this later with platform-configuration setter
-
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let globalLogger: ILogger;
 
@@ -294,7 +290,7 @@ export class Service {
 		this.schedulingAdapter = schedulingAdapter;
 
         if (!aggregate) {
-            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter, PAYEE_CONFIRMATION_MODE);
+            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
         }
         this.aggregate = aggregate;
 

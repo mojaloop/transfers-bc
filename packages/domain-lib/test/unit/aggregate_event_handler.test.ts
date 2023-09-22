@@ -43,7 +43,7 @@ describe("Empty - RE-ENABLE", () => {
 
 import { IParticipant } from '@mojaloop/participant-bc-public-types-lib';
 import { CommandMsg, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferCommittedFulfiledEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferFulfiledEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { mockedTransfer1 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { InvalidMessagePayloadError, InvalidMessageTypeError } from "../../src/errors";
 import { createCommand, createTransferPreparedEvtPayload } from "../utils/helpers";
@@ -167,7 +167,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "state": "fake opaque state",
         }
 
-        const command: CommandMsg = createCommand(payload, TransferCommittedFulfiledEvt.name,fspiopOpaqueState);
+        const command: CommandMsg = createCommand(payload, TransferFulfiledEvt.name,fspiopOpaqueState);
 
         jest.spyOn(messageProducer, "send");
 
@@ -193,7 +193,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             destinationFspId,
         };
 
-        const command: CommandMsg = createCommand(payload, TransferCommittedFulfiledEvt.name,fspiopOpaqueState);
+        const command: CommandMsg = createCommand(payload, TransferFulfiledEvt.name,fspiopOpaqueState);
 
         jest.spyOn(transferRepo, "addTransfer")
             .mockResolvedValueOnce("inserted transfer id");
