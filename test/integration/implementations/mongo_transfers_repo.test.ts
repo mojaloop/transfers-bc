@@ -119,7 +119,9 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
     test("should remove a transfer in the database", async () => {
         // Arrange
         const transfer1 = mockedTransfer1;
-        const transferId = await mongoTransfersRepo.addTransfer(transfer1);
+        await mongoTransfersRepo.addTransfer(transfer1);
+        const addedTransfer = await mongoTransfersRepo.getTransferById(transfer1.transferId);
+        const transferId = addedTransfer?.transferId as string;
 
         // Act
         await mongoTransfersRepo.removeTransfer(transferId);
@@ -131,8 +133,6 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should throw error when trying to remove a non-existent transfer in the database", async () => {
         // Arrange
-        const transfer1 = mockedTransfer1;
-        await mongoTransfersRepo.addTransfer(transfer1);
         const transferId = "non-existent-id";
 
         // Act & Assert

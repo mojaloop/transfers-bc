@@ -128,6 +128,18 @@ describe("Transfers Admin Routes - Integration", () => {
         expect(response.status).toBe(404);
     });
 
+    test("GET - should return 401 error when no access token for /transfers/:id route", async () => {
+        // Arrange
+        const transferId = "example-id";
+
+        // Act
+        const response = await request(server)
+            .get(`/transfers/${transferId}`);
+
+        // Assert
+        expect(response.status).toBe(401);
+    });
+
     test("GET - should get a list of transfers", async () => {
         // Arrange
         await mongoTransfersRepo.addTransfer(mockedTransfer1);
@@ -170,3 +182,11 @@ describe("Transfers Admin Routes - Integration", () => {
     });
 });
 
+test("GET - should return 401 error when no access token for /transfers route", async () => {
+    // Act
+    const response = await request(server)
+            .get("/transfers");
+
+    // Assert
+    expect(response.status).toBe(401);
+});
