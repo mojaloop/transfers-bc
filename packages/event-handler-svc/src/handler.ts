@@ -195,6 +195,7 @@ export class TransfersEventHandler{
 			fulfilment: evt.payload.fulfilment,
 			completedTimestamp: evt.payload.completedTimestamp,
 			extensionList: evt.payload.extensionList,
+			notifyPayee: evt.payload.notifyPayee,
 			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
