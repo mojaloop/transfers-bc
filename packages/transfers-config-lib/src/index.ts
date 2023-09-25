@@ -31,7 +31,7 @@
 "use strict";
 
 import { ConfigurationClient,IConfigProvider } from "@mojaloop/platform-configuration-bc-client-lib";
-import {ConfigParameterTypes} from "@mojaloop/platform-configuration-bc-public-types-lib";
+// import {ConfigParameterTypes} from "@mojaloop/platform-configuration-bc-public-types-lib";
 
 // configs - constants / code dependent
 const CONFIGSET_VERSION = "0.1.0";

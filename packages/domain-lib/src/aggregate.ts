@@ -76,8 +76,7 @@ import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
 	TransferFulfiledEvt,
-    TransferReserveFulfiledEvt,
-	TransferPreparedEvt,
+    TransferPreparedEvt,
 	TransferPreparedEvtPayload,
 	TransferRejectRequestProcessedEvt,
 	TransferRejectRequestProcessedEvtPayload,
@@ -99,8 +98,6 @@ import {
 	TransferCancelReservationAndCommitFailedEvt,
 	TransferUnableToGetSettlementModelEvt,
     TransferInvalidMessageTypeEvt,
-    TransferDuplicateCheckFailedEvt,
-    TransferUnableToDeleteTransferReminderEvt,
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
     TransferFulfilCommittedRequestedTimedoutEvt,
@@ -1089,7 +1086,7 @@ export class TransfersAggregate {
 
         this._transfersCache.set(transfer.transferId, transfer);
 
-        let event = new TransferFulfiledEvt({
+        const event = new TransferFulfiledEvt({
             transferId: message.payload.transferId,
             fulfilment: message.payload.fulfilment,
             completedTimestamp: message.payload.completedTimestamp,
@@ -1359,35 +1356,35 @@ export class TransfersAggregate {
 
         const {hub, payer: transferPayerParticipant, payee: transferPayeeParticipant} = transferParticipants;
 
-        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode);
+        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.HUB && value.currencyCode === transfer.currencyCode);
         if(!hubAccount) {
 			const errorMessage = "Hub account not found for transfer " + transfer.transferId;
             this._logger.error(errorMessage);
             throw new HubAccountNotFoundError(errorMessage);
         }
 
-        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
         if(!payerPosAccount) {
 			const errorMessage = `Payer position account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerPositionAccountNotFoundError(errorMessage);
         }
 
-        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
         if(!payerLiqAccount) {
 			const errorMessage = `Payer liquidity account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerLiquidityAccountNotFoundError(errorMessage);
         }
 
-        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
         if(!payeePosAccount) {
 			const errorMessage = `Payee position account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);
             throw new PayeePositionAccountNotFoundError(errorMessage);
         }
 
-        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
         if(!payeeLiqAccount) {
 			const errorMessage = `Payee liquidity account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);

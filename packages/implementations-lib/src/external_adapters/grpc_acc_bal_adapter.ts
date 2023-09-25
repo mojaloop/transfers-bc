@@ -134,7 +134,7 @@
          return createdId.grpcIdArray![0].grpcId!;
      }
 
-     async getJournalEntriesByAccountId(_accountId: string): Promise<AccountsAndBalancesJournalEntry[]> {
+     async getJournalEntriesByAccountId(_accountId: string): Promise<AccountsAndBalancesJournalEntry[]> { // eslint-disable-line @typescript-eslint/no-unused-vars
          // TODO @pedro, please complete:
          return Promise.resolve([]);
      }
