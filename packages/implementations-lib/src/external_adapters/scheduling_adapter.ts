@@ -52,7 +52,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 		this._externalSchedulingClient = new SchedulingClient(logger, this._clientBaseUrl, 5000);
 	}
 
-	async createReminder(id: string, time: string, payload: any): Promise<string | void> {
+	async createReminder(id: string, time: string, payload: any): Promise<string | void> { // eslint-disable-line @typescript-eslint/no-explicit-any
 		try {
 			const result = await this._externalSchedulingClient.createReminder({ 
 				id: id, 
@@ -73,7 +73,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
         }
 	}
 
-	async createSingleReminder(id: string, time: string  | number, payload: any): Promise<string | void> {
+	async createSingleReminder(id: string, time: string  | number, payload: any): Promise<string | void> { // eslint-disable-line @typescript-eslint/no-explicit-any
 		try {
 			const result = await this._externalSchedulingClient.createSingleReminder({ 
 				id: id, 

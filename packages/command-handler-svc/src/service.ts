@@ -30,9 +30,6 @@
 
 "use strict";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const packageJSON = require("../package.json");
-
 import {
 	TransfersAggregate,
 	IParticipantsServiceAdapter,
@@ -75,6 +72,9 @@ import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configu
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 import path from "path";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJSON = require("../package.json");
+
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
 const APP_VERSION = packageJSON.version;
@@ -82,7 +82,7 @@ const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
-const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:example@localhost:27017/";
+const MONGO_URL = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
 
 // const REDIS_HOST = process.env["REDIS_HOST"] || "localhost";
 // const REDIS_PORT = (process.env["REDIS_PORT"] && parseInt(process.env["REDIS_PORT"])) || 6379;
@@ -283,7 +283,7 @@ export class Service {
             await (settlementsAdapter as SettlementsAdapter).init();
 		}
 		this.settlementsAdapter = settlementsAdapter;
-        
+
 		if (!schedulingAdapter) {
 			schedulingAdapter = new SchedulingAdapter(logger, SCHEDULING_SVC_URL);
 		}

@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/transfers-bc-transfers-api-svc",
-    "version": "0.2.2",
+    "version": "0.2.6",
     "description": "Mojaloop vNext Transfers BC - Transfers REST API Service",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/transfers-bc/transfers-api-svc",
@@ -32,7 +32,7 @@
         "standard": "npm run lint",
         "lint": "npm run build && npx eslint ./src",
         "lint:fix": "npm run build && npx eslint ./src --fix",
-        "test:unit": "jest --passWithNoTests --testMatch '**/test/unit/**/*.test.ts'",
+        "test:unit": "jest --passWithNoTests --testMatch **/test/unit/**/*.test.ts",
         "dep:check": "ncu -e 2",
         "dep:update": "ncu -u"
     },

@@ -75,8 +75,8 @@ import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, Transf
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
-	TransferCommittedFulfiledEvt,
-	TransferPreparedEvt,
+	TransferFulfiledEvt,
+    TransferPreparedEvt,
 	TransferPreparedEvtPayload,
 	TransferRejectRequestProcessedEvt,
 	TransferRejectRequestProcessedEvtPayload,
@@ -98,8 +98,6 @@ import {
 	TransferCancelReservationAndCommitFailedEvt,
 	TransferUnableToGetSettlementModelEvt,
     TransferInvalidMessageTypeEvt,
-    TransferDuplicateCheckFailedEvt,
-    TransferUnableToDeleteTransferReminderEvt,
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
     TransferFulfilCommittedRequestedTimedoutEvt,
@@ -1088,7 +1086,7 @@ export class TransfersAggregate {
 
         this._transfersCache.set(transfer.transferId, transfer);
 
-        const event: TransferCommittedFulfiledEvt = new TransferCommittedFulfiledEvt({
+        const event = new TransferFulfiledEvt({
             transferId: message.payload.transferId,
             fulfilment: message.payload.fulfilment,
             completedTimestamp: message.payload.completedTimestamp,
@@ -1098,7 +1096,9 @@ export class TransfersAggregate {
             amount: transfer.amount,
             currencyCode: transfer.currencyCode,
             settlementModel: transfer.settlementModel,
+            notifyPayee: message.payload.notifyPayee
         });
+
 
         // carry over opaque state fields
         event.fspiopOpaqueState = message.fspiopOpaqueState;
@@ -1230,6 +1230,46 @@ export class TransfersAggregate {
 
     private async _queryTransfer(message: QueryTransferCmd):Promise<void> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
+        
+		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
+		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
+        const transferId = message.payload.transferId;
+        
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - before getParticipants...");
+
+        try{
+            await this._getParticipantsInfo(requesterFspId, destinationFspId, message.payload.transferId);
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: transferId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _queryTransfer");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - after getParticipants");
 
 		let transfer:ITransfer | null = null;
 
@@ -1261,42 +1301,6 @@ export class TransfersAggregate {
             this._outputEvents.push(errorEvent);
             return;
 		}
-
-        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - before getParticipants...");
-
-        try{
-            await this._getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
-        } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
-
-            if(err instanceof HubNotFoundError) {
-                errorEvent = new TransferHubNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    errorDescription: (err as Error).message
-                });
-            } else if (err instanceof PayerParticipantNotFoundError) {
-                errorEvent = new TransferPayerNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    payerFspId: transfer.payerFspId,
-                    errorDescription: (err as Error).message
-                });
-            } else if (err instanceof PayeeParticipantNotFoundError) {
-                errorEvent = new TransferPayeeNotFoundFailedEvt({
-                    transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
-                    errorDescription: (err as Error).message
-                });
-            } else {
-                this._logger.error("Unable to handle _getParticipantsInfo error - _rejectTransfer");
-                return;
-            }
-
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-            this._outputEvents.push(errorEvent);
-            return;
-        }
-
-        if(this._logger.isDebugEnabled()) this._logger.debug("_rejectTransfer() - after getParticipants");
 
 		const payload: TransferQueryResponseEvtPayload = {
 			transferId: transfer.transferId,
@@ -1352,35 +1356,35 @@ export class TransfersAggregate {
 
         const {hub, payer: transferPayerParticipant, payee: transferPayeeParticipant} = transferParticipants;
 
-        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.HUB && value.currencyCode === transfer.currencyCode);
+        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.HUB && value.currencyCode === transfer.currencyCode);
         if(!hubAccount) {
 			const errorMessage = "Hub account not found for transfer " + transfer.transferId;
             this._logger.error(errorMessage);
             throw new HubAccountNotFoundError(errorMessage);
         }
 
-        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
         if(!payerPosAccount) {
 			const errorMessage = `Payer position account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerPositionAccountNotFoundError(errorMessage);
         }
 
-        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
         if(!payerLiqAccount) {
 			const errorMessage = `Payer liquidity account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerLiquidityAccountNotFoundError(errorMessage);
         }
 
-        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
         if(!payeePosAccount) {
 			const errorMessage = `Payee position account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);
             throw new PayeePositionAccountNotFoundError(errorMessage);
         }
 
-        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => value.type === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
         if(!payeeLiqAccount) {
 			const errorMessage = `Payee liquidity account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);

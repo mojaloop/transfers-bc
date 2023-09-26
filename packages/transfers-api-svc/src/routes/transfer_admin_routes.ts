@@ -51,6 +51,9 @@ import {
 import {TokenHelper} from "@mojaloop/security-bc-client-lib";
 import { BaseRoutes } from "./base/base_routes";
 
+// TODO: remove esling disable
+/* eslint-disable */
+
 // Extend express request to include our security fields
 declare module "express-serve-static-core" {
     export interface Request {

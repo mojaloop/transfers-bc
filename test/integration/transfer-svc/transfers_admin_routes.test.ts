@@ -32,12 +32,12 @@
 
 "use strict";
 
-import request from "supertest";
 import { mockedTransfer1, mockedTransfer2, mockedTransfer3 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
-import { Service } from "../../../packages/transfers-api-svc/src/service";
 import { MongoClient, Collection } from "mongodb";
 import { MongoTransfersRepo } from "@mojaloop/transfers-bc-implementations-lib";
+import { Service } from "../../../packages/transfers-api-svc/src/service";
+import request from "supertest";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);

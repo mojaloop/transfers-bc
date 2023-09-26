@@ -31,33 +31,34 @@
 
 "use strict";
 
-import {existsSync} from "fs";
-import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
-import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import * as path from "path";
+
 import {
 	AuditClient,
 	KafkaAuditClientDispatcher,
 	LocalAuditClientCryptoProvider,
 } from "@mojaloop/auditing-bc-client-lib";
-import {MongoTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib";
-import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
+import {AuthenticatedHttpRequester, AuthorizationClient, TokenHelper} from "@mojaloop/security-bc-client-lib";
+import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
+import {IAuthorizationClient} from "@mojaloop/security-bc-public-types-lib";
+import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import {MLKafkaJsonConsumer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import express, {Express} from "express";
-import {Server} from "net";
-import process from "process";
-import {AuthenticatedHttpRequester, AuthorizationClient, TokenHelper} from "@mojaloop/security-bc-client-lib";
-import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
-import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
-import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
-import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 
-import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
-import {ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
-import * as path from "path";
-import {IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
-import util from "util";
+import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
+import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
+import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
+import {MongoTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib";
 import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
+import {Server} from "net";
+import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
+import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
+import {existsSync} from "fs";
+import process from "process";
+import util from "util";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");

@@ -87,6 +87,7 @@ export type CommitTransferFulfilCmdPayload = {
             value: string;
         }[]
     } | null;
+	notifyPayee: boolean;
 	prepare: {
 		headers: { [key: string]: string };
 		payload: string;

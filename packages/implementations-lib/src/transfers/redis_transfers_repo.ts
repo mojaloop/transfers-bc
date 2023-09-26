@@ -41,6 +41,9 @@ import {
 } from '../errors';
 import {Redis} from "ioredis";
 
+// TODO: remove esling disable
+/* eslint-disable */
+
 export class RedisTransfersRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
     private _redisClient: Redis;

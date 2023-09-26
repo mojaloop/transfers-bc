@@ -33,7 +33,7 @@
 "use strict";
 
 import { CommandMsg, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { TransferPreparedEvtPayload, TransferCommittedFulfiledEvtPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { TransferPreparedEvtPayload, TransferFulfiledEvtPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { ITransfer } from '../../src/types';
 
 export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): TransferPreparedEvtPayload {
@@ -50,7 +50,7 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
     };
 }
 
-export function createTransferCommittedFulfiledEvtPayload(mockedTransfer: ITransfer): TransferCommittedFulfiledEvtPayload {
+export function createTransferFulfiledEvtPayload(mockedTransfer: ITransfer): TransferFulfiledEvtPayload {
     return {
         transferId: mockedTransfer.transferId,
         transferState: mockedTransfer.transferState,

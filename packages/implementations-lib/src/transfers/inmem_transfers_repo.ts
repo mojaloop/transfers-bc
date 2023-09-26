@@ -34,6 +34,8 @@
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
 
+// TODO: remove esling disable
+/* eslint-disable */
 
 declare type CacheItem = {
     item:ITransfer, timestamp:number

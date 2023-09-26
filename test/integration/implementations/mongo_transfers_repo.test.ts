@@ -35,7 +35,7 @@
 import { ILogger,ConsoleLogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import {  MongoTransfersRepo, NoSuchTransferError, TransferAlreadyExistsError } from "../../../packages/implementations-lib/src";
 import { MongoClient, Collection } from "mongodb";
-import { mockedTransfer1, mockedTransfer2, mockedTransfer3, mockedTransfer4 } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);

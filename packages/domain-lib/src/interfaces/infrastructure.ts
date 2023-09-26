@@ -115,8 +115,8 @@ export interface ISettlementsServiceAdapter {
 }
 
 export interface ISchedulingServiceAdapter {
-    createReminder(id: string, time: string, payload: any): Promise<string | void>;
-    createSingleReminder(id: string, time: string | number, payload: any): Promise<string | void>;
+    createReminder(id: string, time: string, payload: any): Promise<string | void>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    createSingleReminder(id: string, time: string | number, payload: any): Promise<string | void>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	getReminder(reminderId: string): Promise<IReminder | null | void>;
 	deleteReminder(reminderId: string): Promise<void>;
 }
