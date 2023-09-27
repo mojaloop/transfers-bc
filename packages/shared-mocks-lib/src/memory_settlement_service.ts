@@ -21,25 +21,31 @@
 
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
-
+ 
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
 "use strict";
 
-export * from "./memory_message_producer";
-export * from "./memory_message_consumer";
-export * from "./memory_transfers_repo";
-export * from "./memory_participant_service";
-export * from "./memory_accounts_and_balances_service";
-export * from "./memory_audit_service";
-export * from "./memory_auth_requester";
-export * from "./memory_settlement_service";
-export * from "./memory_scheduling_service";
-export * from "./mocked_data";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { ISettlementsServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
 
+export class MemorySettlementsService implements ISettlementsServiceAdapter {
+	private readonly logger: ILogger;
+	
+	constructor(
+		logger: ILogger,
+	) {
+		this.logger = logger;
+	}
 
+	async getSettlementModelId(transferAmount: string, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string> {
+		return Promise.resolve("DEFAULT");
+	}
+
+	
+}

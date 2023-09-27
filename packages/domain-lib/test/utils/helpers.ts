@@ -53,31 +53,32 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
 export function createTransferFulfiledEvtPayload(mockedTransfer: ITransfer): TransferFulfiledEvtPayload {
     return {
         transferId: mockedTransfer.transferId,
-        transferState: mockedTransfer.transferState,
         fulfilment: mockedTransfer.fulfilment,
-        completedTimestamp: mockedTransfer.completedTimestamp,
+        completedTimestamp: mockedTransfer.completedTimestamp as number,
         extensionList: mockedTransfer.extensionList,
         payeeFspId: mockedTransfer.payeeFspId,
         payerFspId: mockedTransfer.payerFspId,
         amount: mockedTransfer.amount,
         currencyCode: mockedTransfer.currencyCode,
         settlementModel: mockedTransfer.settlementModel,
+        notifyPayee: false
     };
 }
 
-export function createCommand(payload: object | null, messageName:string, fspiopOpaqueState:object|null): CommandMsg {
+export function createCommand(payload: object|null, messageName: string|null, fspiopOpaqueState: object|null, msgType: MessageTypes = MessageTypes.COMMAND): CommandMsg {
     return {
         fspiopOpaqueState,
         msgId: "fake msg id",
         msgKey: "fake msg key",
         msgTopic: "fake msg topic",
-        msgName: messageName,
+        msgName: messageName as string,
         msgOffset: 0,
         msgPartition: 0,
         msgTimestamp: 0,
-        msgType: MessageTypes.DOMAIN_EVENT,
+        msgType: msgType,
         payload,
         aggregateId: "1",
-        boundedContextName: "transfers"
+        boundedContextName: "transfers",
+        validatePayload: () => { return; }
     };
 }

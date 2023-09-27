@@ -32,7 +32,6 @@
  --------------
  ******/
 
-"use strict";
 import {createHash, randomUUID} from "crypto";
 import {
     AccountsBalancesHighLevelRequestTypes,
@@ -638,7 +637,7 @@ export class TransfersAggregate {
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
+                    payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
                 });
             } else {
