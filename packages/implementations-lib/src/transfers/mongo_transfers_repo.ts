@@ -173,22 +173,6 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return mappedTransfers;
 	}
 
-	async addTransfers(transfers: ITransfer[]): Promise<void> {
-		const transfersToAdd = transfers.map(transfer => {
-			return {...transfer, transferId: transfer.transferId || randomUUID()};
-		});
-
-		// Check if any of the transfers already exists
-		for await (const transfer of transfersToAdd){
-			await this.checkIfTransferExists(transfer);
-		}
-
-		await this.transfers.insertMany(transfersToAdd).catch((e: unknown) => {
-			this._logger.error(`Unable to insert many transfers: ${(e as Error).message}`);
-			throw new UnableToAddManyTransfersError();
-		});
-	}
-
     async storeTransfers(transfers:ITransfer[]):Promise<void>{
         const operations = transfers.map(value=>{
             return {

@@ -32,13 +32,10 @@
 
 "use strict";
 
-import { Collection, MongoClient } from "mongodb";
-import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
-import { NoSuchTransferError, TransferAlreadyExistsError } from "../../../packages/implementations-lib/src/errors";
-import { mockedTransfer1, mockedTransfer2, mockedTransfer3, mockedTransfer4 } from "@mojaloop/transfers-bc-shared-mocks-lib";
-
-import { MongoTransfersRepo } from "../../../packages/implementations-lib/src/transfers/mongo_transfers_repo";
-import { TransferState } from "@mojaloop/transfers-bc-domain-lib";
+import { ILogger,ConsoleLogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import {  MongoTransfersRepo, NoSuchTransferError, TransferAlreadyExistsError } from "../../../packages/implementations-lib/src";
+import { MongoClient, Collection } from "mongodb";
+import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
@@ -119,44 +116,28 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     });
 
-    test("should insert multiple transfers in the database", async () => {
-        // Arrange
-        const transfers = [mockedTransfer1, mockedTransfer2, mockedTransfer3, mockedTransfer4];
-
-        // Act
-        await mongoTransfersRepo.addTransfers(transfers);
-
-        // Assert
-        const transfer1 = await mongoTransfersRepo.getTransferById(transfers[0].transferId);
-        const transfer2 = await mongoTransfersRepo.getTransferById(transfers[1].transferId);
-        const transfer3 = await mongoTransfersRepo.getTransferById(transfers[2].transferId);
-        const transfer4 = await mongoTransfersRepo.getTransferById(transfers[3].transferId);
-
-        expect(transfer1).toBeDefined();
-        expect(transfer1).toEqual(transfers[0]);
-        expect(transfer2).toBeDefined();
-        expect(transfer2).toEqual(transfers[1]);
-        expect(transfer3).toBeDefined();
-        expect(transfer3).toEqual(transfers[2]);
-        expect(transfer4).toBeDefined();
-        expect(transfer4).toEqual(transfers[3]);
-
-    });
-
-    test("should throw error when trying to insert multiple transfers with an existing id", async () => {
+    test("should remove a transfer in the database", async () => {
         // Arrange
         const transfer1 = mockedTransfer1;
-        const transfer2 = mockedTransfer2;
-        const transfer3 = mockedTransfer3;
-        const transfer4 = mockedTransfer4;
-        transfer4.transferId = transfer1.transferId;
         await mongoTransfersRepo.addTransfer(transfer1);
+        const addedTransfer = await mongoTransfersRepo.getTransferById(transfer1.transferId);
+        const transferId = addedTransfer?.transferId as string;
 
-        // Act && Assert
-        await expect(mongoTransfersRepo.addTransfers([transfer1, transfer2, transfer3, transfer4])).rejects.toThrowError(TransferAlreadyExistsError);
+        // Act
+        await mongoTransfersRepo.removeTransfer(transferId);
 
+        // Assert
+        const result = await mongoTransfersRepo.getTransferById(transferId);
+        expect(result).toBeNull();
     });
 
+    test("should throw error when trying to remove a non-existent transfer in the database", async () => {
+        // Arrange
+        const transferId = "non-existent-id";
+
+        // Act & Assert
+        await expect(mongoTransfersRepo.removeTransfer(transferId)).rejects.toThrowError();
+    });
 
     test("should throw an error when trying to update a transfer that does not exist", async () => {
         // Arrange
@@ -234,23 +215,43 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
          expect(result).toEqual([]);
     });
 
-    // test("should return a list of transfers", async () => {
-    //     // Arrange
-    //     const transfer1 = mockedTransfer1;
-    //     const transfer2 = mockedTransfer2;
-    //     const transfer3 = mockedTransfer3;
-    //     const transfer4 = mockedTransfer4;
-    //     await mongoTransfersRepo.addTransfers([transfer1, transfer2, transfer3, transfer4]);
+    test("should return a list of transfers by filters", async () => {
+        // Arrange
+        const transfer1 = mockedTransfer1;
+        const transferId = await mongoTransfersRepo.addTransfer(transfer1);
 
-    //     // Act
-    //     const result = await mongoTransfersRepo.getTransfers();
+        // Act
+        const result = await mongoTransfersRepo.searchTransfers(
+            transfer1.transferState,
+            transfer1.currencyCode,
+            transfer1.createdAt,
+            transfer1.createdAt,
+            transferId,
+        );
 
-    //     // Assert
-    //     expect(result).toBeDefined();
-    //     expect(result).toHaveLength(4);
-    //     expect(result).toEqual([transfer1, transfer2, transfer3, transfer4]);
-    // });
+        // Assert
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(1);
+        expect(result).toEqual([transfer1]);
+    });
 
+    test("should be able to store and update transfers", async () => {
+        // Arrange
+        const transfer1 = mockedTransfer1;
+        const transfer2 = mockedTransfer2;
+        await mongoTransfersRepo.addTransfer(transfer1);
+        transfer1.payeeFspId = transfer2.payeeFspId;
+
+        // Act
+        await mongoTransfersRepo.storeTransfers([transfer1, transfer2]);
+
+        // Assert
+        const transferResult1 = await mongoTransfersRepo.getTransferById(transfer1.transferId);
+        const transferResult2 = await mongoTransfersRepo.getTransferById(transfer2.transferId);
+        expect(transferResult1).toBeDefined();
+        expect(transferResult2).toBeDefined();
+        expect(transferResult1?.payeeFspId).toEqual(transfer2.payeeFspId);
+    });
 });
 
 
