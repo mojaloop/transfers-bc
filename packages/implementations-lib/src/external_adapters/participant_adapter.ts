@@ -45,7 +45,7 @@ export class ParticipantAdapter implements IParticipantsServiceAdapter {
 	private readonly _externalParticipantClient :ParticipantsHttpClient;
 	private readonly _authRequester :IAuthenticatedHttpRequester;
 	private readonly _timeoutMs :number;
-	private validateStatus = (status: number): boolean => status === 200;
+	// private validateStatus = (status: number): boolean => status === 200;
 
 	constructor(
 		logger: ILogger,

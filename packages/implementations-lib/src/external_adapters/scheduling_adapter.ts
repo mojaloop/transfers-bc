@@ -54,7 +54,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 
 	async createReminder(id: string, time: string, payload: any): Promise<string | void> { // eslint-disable-line @typescript-eslint/no-explicit-any
 		try {
-			const result = await this._externalSchedulingClient.createReminder({ 
+			const result = await this._externalSchedulingClient.createReminder({
 				id: id, 
 				time: time, 
 				payload: payload,
@@ -63,8 +63,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 				eventTaskDetails: {
 					topic: TransfersBCTopics.TimeoutEvents
 				}
-			}
-		);
+			});
 
 			return result;
 		} catch (e: unknown) {
@@ -84,8 +83,7 @@ export class SchedulingAdapter implements ISchedulingServiceAdapter {
 				eventTaskDetails: {
 					topic: TransfersBCTopics.TimeoutEvents
 				}
-			}
-		);
+			});
 
 			return result;
 		} catch (e: unknown) {

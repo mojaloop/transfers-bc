@@ -31,7 +31,7 @@
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { ParticipantAdapter } from "../../src/external_adapters/participant_adapter";
 
-import { IParticipant } from "@mojaloop/participant-bc-public-types-lib";
+import { IParticipant, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";
 import { MemoryAuthenticatedHttpRequesterMock } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
@@ -59,7 +59,7 @@ jest.mock("@mojaloop/participants-bc-client-lib", () => {
 
 let participantAdapter: ParticipantAdapter;
 
-describe("Implementations - IParticipant Adapter Unit Tests", () => {
+describe("Implementations - ParticipantAdapter Unit Tests", () => {
   beforeAll(async () => {
     authenticatedHttpRequesterMock = new MemoryAuthenticatedHttpRequesterMock(logger, AUTH_TOKEN_ENPOINT);
     participantAdapter = new ParticipantAdapter(
@@ -91,92 +91,92 @@ describe("Implementations - IParticipant Adapter Unit Tests", () => {
         expect(participantInfo).toBeNull();
     });
 
-    // test("getParticipantById - should get IParticipant info", async () => {
-    //     // Arrange
-    //     const participantId: string = "existingParticipantId";
-    //     const IParticipant: Partial<IParticipant> = {
-    //     id: participantId,
-    //     name: "existingParticipantName",
-    //     isActive: true,
-    //     createdBy: "existingParticipantCreatedBy",
-    //     type: "DFSP",
-    //     createdDate: 1232131,
-    //     approved: true,
-    //     approvedBy: "existingParticipantApprovedBy",
-    //     approvedDate: 1232131,
-    //     description: "existingParticipantDescription",
-    //     };
-    //     getParticipantByIdSpy.mockResolvedValueOnce(IParticipant);
+    test("getParticipantById - should get IParticipant info", async () => {
+        // Arrange
+        const participantId: string = "existingParticipantId";
+        const IParticipant: Partial<IParticipant> = {
+            id: participantId,
+            name: "existingParticipantName",
+            isActive: true,
+            createdBy: "existingParticipantCreatedBy",
+            type: ParticipantTypes.DFSP,
+            createdDate: 1232131,
+            approved: true,
+            approvedBy: "existingParticipantApprovedBy",
+            approvedDate: 1232131,
+            description: "existingParticipantDescription",
+        };
+        getParticipantByIdSpy.mockResolvedValueOnce(IParticipant);
 
-    //     // Act
-    //     const participantInfo = await participantAdapter.getParticipantInfo(participantId);
+        // Act
+        const participantInfo = await participantAdapter.getParticipantInfo(participantId);
 
-    //     // Assert
-    //     expect(participantInfo).toEqual(IParticipant);
-    // });
+        // Assert
+        expect(participantInfo).toEqual(IParticipant);
+    });
 
-    // test("getParticipantById - should return null if getting an error while getting IParticipant info", async () => {
-    //     // Arrange
-    //     const participantId: string = "nonExistingParticipantId";
-    //     getParticipantByIdSpy.mockRejectedValueOnce(null);
+    test("getParticipantById - should return null if getting an error while getting IParticipant info", async () => {
+        // Arrange
+        const participantId: string = "nonExistingParticipantId";
+        getParticipantByIdSpy.mockRejectedValueOnce(null);
 
-    //     // Act
-    //     const participantInfo = await participantAdapter.getParticipantInfo(participantId);
+        // Act
+        const participantInfo = await participantAdapter.getParticipantInfo(participantId);
 
-    //     // Assert
-    //     expect(participantInfo).toBeNull();
-    // });
+        // Assert
+        expect(participantInfo).toBeNull();
+    });
 
-    // test("getParticipantsByIdSpy - should get participants info", async () => {
-    //     // Arrange
-    //     const participantId1: string = "existingParticipantId1";
-    //     const participantId2: string = "existingParticipantId2";
-    //     const participant1: Partial<IParticipant> = {
-    //     id: participantId1,
-    //     name: "existingParticipantName1",
-    //     isActive: true,
-    //     createdBy: "existingParticipantCreatedBy1",
-    //     type: "DFSP",
-    //     createdDate: 1232131,
-    //     approved: true,
-    //     approvedBy: "existingParticipantApprovedBy1",
-    //     approvedDate: 1232131,
-    //     description: "existingParticipantDescription1",
-    //     };
-    //     const participant2: Partial<IParticipant> = {
-    //     id: participantId2,
-    //     name: "existingParticipantName2",
-    //     isActive: true,
-    //     createdBy: "existingParticipantCreatedBy2",
-    //     type: "DFSP",
-    //     createdDate: 1232131,
-    //     approved: true,
-    //     approvedBy: "existingParticipantApprovedBy2",
-    //     approvedDate: 1232131,
-    //     description: "existingParticipantDescription2",
-    //     };
+    test("getParticipantsByIdSpy - should get participants info", async () => {
+        // Arrange
+        const participantId1: string = "existingParticipantId1";
+        const participantId2: string = "existingParticipantId2";
+        const participant1: Partial<IParticipant> = {
+            id: participantId1,
+            name: "existingParticipantName1",
+            isActive: true,
+            createdBy: "existingParticipantCreatedBy1",
+            type: ParticipantTypes.DFSP,
+            createdDate: 1232131,
+            approved: true,
+            approvedBy: "existingParticipantApprovedBy1",
+            approvedDate: 1232131,
+            description: "existingParticipantDescription1",
+        };
+        const participant2: Partial<IParticipant> = {
+            id: participantId2,
+            name: "existingParticipantName2",
+            isActive: true,
+            createdBy: "existingParticipantCreatedBy2",
+            type: ParticipantTypes.DFSP,
+            createdDate: 1232131,
+            approved: true,
+            approvedBy: "existingParticipantApprovedBy2",
+            approvedDate: 1232131,
+            description: "existingParticipantDescription2",
+        };
 
-    //     getParticipantsByIdsSpy.mockResolvedValueOnce([participant1, participant2]);
+        getParticipantsByIdsSpy.mockResolvedValueOnce([participant1, participant2]);
 
-    //     // Act
-    //     const participantsInfo = await participantAdapter.getParticipantsInfo([participantId1, participantId2]);
+        // Act
+        const participantsInfo = await participantAdapter.getParticipantsInfo([participantId1, participantId2]);
 
-    //     // Assert
-    //     expect(participantsInfo).toEqual([participant1, participant2]);
-    // });
+        // Assert
+        expect(participantsInfo).toEqual([participant1, participant2]);
+    });
 
-    // test("getParticipantsById - should return null if getting an error while getting IParticipant info", async () => {
-    //     // Arrange
+    test("getParticipantsById - should return null if getting an error while getting IParticipant info", async () => {
+        // Arrange
 
-    //     getParticipantsByIdsSpy.mockRejectedValueOnce(new Error("Error"));
+        getParticipantsByIdsSpy.mockRejectedValueOnce(new Error("Error"));
 
-    //     // Act
-    //     const participantInfo = await participantAdapter.getParticipantsInfo([
-    //     "nonExistingParticipantId",
-    //     "nonExistingParticipantId2",
-    //     ]);
+        // Act
+        const participantInfo = await participantAdapter.getParticipantsInfo([
+            "nonExistingParticipantId",
+            "nonExistingParticipantId2",
+        ]);
 
-    //     // Assert
-    //     expect(participantInfo).toBeNull();
-    // });
+        // Assert
+        expect(participantInfo).toBeNull();
+    });
 });

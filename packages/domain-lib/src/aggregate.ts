@@ -100,7 +100,8 @@ import {
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
     TransferFulfilCommittedRequestedTimedoutEvt,
-    TransferFulfilCommittedRequestedTimedoutEvtPayload
+    TransferFulfilCommittedRequestedTimedoutEvtPayload,
+    TransferUnableCreateReminderEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 const HUB_ID = "hub"; // move to shared lib
@@ -720,14 +721,10 @@ export class TransfersAggregate {
             )
         } catch (err: unknown) {
 			const error = (err as Error).message;
-			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+			const errorMessage = `Unable to create reminder for transferId: ${message.payload.transferId}`;
 			this._logger.error(err, `${errorMessage}: ${error}`);
-			const errorEvent = new TransferUnableToGetSettlementModelEvt({
+			const errorEvent = new TransferUnableCreateReminderEvt({
 				transferId: message.payload.transferId,
-				amount: message.payload.amount,
-				payerCurrency: message.payload.currencyCode,
-				payeeCurrency: message.payload.currencyCode,
-				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
 				errorDescription: errorMessage
 			});
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;

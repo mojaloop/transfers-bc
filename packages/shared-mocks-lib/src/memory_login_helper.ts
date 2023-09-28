@@ -27,18 +27,44 @@
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
 "use strict";
 
-export * from "./memory_message_producer";
-export * from "./memory_message_consumer";
-export * from "./memory_transfers_repo";
-export * from "./memory_participant_service";
-export * from "./memory_accounts_and_balances_service";
-export * from "./memory_audit_service";
-export * from "./memory_auth_requester";
-export * from "./memory_settlement_service";
-export * from "./memory_scheduling_service";
-export * from "./memory_login_helper";
-export * from "./mocked_data";
+import { AuthToken, ILoginHelper } from "@mojaloop/security-bc-public-types-lib";
+
+export class MemoryLoginHelper implements ILoginHelper {
+
+    init(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    destroy(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    setToken(accessToken: string): void {
+        return;
+    }
+
+    setUserCredentials(client_id: string, username: string, password: string): void {
+        return;
+    }
+
+    setAppCredentials(client_id: string, client_secret: string): void {
+        return;
+    }
+
+    async getToken(): Promise<AuthToken> {
+        const mockedAuthToken:AuthToken = {
+            payload: undefined,
+            accessToken: "",
+            accessTokenExpiresIn: 0,
+            refreshToken: undefined,
+            refreshTokenExpiresIn: undefined,
+            scope: undefined
+        }
+
+        return mockedAuthToken;
+    }
+}

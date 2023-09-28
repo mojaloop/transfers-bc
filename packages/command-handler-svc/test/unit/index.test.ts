@@ -40,20 +40,14 @@
 
 // TODO: fix cmd handler tests
 
-describe("Empty - RE-ENABLE", () => {
-    test("Empty - RE-ENABLE", async () => {
-        expect(true).toBeTruthy();
-    });
-});
 
-/*
-
-import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter} from "@mojaloop/transfers-bc-domain-lib";
-import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter} from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService, MemorySettlementsService, MemorySchedulingService } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";
 import { Service } from "../../src/service";
+import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
 const express = require("express");
 
 
@@ -70,16 +64,25 @@ const mockedAuditService = new MemoryAuditService(logger);
 
 const mockedAccountsAndBalancesService: IAccountsBalancesAdapter = new MemoryAccountsAndBalancesService(logger);
 
+const mockedSettlementsService: ISettlementsServiceAdapter = new MemorySettlementsService(logger);
+
+const mockedSchedulingService: ISchedulingServiceAdapter = new MemorySchedulingService(logger);
+
 const mockedTransferRepository: ITransfersRepository = new MemoryTransferRepo(logger);
 
 const mockedAuthRequester: IAuthenticatedHttpRequester = new MemoryAuthenticatedHttpRequesterMock(logger,"fake token");
+
+const metricsMock: IMetrics = new MetricsMock();
 
 const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     logger,
     mockedTransferRepository,
     mockedParticipantService,
     mockedProducer,
-    mockedAccountsAndBalancesService
+    mockedAccountsAndBalancesService,
+    metricsMock,
+    mockedSettlementsService,
+    mockedSchedulingService
 );
 
 // Express mock
@@ -95,10 +98,10 @@ const routerSpy = {
 
 
 jest.mock('express', () => {
-  return () => ({
-    listen: listenSpy,
-    close: jest.fn(),
-    use: useSpy
+    return () => ({
+        listen: listenSpy,
+        close: jest.fn(),
+        use: useSpy
     });
 });
 
@@ -128,7 +131,7 @@ describe("Transfers Command Handler Service", () => {
 
         // Act
         await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository,
-            mockedAccountsAndBalancesService, mockedAggregate);
+            mockedAccountsAndBalancesService, metricsMock, mockedSettlementsService, mockedSchedulingService,, mockedAggregate);
 
         // Assert
         expect(spyConsumerSetTopics).toBeCalledTimes(1);
@@ -162,4 +165,4 @@ describe("Transfers Command Handler Service", () => {
 
 
 });
-*/
+
