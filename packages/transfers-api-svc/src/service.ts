@@ -275,8 +275,12 @@ export class Service {
 
 	static async stop() {
         if (this.expressServer){
-            const closeExpress = util.promisify(this.expressServer.close);
-            await closeExpress();
+            await new Promise((resolve, reject) => {
+                this.expressServer.close(() => {
+                    resolve(true)
+                });
+          })
+            
         }
 
         await this.configClient.destroy();
@@ -286,7 +290,6 @@ export class Service {
 		}
         if (this.logger && this.logger instanceof KafkaLogger) {
             await this.logger.destroy();
-
 		}
 	}
 }

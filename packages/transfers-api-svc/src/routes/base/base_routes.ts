@@ -133,7 +133,7 @@ export abstract class BaseRoutes {
         return next();
     }
 
-    protected handleUnauthorizedError(err: Error, res: express.Response): boolean {
+    protected _handleUnauthorizedError(err: Error, res: express.Response): boolean {
         if (err instanceof UnauthorizedError) {
             this._logger.warn(err.message);
             res.status(401).json({
@@ -153,7 +153,7 @@ export abstract class BaseRoutes {
         return false;
     }
 
-    protected _enforcePrivilege(secCtx: CallSecurityContext, privilegeId: string): void {
+    public _enforcePrivilege(secCtx: CallSecurityContext, privilegeId: string): void {
         for (const roleId of secCtx.rolesIds) {
             if (this._authorizationClient.roleHasPrivilege(roleId, privilegeId)) {
                 return;

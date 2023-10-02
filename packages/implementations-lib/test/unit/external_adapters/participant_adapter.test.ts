@@ -29,7 +29,7 @@
 "use strict";
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
-import { ParticipantAdapter } from "../../src/external_adapters/participant_adapter";
+import { ParticipantAdapter } from "../../../src/external_adapters/participant_adapter";
 
 import { IParticipant, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";

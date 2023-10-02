@@ -29,7 +29,7 @@
 "use strict";
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
-import { SchedulingAdapter } from "../../src/external_adapters/scheduling_adapter";
+import { SchedulingAdapter } from "../../../src/external_adapters/scheduling_adapter";
 
 import { IAuthenticatedHttpRequester, ILoginHelper } from "@mojaloop/security-bc-public-types-lib";
 import { MemoryAuthenticatedHttpRequesterMock, MemoryLoginHelper } from "@mojaloop/transfers-bc-shared-mocks-lib";

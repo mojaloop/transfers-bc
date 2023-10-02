@@ -73,27 +73,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
     }
 
-
-    private _handleUnauthorizedError(err: Error, res: express.Response): boolean {
-        if (err instanceof UnauthorizedError) {
-            this.logger.warn(err.message);
-            res.status(401).json({
-                status: "error",
-                msg: err.message,
-            });
-            return true;
-        } else if (err instanceof ForbiddenError) {
-            this.logger.warn(err.message);
-            res.status(403).json({
-                status: "error",
-                msg: err.message,
-            });
-            return true;
-        }
-
-        return false;
-    }
-
     private async getAllTransfers(req: express.Request, res: express.Response) {
         try {
             this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);

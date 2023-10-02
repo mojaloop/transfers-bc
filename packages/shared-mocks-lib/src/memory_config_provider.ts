@@ -21,25 +21,57 @@
 
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
-
+ 
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
 "use strict";
 
-export * from "./memory_message_producer";
-export * from "./memory_message_consumer";
-export * from "./memory_transfers_repo";
-export * from "./memory_participant_service";
-export * from "./memory_accounts_and_balances_service";
-export * from "./memory_audit_service";
-export * from "./memory_auth_requester";
-export * from "./memory_settlement_service";
-export * from "./memory_scheduling_service";
-export * from "./memory_login_helper";
-export * from "./memory_config_provider";
-export * from "./mocked_data";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { IConfigProvider } from "@mojaloop/platform-configuration-bc-client-lib";
+import { BoundedContextConfigurationSet, GlobalConfigurationSet } from "@mojaloop/platform-configuration-bc-public-types-lib";
+import { DomainEventMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
+
+export class MemoryConfigProvider implements IConfigProvider {
+	private readonly logger: ILogger;
+	
+	constructor(
+		logger: ILogger,
+	) {
+		this.logger = logger;
+	}
+
+	init(): Promise<boolean> {
+        return Promise.resolve(true);
+    }
+
+	destroy(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    boostrapBoundedContextConfigs(configSetDto: BoundedContextConfigurationSet, ignoreDuplicateError?: boolean): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+
+    fetchBoundedContextConfigs(bcName: string, appVersion: string): Promise<BoundedContextConfigurationSet | null> {
+		return Promise.resolve(null);
+	}
+
+    fetchGlobalConfigs(): Promise<GlobalConfigurationSet | null> {
+		return Promise.resolve(null);
+	}
+
+    setConfigChangeHandler(fn: (eventMsg: DomainEventMsg) => Promise<void>): void {
+		return;
+	}
+
+	fetch(): Promise<boolean> {
+		return Promise.resolve(true);
+	}
+
+	
+}
