@@ -119,9 +119,9 @@ export class TransfersEventHandler{
                     // metrics
                     if(!message.fspiopOpaqueState) continue;
                     const now = Date.now();
-                    if(message.msgName === "TransferPreparedEvt" && message.fspiopOpaqueState.prepareSendTimestamp){
+                    if(message.msgName === TransferPrepareRequestedEvt.name && message.fspiopOpaqueState.prepareSendTimestamp){
                         this._transferDurationHisto.observe({"leg": "prepare"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
-                    }else if(message.msgName === "TransferFulfiledEvt" && message.fspiopOpaqueState.committedSendTimestamp ){
+                    }else if(message.msgName === TransferFulfilRequestedEvt.name && message.fspiopOpaqueState.committedSendTimestamp ){
                         this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.fspiopOpaqueState.committedSendTimestamp);
                         if(message.fspiopOpaqueState.prepareSendTimestamp){
                             this._transferDurationHisto.observe({"leg": "total"}, now - message.fspiopOpaqueState.prepareSendTimestamp);

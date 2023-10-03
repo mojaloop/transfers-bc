@@ -64,7 +64,7 @@ jest.mock("@mojaloop/accounts-and-balances-bc-grpc-client-lib", () => {
                 processHighLevelBatch: processHighLevelBatchSpy
 
             };
-        }),
+        })
     };
 });
 

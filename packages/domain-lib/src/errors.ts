@@ -38,11 +38,7 @@ export class TransferNotFoundError extends Error {
         super(message || "Transfer not found");
     }
 }
-export class InvalidIdError extends Error {
-    constructor(message?: string) {
-        super(message || "Invalid id");
-    }
-}
+
 export class NoSuchTransferError extends Error {
     constructor(message?: string) {
         super(message||"No such transfer");
@@ -61,32 +57,7 @@ export class UnableToCancelTransferError extends Error {
     }
 }
 
-export class UnableToCancelTransferNotAvailableError extends Error {
-    constructor(message?: string) {
-        super(message || "Unable to cancel transfer, not found");
-    }
-}
-
-export class UnableToCommitTransferError extends Error {
-    constructor(message?: string) {
-        super(message || "Unable to commit transfer");
-    }
-}
-
 // Account
-
-export class UnableToGetParticipantAccountsError extends Error {
-    constructor(message?: string) {
-        super(message || "No such account");
-    }
-}
-
-export class NoSuchAccountError extends Error {
-    constructor(message?: string) {
-        super(message || "No such account");
-    }
-}
-
 export class HubAccountNotFoundError extends Error {
     constructor(message?: string) {
         super(message || "Hub account not found");
@@ -151,12 +122,6 @@ export class PayeeParticipantNotFoundError extends Error {
     }
 }
 
-
-export class InvalidParticipantIdError extends Error {
-    constructor(message?: string) {
-        super(message || "Participant id mismatch");
-    }
-}
 
 export class RequiredParticipantIsNotActive extends Error {
     constructor(message?: string) {

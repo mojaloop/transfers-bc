@@ -79,7 +79,7 @@ describe("Transfers Event Handler", () => {
 
 
         // Act
-        mockedEventHandler.start();
+        await mockedEventHandler.start();
         
         // Assert
         expect(spyConsumerSetTopics).toBeCalledTimes(1);
