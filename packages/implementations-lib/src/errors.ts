@@ -95,3 +95,41 @@ export class UnableToInitTransferRegistryError extends Error {
     }
 }
 
+export class UnableToInitBulkTransferRegistryError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+}
+
+// Bulk Transfers
+export class BulkTransferTypeNotSupportedError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+    }
+export class UnableToAddBulkTransferError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+}
+
+export class UnableToUpdateBulkTransferError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+}
+export class BulkTransferNotFoundError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+}
+export class UnableToGetBulkTransferError extends Error {
+    constructor(message: string) {
+        super(message);
+    }
+}
+export class BulkTransferAlreadyExistsError extends Error {
+    constructor(message:string) {
+        super(message);
+    }
+}

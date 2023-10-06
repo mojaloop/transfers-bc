@@ -32,7 +32,7 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 
 export class MemoryTransferRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
@@ -93,4 +93,5 @@ export class MemoryTransferRepo implements ITransfersRepository {
     storeTransfers(_transfers:ITransfer[]):Promise<void> {
         return Promise.resolve();
     }
+
 }

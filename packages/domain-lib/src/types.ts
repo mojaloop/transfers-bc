@@ -97,3 +97,33 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
+export interface IBulkTransfer {
+    bulkTransferId: string;
+    bulkQuoteId: string;
+    payeeFsp: string;
+    payerFsp: string;
+    individualTransfers: {
+        transferId: string;
+        transferAmount: {
+            currency: string;
+            amount: string;
+        };
+        ilpPacket: string;
+        condition: string;
+        extensionList: {
+            extension: {
+                key: string;
+                value: string;
+            }[]
+        } | null;
+    }[];
+    expiration: number;
+    extensionList: {
+        extension: {
+            key: string;
+            value: string;
+        }[]
+    } | null;
+    transfersNotProcessedIds: string[];
+    status: TransferState | null;
+}

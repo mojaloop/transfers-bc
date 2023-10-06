@@ -32,7 +32,7 @@
 "use strict";
 
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 import {
     UnableToCloseDatabaseConnectionError,
     UnableToGetTransferError,
@@ -165,4 +165,10 @@ export class RedisTransfersRepo implements ITransfersRepository {
         }
     }
 
+    async addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string> {
+        const key: string = this._getKeyWithPrefix(bulkTransfer.bulkTransferId);
+
+        await this._redisClient.set(key, JSON.stringify(bulkTransfer));
+        return bulkTransfer.bulkTransferId;
+	}
 }

@@ -32,7 +32,7 @@
 "use strict";
 
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 
 // TODO: remove esling disable
 /* eslint-disable */
@@ -100,4 +100,9 @@ export class InMemoryTransfersRepo implements ITransfersRepository {
             await this.updateTransfer(transf);
         }
     }
+
+	async addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string> {
+        // this._cache.set(bulkTransfer.bulkTransferId, {item: bulkTransfer, timestamp: Date.now()});
+        return bulkTransfer.bulkTransferId;
+	}
 }
