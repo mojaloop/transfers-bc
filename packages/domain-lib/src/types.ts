@@ -45,6 +45,15 @@ export declare const enum TransferState {
     EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
+export declare const enum BulkTransferState {
+    RECEIVED = "RECEIVED", 		// initial state
+	PENDING = "PENDING", 		// after prepare
+	ACCEPTED = "ACCEPTED", 		// could not prepare (ex: no liquidity)
+    PROCESSING = "PROCESSING", 	// after fulfil (final state of successful transfer)
+    COMPLETED = "COMPLETED", 		// this should not be called like this
+    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
+}
+
 export declare const enum AccountType {
 	HUB = "HUB_RECONCILIATION",
 	POSITION = "POSITION",
@@ -81,6 +90,7 @@ export interface ITransfer {
 	// populated from the settlements lib during prepare
 	settlementModel: string;
 	hash: string;
+    bulkTransferId: string | null;
 }
 
 export interface ITransferParticipants {
@@ -124,6 +134,8 @@ export interface IBulkTransfer {
             value: string;
         }[]
     } | null;
+    transfersPreparedProcessedIds: string[]
     transfersNotProcessedIds: string[];
+    transfersFulfiledProcessedIds: string[];
     status: TransferState | null;
 }

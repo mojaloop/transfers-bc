@@ -194,7 +194,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
     }
 
     private mapToBulkTransfer(bulkTransfer: WithId<Document>): IBulkTransfer {
-        const transferMapped: IBulkTransfer = {
+        const bulkTransferMapped: IBulkTransfer = {
             bulkTransferId: bulkTransfer.bulkTransferId ?? null,
             bulkQuoteId: bulkTransfer.bulkQuoteId ?? null,
             payerFsp: bulkTransfer.payerFsp ?? null,
@@ -202,9 +202,11 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
             expiration: bulkTransfer.expiration ?? null,
             extensionList: bulkTransfer.extensionList ?? null,
             individualTransfers: bulkTransfer.individualTransfers ?? [],
+            transfersPreparedProcessedIds: bulkTransfer.transfersPreparedProcessedIds ?? [],
             transfersNotProcessedIds: bulkTransfer.transfersNotProcessedIds ?? [],
+            transfersFulfiledProcessedIds: bulkTransfer.transfersFulfiledProcessedIds ?? [],
             status: bulkTransfer.status ?? null,
         };
-        return transferMapped;
+        return bulkTransferMapped;
     }
 }

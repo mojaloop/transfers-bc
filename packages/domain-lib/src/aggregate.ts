@@ -132,6 +132,7 @@ export class TransfersAggregate {
     private _schedulingAdapter: ISchedulingServiceAdapter;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
+    private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
     private _abBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
@@ -186,7 +187,18 @@ export class TransfersAggregate {
                 for (const cmd of cmdMessages) {
                     if(cmd.msgType !== MessageTypes.COMMAND) continue;
                     await this._processCommand(cmd);
-                    this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+                    if(cmd.payload.bulkTransferId) {
+                        if(cmd.msgName === PrepareBulkTransferCmd.name) {
+                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransfers.length);
+                        } else if(cmd.msgName === CommitBulkTransferFulfilCmd.name) {
+                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransferResults.length);
+                        }
+                    } else {
+                        this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+                    }
+        
+
+
                 }
                 execStarts_timerEndFn({success:"true"});
 
@@ -246,7 +258,21 @@ export class TransfersAggregate {
 
     private async _processCommand(cmd: CommandMsg): Promise<void> {
         // cache command for later retrieval in continue methods - do this first!
-        this._batchCommands.set(cmd.payload.bulkTransferId ? cmd.payload.bulkTransferId : cmd.payload.transferId, cmd);
+        if(cmd.payload.bulkTransferId) {
+            let transfers = [];
+
+            if(cmd.msgName === PrepareBulkTransferCmd.name) {
+                transfers = cmd.payload.individualTransfers;
+            } else if(cmd.msgName === CommitBulkTransferFulfilCmd.name) {
+                transfers = cmd.payload.individualTransferResults;
+            }
+            for(let i=0 ; i<transfers.length ; i+=1) {
+                const individualTransfer = transfers[i];
+                this._batchCommands.set(transfers[i].transferId, { ...cmd, ...individualTransfer });
+            }
+        } else {
+            this._batchCommands.set(cmd.payload.transferId, cmd);
+        }
 
         // validate message
         this._ensureValidMessage(cmd);
@@ -358,6 +384,21 @@ export class TransfersAggregate {
         if(transfer){
             this._transfersCache.set(id, transfer);
             return transfer;
+        }
+
+        return null;
+    }
+
+    private async  _getBulkTransfer(id:string):Promise<IBulkTransfer | null>{
+        let bulkTransfer: IBulkTransfer | null = this._bulkTransfersCache.get(id) || null;
+        if(bulkTransfer){
+            return bulkTransfer;
+        }
+
+        bulkTransfer = await this._bulkTransfersRepo.getBulkTransferById(id);
+        if(bulkTransfer){
+            this._bulkTransfersCache.set(id, bulkTransfer);
+            return bulkTransfer;
         }
 
         return null;
@@ -634,6 +675,7 @@ export class TransfersAggregate {
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
             errorInformation: null,
+            bulkTransferId: null
         };
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
@@ -1479,7 +1521,7 @@ export class TransfersAggregate {
     private async _prepareBulkTransferStart(message: PrepareBulkTransferCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`_prepareBulkTransferStart() - Got BulkTransferPrepareRequestedEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
 
-        const bulkTransferId = message.payload.bulkQuoteId;
+        const bulkTransferId = message.payload.bulkTransferId;
         const bulkTransfer: IBulkTransfer = {
             bulkTransferId: message.payload.bulkTransferId,
 			bulkQuoteId: message.payload.bulkQuoteId,
@@ -1488,7 +1530,9 @@ export class TransfersAggregate {
             individualTransfers: message.payload.individualTransfers,
             expiration: message.payload.expiration,
             extensionList: message.payload.extensionList,
+            transfersPreparedProcessedIds: [],
 			transfersNotProcessedIds: [],
+			transfersFulfiledProcessedIds: [],
 			status: TransferState.RECEIVED
 		};
 
@@ -1496,7 +1540,6 @@ export class TransfersAggregate {
             this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
         }
         catch(err:any){
-
             const error = (err as Error).message;
             const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${err.message}`;
             this._logger.error(err, `${errorMessage}: ${error}`);
@@ -1511,8 +1554,6 @@ export class TransfersAggregate {
 
         for(let i=0 ; i<message.payload.individualTransfers.length ; i+=1) {
             const individualTransfer = message.payload.individualTransfers[i];
-            this._batchCommands.set(message.payload.individualTransfers[i].transferId, { ...message, ...individualTransfer });
-            this._commandsCounter.inc({commandName: message.msgName}, 1);
 
             const hash = this._generateSha256({
                 transferId: individualTransfer.transferId,
@@ -1629,6 +1670,7 @@ export class TransfersAggregate {
                 extensionList: message.payload.extensionList,
                 settlementModel: settlementModel,
                 errorInformation: null,
+                bulkTransferId: bulkTransferId
             };
 
             if(this._logger.isDebugEnabled()) this._logger.debug("_prepareBulkTransferStart() - before getParticipants...");
@@ -1833,24 +1875,38 @@ export class TransfersAggregate {
         // update transfer and cache it
         transfer.transferState = TransferState.RESERVED;
         this._transfersCache.set(transfer.transferId, transfer);
+        
+        const bulkTransfer = await this._getBulkTransfer(transfer.bulkTransferId as string);
 
-        const payload: BulkTransferPreparedEvtPayload = {
-            bulkTransferId: message.payload.bulkTransferId,
-            bulkQuoteId: message.payload.bulkQuoteId,
-            payeeFsp: "greenbank",
-            payerFsp: message.payload.payerFsp,
-            expiration: message.payload.expiration,
-            extensionList: message.payload.extensionList,
-            individualTransfers: [transfer]
-        };
+        if(!bulkTransfer) {
+            throw Error();
+        }
 
-        const event = new BulkTransferPreparedEvt(payload);
+        bulkTransfer?.transfersPreparedProcessedIds.push(transfer.transferId as string)
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
-        event.fspiopOpaqueState = message.fspiopOpaqueState;
+        if(bulkTransfer?.transfersPreparedProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer?.individualTransfers.length) {
+            bulkTransfer.status = TransferState.RESERVED;
+            this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+            
+            const payload: BulkTransferPreparedEvtPayload = {
+                bulkTransferId: message.payload.bulkTransferId,
+                bulkQuoteId: message.payload.bulkQuoteId,
+                payeeFsp: message.payload.payeeFsp,
+                payerFsp: message.payload.payerFsp,
+                expiration: message.payload.expiration,
+                extensionList: message.payload.extensionList,
+                individualTransfers: [transfer]
+            };
 
-        if(this._logger.isDebugEnabled()) this._logger.debug(`prepareBulkTransferContinue() - completed for transferId: ${transfer.transferId}`);
+            const event = new BulkTransferPreparedEvt(payload);
 
-        this._outputEvents.push(event);
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+            if(this._logger.isDebugEnabled()) this._logger.debug(`prepareBulkTransferContinue() - completed for transferId: ${transfer.transferId}`);
+
+            this._outputEvents.push(event);
+        }
     }
 
     private async _fulfilBulkTransferStart(message: CommitBulkTransferFulfilCmd): Promise<void> {
@@ -1859,8 +1915,7 @@ export class TransfersAggregate {
         let participantTransferAccounts: ITransferAccounts | null = null;
         for(let i=0 ; i<message.payload.individualTransferResults.length ; i+=1) {
             const individualTransferResult = message.payload.individualTransferResults[i];
-            this._batchCommands.set(message.payload.individualTransferResults[i].transferId, { ...message, ...individualTransferResult });
-            this._commandsCounter.inc({commandName: message.msgName}, 1);
+
             let transfer: ITransfer | null = null;
             try {
                 transfer = await this._getTransfer(individualTransferResult.transferId);
@@ -2103,27 +2158,41 @@ export class TransfersAggregate {
 
         this._transfersCache.set(transfer.transferId, transfer);
 
-        const event = new BulkTransferFulfiledEvt({
-            bulkTransferId: message.payload.bulkTransferId,
-            bulkTransferState: message.payload.bulkTransferState,
-            completedTimestamp: message.payload.completedTimestamp,
-            individualTransferResults: [{
-                transferId: transfer.transferId,
-                fulfilment: transfer.fulfilment,
-                errorInformation: transfer.errorInformation as any,
-                extensionList: transfer.extensionList
-            }],
-            extensionList: message.payload.extensionList
-        });
+        const bulkTransfer = await this._getBulkTransfer(transfer.bulkTransferId as string);
+
+        if(!bulkTransfer) {
+            throw Error();
+        }
+
+        bulkTransfer?.transfersFulfiledProcessedIds.push(transfer.transferId as string)
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+        if(bulkTransfer?.transfersFulfiledProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer?.individualTransfers.length) {
+            bulkTransfer.status = TransferState.COMMITTED;
+            this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+            const event = new BulkTransferFulfiledEvt({
+                bulkTransferId: message.payload.bulkTransferId,
+                bulkTransferState: message.payload.bulkTransferState,
+                completedTimestamp: message.payload.completedTimestamp,
+                individualTransferResults: [{
+                    transferId: transfer.transferId,
+                    fulfilment: transfer.fulfilment,
+                    errorInformation: transfer.errorInformation as any,
+                    extensionList: transfer.extensionList
+                }],
+                extensionList: message.payload.extensionList
+            });
 
 
-        // carry over opaque state fields
-        event.fspiopOpaqueState = message.fspiopOpaqueState;
+            // carry over opaque state fields
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-        this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
+            this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
 
-        this._outputEvents.push(event);
-        if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
+            this._outputEvents.push(event);
+            if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
+        }
     }
     
     private _generateSha256(object:{[key: string]: string | number}):string {
