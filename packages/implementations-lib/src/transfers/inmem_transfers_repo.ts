@@ -76,6 +76,10 @@ export class InMemoryTransfersRepo implements ITransfersRepository {
         return Array.from(this._cache.values()).map(value=>value.item);
 	}
 
+	async getTransfersByBulkId(_id:string):Promise<ITransfer[]>{
+        return Array.from(this._cache.values()).map(value=>value.item).filter((transfer) => transfer.bulkTransferId === _id);
+	}
+
 	async searchTransfers(
 		_state?:string,
 		_currencyCode?:string,

@@ -46,6 +46,7 @@ export interface ITransfersRepository {
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
     getTransfers():Promise<ITransfer[]>;
+	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 	searchTransfers(
 		state?:string,
 		currencyCode?:string,

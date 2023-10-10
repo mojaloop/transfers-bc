@@ -112,6 +112,7 @@ export interface IBulkTransfer {
     bulkQuoteId: string;
     payeeFsp: string;
     payerFsp: string;
+	completedTimestamp: number | null;
     individualTransfers: {
         transferId: string;
         transferAmount: {

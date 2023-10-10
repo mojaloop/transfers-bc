@@ -216,6 +216,20 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		});
 	}
 
+	async getTransfersByBulkId(bulkTransferId:string):Promise<ITransfer[]>{
+		const transfers = await this.transfers.find(
+			{ bulkTransferId: bulkTransferId },
+			{sort:["updatedAt", "desc"], projection: {_id: 0}}
+		).toArray().catch((e: unknown) => {
+			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+			throw new UnableToGetTransferError();
+		});
+
+		const mappedTransfers = transfers.map(this.mapToTransfer);
+
+		return mappedTransfers;	
+	}
+
 	private async checkIfTransferExists(transfer: ITransfer) {
 		const transferAlreadyPresent: WithId<Document> | null = await this.transfers.findOne(
 			{

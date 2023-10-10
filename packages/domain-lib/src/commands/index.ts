@@ -36,6 +36,7 @@ import {TRANSFERS_BOUNDED_CONTEXT_NAME, TRANSFERS_AGGREGATE_NAME, TransfersBCTop
 
 
 export type PrepareTransferCmdPayload = {
+	bulkTransferId: string | null;
 	transferId: string;
 	amount: string;
 	currencyCode: string;
@@ -300,6 +301,72 @@ export class CommitBulkTransferFulfilCmd extends CommandMsg {
 	payload: CommitBulkTransferFulfilCmdPayload;
 
 	constructor(payload: CommitBulkTransferFulfilCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type RejectBulkTransferCmdPayload = {
+	bulkTransferId: string;
+	errorInformation: {
+		errorCode: string;
+		errorDescription: string;
+		extensionList: {
+			extension: {
+				key: string;
+				value: string;
+			}[]
+		} | null;
+	};
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class RejectBulkTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: RejectBulkTransferCmdPayload;
+
+	constructor(payload: RejectBulkTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type QueryBulkTransferCmdPayload = {
+	bulkTransferId: string;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class QueryBulkTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: QueryBulkTransferCmdPayload;
+
+	constructor(payload: QueryBulkTransferCmdPayload) {
 		super();
 
 		this.aggregateId = this.msgKey = payload.bulkTransferId;
