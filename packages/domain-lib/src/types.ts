@@ -48,10 +48,11 @@ export declare const enum TransferState {
 export declare const enum BulkTransferState {
     RECEIVED = "RECEIVED", 		// initial state
 	PENDING = "PENDING", 		// after prepare
-	ACCEPTED = "ACCEPTED", 		// could not prepare (ex: no liquidity)
-    PROCESSING = "PROCESSING", 	// after fulfil (final state of successful transfer)
-    COMPLETED = "COMPLETED", 		// this should not be called like this
-    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
+	ACCEPTED = "ACCEPTED", 		// when fulfil starts
+    PROCESSING = "PROCESSING", 	// while fulfiling each individual transfer
+    COMPLETED = "COMPLETED", 	// after fulfil (final state of processing all individual transfers)
+    EXPIRED = "EXPIRED",		// system changed it expired (need the timeout mechanism)
+    REJECTED = "REJECTED" 		// rejected bulk transfer for a reason (e.g. reject transfer directly from payee)
 }
 
 export declare const enum AccountType {
@@ -138,5 +139,5 @@ export interface IBulkTransfer {
     transfersPreparedProcessedIds: string[]
     transfersNotProcessedIds: string[];
     transfersFulfiledProcessedIds: string[];
-    status: TransferState | null;
+    status: BulkTransferState;
 }
