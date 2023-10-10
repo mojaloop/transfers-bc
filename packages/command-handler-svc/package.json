@@ -44,7 +44,7 @@
     "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "^0.3.67",
     "@mojaloop/platform-shared-lib-observability-client-lib": "~0.1.10",
     "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.9",
-    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.151",
+    "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.154",
     "@mojaloop/security-bc-client-lib": "~0.2.3",
     "@mojaloop/transfers-bc-domain-lib": "*",
     "@mojaloop/transfers-bc-implementations-lib": "*",
