@@ -36,9 +36,17 @@ import {
 	ITransfersRepository,
 	IAccountsBalancesAdapter,
     ISettlementsServiceAdapter,
-    ISchedulingServiceAdapter
+    ISchedulingServiceAdapter,
+    IBulkTransfersRepository
 } from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter, SchedulingAdapter } from "@mojaloop/transfers-bc-implementations-lib";
+import { 
+    ParticipantAdapter,
+    MongoTransfersRepo,
+    MongoBulkTransfersRepo,
+    GrpcAccountsAndBalancesAdapter,
+    SettlementsAdapter,
+    SchedulingAdapter 
+} from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
 import {Server} from "net";
@@ -145,6 +153,7 @@ export class Service {
 	static aggregate: TransfersAggregate;
 	static participantService: IParticipantsServiceAdapter;
 	static transfersRepo: ITransfersRepository;
+    static bulkTransfersRepo: IBulkTransfersRepository;
 	static accountAndBalancesAdapter: IAccountsBalancesAdapter;
     static metrics:IMetrics;
 	static settlementsAdapter: ISettlementsServiceAdapter;
@@ -159,6 +168,7 @@ export class Service {
         messageProducer?: IMessageProducer,
         participantAdapter?: IParticipantsServiceAdapter,
         transfersRepo?: ITransfersRepository,
+        bulkTransfersRepo?: IBulkTransfersRepository,
         accountAndBalancesAdapter?: IAccountsBalancesAdapter,
         metrics?:IMetrics,
         settlementsAdapter?: ISettlementsServiceAdapter,
@@ -248,6 +258,14 @@ export class Service {
         }
         this.transfersRepo = transfersRepo;
 
+        if (!bulkTransfersRepo) {
+                bulkTransfersRepo = new MongoBulkTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
+
+            await bulkTransfersRepo.init();
+            logger.info("Transfer Registry Repo Initialized");
+        }
+        this.bulkTransfersRepo = bulkTransfersRepo;
+
         if (!participantAdapter) {
             const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
             authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
@@ -290,7 +308,7 @@ export class Service {
 		this.schedulingAdapter = schedulingAdapter;
 
         if (!aggregate) {
-            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
+            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.bulkTransfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
         }
         this.aggregate = aggregate;
 

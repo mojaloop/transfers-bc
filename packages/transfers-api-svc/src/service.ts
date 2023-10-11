@@ -58,7 +58,6 @@ import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
 import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 import {existsSync} from "fs";
 import process from "process";
-import util from "util";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");

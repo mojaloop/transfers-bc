@@ -32,7 +32,7 @@
 "use strict";
 
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 import {
     UnableToCloseDatabaseConnectionError,
     UnableToGetTransferError,
@@ -141,6 +141,25 @@ export class RedisTransfersRepo implements ITransfersRepository {
         }
 	}
 
+    async getTransfersByBulkId(_id: string):Promise<ITransfer[]>{
+        const keys:string[] = await this._redisClient.keys(this._keyPrefix + "*");
+        if(!keys || keys.length<=0) return [];
+
+		const transfersStrArr = await this._redisClient.mget(keys);
+        if(!transfersStrArr || transfersStrArr.length<=0) return [];
+
+        try{
+            const ret: ITransfer[]  = [];
+            transfersStrArr.forEach(trasfStr => {
+               if(trasfStr && trasfStr === _id) ret.push(JSON.parse(trasfStr));
+            });
+            return ret;
+        }catch(e){
+            this._logger.error(`Unable to get getTransfers - ${(e as Error).message}`);
+            throw new UnableToGetTransferError();
+        }
+	}
+
 	async searchTransfers(
 		_state?:string,
 		_currencyCode?:string,
@@ -165,4 +184,10 @@ export class RedisTransfersRepo implements ITransfersRepository {
         }
     }
 
+    async addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string> {
+        const key: string = this._getKeyWithPrefix(bulkTransfer.bulkTransferId);
+
+        await this._redisClient.set(key, JSON.stringify(bulkTransfer));
+        return bulkTransfer.bulkTransferId;
+	}
 }

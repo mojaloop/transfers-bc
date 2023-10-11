@@ -31,7 +31,7 @@
 "use strict";
 
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
-import { ITransfer } from "../types";
+import { IBulkTransfer, ITransfer } from "../types";
 import {
     AccountsAndBalancesAccount,
     AccountsAndBalancesJournalEntry,
@@ -46,6 +46,7 @@ export interface ITransfersRepository {
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
     getTransfers():Promise<ITransfer[]>;
+	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 	searchTransfers(
 		state?:string,
 		currencyCode?:string,
@@ -57,6 +58,15 @@ export interface ITransfersRepository {
     storeTransfers(transfers:ITransfer[]):Promise<void>;
 }
 
+export interface IBulkTransfersRepository {
+	init(): Promise<void>;
+	destroy(): Promise<void>;
+	addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string>;
+	updateBulkTransfer(bulkTransfer: IBulkTransfer): Promise<void>;
+	getBulkTransferById(id: string): Promise<IBulkTransfer | null>;
+	getBulkTransfers(): Promise<IBulkTransfer[]>;
+  }
+  
 export interface IParticipantsServiceAdapter {
     getParticipantInfo(fspId: string): Promise<IParticipant| null>;
     getParticipantsInfo(fspIds: string[]): Promise<IParticipant[]|null>;

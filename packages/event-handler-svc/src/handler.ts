@@ -44,7 +44,11 @@ import {
     TransferRejectRequestedEvt,
 	TransferQueryReceivedEvt,
     TransferTimeoutEvt,
-    TransfersBCTopics
+    TransfersBCTopics,
+    BulkTransferPrepareRequestedEvt,
+    BulkTransferFulfilRequestedEvt,
+	BulkTransferRejectRequestedEvt,
+	BulkTransferQueryReceivedEvt,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
 	CommitTransferFulfilCmd,
@@ -56,7 +60,15 @@ import {
 	QueryTransferCmd,
 	QueryTransferCmdPayload,
     TimeoutTransferCmd,
-    TimeoutTransferCmdPayload
+    TimeoutTransferCmdPayload,
+    PrepareBulkTransferCmd,
+    PrepareBulkTransferCmdPayload,
+	CommitBulkTransferFulfilCmd,
+	CommitBulkTransferFulfilCmdPayload,
+	RejectBulkTransferCmd,
+	RejectBulkTransferCmdPayload,
+	QueryBulkTransferCmd,
+	QueryBulkTransferCmdPayload
 } from "@mojaloop/transfers-bc-domain-lib";
 
 import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
@@ -163,6 +175,18 @@ export class TransfersEventHandler{
         }else if(message.msgName === TransferTimeoutEvt.name){
             const transferCmd = this._prepareEventToTimeoutCommand(message as TransferTimeoutEvt);
             return transferCmd;
+        }else if(message.msgName === BulkTransferPrepareRequestedEvt.name){
+            const transferCmd = this._prepareEventToPrepareBulkCommand(message as BulkTransferPrepareRequestedEvt);
+            return transferCmd;
+        }else if(message.msgName === BulkTransferFulfilRequestedEvt.name){
+            const transferCmd = this._fulfilEventToFulfilBulkCommand(message as BulkTransferFulfilRequestedEvt);
+            return transferCmd;
+		}else if(message.msgName === BulkTransferRejectRequestedEvt.name){
+            const transferCmd = this._prepareEventToRejectBulkCommand(message as BulkTransferRejectRequestedEvt);
+            return transferCmd;
+        }else if(message.msgName === BulkTransferQueryReceivedEvt.name){
+            const transferCmd = this._prepareEventToQueryBulkCommand(message as BulkTransferQueryReceivedEvt);
+            return transferCmd;
         }else{
             // ignore silently what we don't handle
             return null;
@@ -172,6 +196,7 @@ export class TransfersEventHandler{
 
     private _prepareEventToPrepareCommand(evt: TransferPrepareRequestedEvt): PrepareTransferCmd{
 		const cmdPayload: PrepareTransferCmdPayload = {
+			bulkTransferId: null,
 			transferId: evt.payload.transferId,
 			amount: evt.payload.amount,
 			currencyCode: evt.payload.currencyCode,
@@ -234,6 +259,58 @@ export class TransfersEventHandler{
 		return cmd;
 	}
     
+    private _prepareEventToPrepareBulkCommand(evt: BulkTransferPrepareRequestedEvt): PrepareBulkTransferCmd{
+		const cmdPayload: PrepareBulkTransferCmdPayload = {
+			bulkTransferId: evt.payload.bulkTransferId,
+            bulkQuoteId: evt.payload.bulkQuoteId,
+			payerFsp: evt.payload.payerFsp,
+			payeeFsp: evt.payload.payeeFsp,
+            individualTransfers: evt.payload.individualTransfers,
+			expiration: evt.payload.expiration,
+			extensionList: evt.payload.extensionList,
+			prepare: evt.fspiopOpaqueState
+
+		};
+		const cmd = new PrepareBulkTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+    private _fulfilEventToFulfilBulkCommand(evt: BulkTransferFulfilRequestedEvt): CommitBulkTransferFulfilCmd {
+		const cmdPayload: CommitBulkTransferFulfilCmdPayload = {
+			bulkTransferId: evt.payload.bulkTransferId,
+			completedTimestamp: evt.payload.completedTimestamp,
+			bulkTransferState: evt.payload.bulkTransferState,
+			individualTransferResults: evt.payload.individualTransferResults,
+			extensionList: evt.payload.extensionList,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new CommitBulkTransferFulfilCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+	private _prepareEventToRejectBulkCommand(evt: BulkTransferRejectRequestedEvt): RejectBulkTransferCmd {
+		const cmdPayload: RejectBulkTransferCmdPayload = {
+			bulkTransferId: evt.payload.bulkTransferId,
+			errorInformation: evt.payload.errorInformation,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new RejectBulkTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
+	private _prepareEventToQueryBulkCommand(evt: BulkTransferQueryReceivedEvt): QueryBulkTransferCmd {
+		const cmdPayload: QueryBulkTransferCmdPayload = {
+			bulkTransferId: evt.payload.bulkTransferId,
+			prepare: evt.fspiopOpaqueState
+		};
+		const cmd = new QueryBulkTransferCmd(cmdPayload);
+		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		return cmd;
+	}
+
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}

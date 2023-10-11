@@ -35,7 +35,7 @@
 import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToAddManyTransfersError, UnableToDeleteTransferError } from '../errors';
+import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from '../errors';
 import { randomUUID } from 'crypto';
 
 export class MongoTransfersRepo implements ITransfersRepository {
@@ -216,6 +216,20 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		});
 	}
 
+	async getTransfersByBulkId(bulkTransferId:string):Promise<ITransfer[]>{
+		const transfers = await this.transfers.find(
+			{ bulkTransferId: bulkTransferId },
+			{sort:["updatedAt", "desc"], projection: {_id: 0}}
+		).toArray().catch((e: unknown) => {
+			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+			throw new UnableToGetTransferError();
+		});
+
+		const mappedTransfers = transfers.map(this.mapToTransfer);
+
+		return mappedTransfers;	
+	}
+
 	private async checkIfTransferExists(transfer: ITransfer) {
 		const transferAlreadyPresent: WithId<Document> | null = await this.transfers.findOne(
 			{
@@ -249,6 +263,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			extensionList: transfer.extensionList ?? null,
 			settlementModel: transfer.settlementModel ?? null,
 			hash: transfer.hash ?? null,
+			bulkTransferId: transfer.bulkTransferId ?? null,
 			errorInformation: transfer.errorInformation ?? null
 		};
 
