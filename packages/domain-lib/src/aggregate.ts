@@ -1567,13 +1567,13 @@ export class TransfersAggregate {
         try{
             this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
         }
-        catch(err:any){
+        catch(err:unknown){
             const error = (err as Error).message;
-            const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${err.message}`;
+            const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${error}`;
             this._logger.error(err, `${errorMessage}: ${error}`);
             const errorEvent = new TransferBCUnableToAddBulkTransferToDatabaseEvt({
                 bulkTransferId: bulkTransfer.bulkTransferId,
-                errorDescription: (err as Error).message
+                errorDescription: errorMessage
             });
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
@@ -1634,7 +1634,7 @@ export class TransfersAggregate {
         if(!bulkTransfer) {
 			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
-			let errorEvent = new BulkTransferNotFoundEvt({
+			const errorEvent = new BulkTransferNotFoundEvt({
 				bulkTransferId: transfer.bulkTransferId as string,
 				errorDescription: errorMessage
 			});
@@ -1644,20 +1644,21 @@ export class TransfersAggregate {
             return;
         }
         
-        bulkTransfer?.transfersPreparedProcessedIds.push(transfer.transferId as string)
+        bulkTransfer?.transfersPreparedProcessedIds.push(transfer.transferId as string);
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
         if(bulkTransfer.transfersPreparedProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer.individualTransfers.length) {
             bulkTransfer.status = BulkTransferState.PENDING;
             this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
             
-            let transfers:ITransfer[] = [];
+            const transfers:ITransfer[] = [];
             try {
-                Array.from(this._transfersCache).filter(([_key, value]) => {
-                    if(value.bulkTransferId === bulkTransfer?.bulkTransferId) {
-                        transfers.push(value)
+                /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+                Array.from(this._transfersCache).filter(([_key, cachedTransfer]) => {
+                    if(cachedTransfer.bulkTransferId === bulkTransfer?.bulkTransferId) {
+                        transfers.push(cachedTransfer);
                     }
-                })
+                });
             } catch(err: unknown) {
                 const error = (err as Error).message;
                 const errorMessage = `Unable to get transfer record for bulkTransferId: ${message.payload.bulkTransferId} from repository`;
@@ -1738,7 +1739,7 @@ export class TransfersAggregate {
         if(!bulkTransfer) {
 			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
-			let errorEvent = new BulkTransferNotFoundEvt({
+			const errorEvent = new BulkTransferNotFoundEvt({
 				bulkTransferId: bulkTransferId as string,
 				errorDescription: errorMessage
 			});
@@ -1798,7 +1799,7 @@ export class TransfersAggregate {
         if(!bulkTransfer) {
 			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
-			let errorEvent = new BulkTransferNotFoundEvt({
+			const errorEvent = new BulkTransferNotFoundEvt({
 				bulkTransferId: transfer.bulkTransferId as string,
 				errorDescription: errorMessage
 			});
@@ -1813,7 +1814,7 @@ export class TransfersAggregate {
 
         await this._fulfilTTransferContinue(abResponse, request, originalCmdMsg, transfer);
 
-        bulkTransfer?.transfersFulfiledProcessedIds.push(transfer.transferId as string)
+        bulkTransfer?.transfersFulfiledProcessedIds.push(transfer.transferId as string);
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
 
@@ -1868,7 +1869,7 @@ export class TransfersAggregate {
         if(!bulkTransfer) {
 			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId}`;
 			this._logger.error(errorMessage);
-			let errorEvent = new BulkTransferNotFoundEvt({
+			const errorEvent = new BulkTransferNotFoundEvt({
 				bulkTransferId: bulkTransferId,
 				errorDescription: errorMessage
 			});
@@ -1952,7 +1953,7 @@ export class TransfersAggregate {
         if(!bulkTransfer) {
 			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId}`;
 			this._logger.error(errorMessage);
-			let errorEvent = new BulkTransferNotFoundEvt({
+			const errorEvent = new BulkTransferNotFoundEvt({
 				bulkTransferId: bulkTransferId,
 				errorDescription: errorMessage
 			});
@@ -2036,7 +2037,7 @@ export class TransfersAggregate {
                 return {
                     transferId: transferResult.transferId,
                     fulfilment: transferResult.fulfilment,
-                    errorInformation: transferResult.errorInformation as any,
+                    errorInformation: transferResult.errorInformation as IErrorInformation,
                     extensionList: transferResult.extensionList
                 };
             }),
