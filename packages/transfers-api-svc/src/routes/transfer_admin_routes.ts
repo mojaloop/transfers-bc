@@ -43,13 +43,9 @@
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
-import {
-    ForbiddenError,
-    UnauthorizedError,
-    CallSecurityContext, IAuthorizationClient,
-} from "@mojaloop/security-bc-public-types-lib";
+import {CallSecurityContext, IAuthorizationClient} from "@mojaloop/security-bc-public-types-lib";
 import {TokenHelper} from "@mojaloop/security-bc-client-lib";
-import { BaseRoutes } from "./base/base_routes";
+import {BaseRoutes} from "./base/base_routes";
 
 // TODO: remove esling disable
 /* eslint-disable */

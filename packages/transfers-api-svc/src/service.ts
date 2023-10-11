@@ -274,11 +274,11 @@ export class Service {
 
 	static async stop() {
         if (this.expressServer){
-            await new Promise((resolve, reject) => {
+            await new Promise((resolve) => {
                 this.expressServer.close(() => {
-                    resolve(true)
+                    resolve(true);
                 });
-          })
+          });
             
         }
 

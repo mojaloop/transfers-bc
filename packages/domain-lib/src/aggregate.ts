@@ -800,7 +800,7 @@ export class TransfersAggregate {
                     payload: transfer,
                     fspiopOpaqueState: message.fspiopOpaqueState
                 }
-            )
+            );
         } catch (err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to create reminder for transferId: ${message.payload.transferId}`;

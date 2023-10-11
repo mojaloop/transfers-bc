@@ -63,7 +63,7 @@ export class MemoryLoginHelper implements ILoginHelper {
             refreshToken: undefined,
             refreshTokenExpiresIn: undefined,
             scope: undefined
-        }
+        };
 
         return mockedAuthToken;
     }

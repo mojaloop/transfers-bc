@@ -29,12 +29,13 @@
  --------------
  ******/
 
- "use strict"
+ "use strict";
 
- import { MLKafkaJsonConsumer, MLKafkaJsonConsumerOptions, MLKafkaJsonProducer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
- import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
- const packageJSON = require("../../../../package.json");
- import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import { MLKafkaJsonConsumer, MLKafkaJsonConsumerOptions, MLKafkaJsonProducer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
+import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
+import packageJSON from "../../../../package.json";
+import {LogLevel} from "@mojaloop/logging-bc-public-types-lib";
+import { IMessage } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 const BC_NAME = "interop-apis-bc";
@@ -47,8 +48,8 @@ const LOGLEVEL:LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG
 export class KafkaConsumer {
     private _consumer: MLKafkaJsonConsumer;
     private _producer: MLKafkaJsonProducer;
-    private _events:any[] = [];
-    private _topics:any[] = [];
+    private _events:IMessage[] = [];
+    private _topics:string[] = [];
 
     constructor(topics:string[]) {
         this._topics = topics;
@@ -90,7 +91,7 @@ export class KafkaConsumer {
 
     }
 
-    private async handler(message: any): Promise<void> {
+    private async handler(message: IMessage): Promise<void> {
         console.log(`Got message in handler: ${JSON.stringify(message, null, 2)}`);
         this._events.push(message);
         return;
@@ -99,8 +100,8 @@ export class KafkaConsumer {
     public async destroy(): Promise<void> {
         await this._producer.disconnect();
         await this._producer.destroy();
-        await this._consumer.disconnect()
-        await this._consumer.destroy(true)
+        await this._consumer.disconnect();
+        await this._consumer.destroy(true);
         return;
     }
 
@@ -109,15 +110,15 @@ export class KafkaConsumer {
         return;
     }
 
-    protected addEvent(message: any): void {
+    protected addEvent(message: IMessage): void {
         this._events.push(message);
     }
 
-    public getEvents(): any {
+    public getEvents(): IMessage[] {
         return this._events;
     }
 
-    public async sendMessage(message: any) {
+    public async sendMessage(message: IMessage) {
         await this._producer.send(message);
     }
 }
