@@ -41,8 +41,8 @@
 // TODO: fix cmd handler tests
 
 
-import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter} from "@mojaloop/transfers-bc-domain-lib";
-import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService, MemorySettlementsService, MemorySchedulingService, MemoryConfigProvider } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService, MemorySettlementsService, MemorySchedulingService, MemoryConfigProvider, MemoryBulkTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";
@@ -71,6 +71,8 @@ const mockedSchedulingService: ISchedulingServiceAdapter = new MemorySchedulingS
 
 const mockedTransferRepository: ITransfersRepository = new MemoryTransferRepo(logger);
 
+const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
+
 const mockedConfigProvider: IConfigProvider = new MemoryConfigProvider(logger);
 
 const metricsMock: IMetrics = new MetricsMock();
@@ -78,6 +80,7 @@ const metricsMock: IMetrics = new MetricsMock();
 const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     logger,
     mockedTransferRepository,
+    mockedBulkTransferRepository,
     mockedParticipantService,
     mockedProducer,
     mockedAccountsAndBalancesService,
@@ -87,26 +90,19 @@ const mockedAggregate: TransfersAggregate = new TransfersAggregate(
 );
 
 // Express mock
-const expressApp = {
+const expressAppMock = {
+    listen: jest.fn(),
     use: jest.fn(),
-    listen: jest.fn()
+    get: jest.fn()
 }
 jest.doMock('express', () => {
     return () => {
-      return expressApp
+      return expressAppMock
     }
 })
 
 
-jest.mock('../../../transfers-config-lib/dist')
-
-// express.json = jest.fn();
-// express.urlencoded = jest.fn();
-// express.Router = jest.fn().mockImplementation(() => { 
-//     return routerSpy 
-// });
-
-jest.setTimeout(10000);
+jest.mock("@mojaloop/platform-configuration-bc-client-lib");
 
 describe("Transfers Command Handler Service", () => {
 
@@ -127,11 +123,9 @@ describe("Transfers Command Handler Service", () => {
         const spyConsumerConnect = jest.spyOn(mockedConsumer, "connect");
         const spyConsumerStart = jest.spyOn(mockedConsumer, "connect");
         const spyConsumerBackCallback = jest.spyOn(mockedConsumer, "setBatchCallbackFn");
-        const spyProducerInit = jest.spyOn(mockedProducer, "connect");
-        const spyAggregateInit = jest.spyOn(mockedAggregate, "init");
 
         // Act
-        await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository,
+        await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository, mockedBulkTransferRepository,
             mockedAccountsAndBalancesService, metricsMock, mockedSettlementsService, mockedSchedulingService, mockedConfigProvider, mockedAggregate);
 
         // Assert
@@ -139,10 +133,6 @@ describe("Transfers Command Handler Service", () => {
         expect(spyConsumerConnect).toBeCalledTimes(1);
         expect(spyConsumerStart).toBeCalledTimes(1);
         expect(spyConsumerBackCallback).toBeCalledTimes(1);
-        // expect(spyProducerInit).toBeCalledTimes(1); // TODO: shouldn't we call init outside the if condition?
-        // expect(spyAggregateInit).toBeCalledTimes(1);
-        // expect(getSpy).toBeCalledWith("/health", "/metrics");
-        // expect(app.listen).toBeCalledTimes(1);
 
     });
 
@@ -150,9 +140,6 @@ describe("Transfers Command Handler Service", () => {
         // Arrange
         const spyMockedConsumer = jest.spyOn(mockedConsumer, "destroy");
         const spyMockedProducer = jest.spyOn(mockedProducer, "destroy");
-        // const spyMockedAggregate = jest.spyOn(mockedAggregate, "destroy");
-        // await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository,
-        //     mockedAccountsAndBalancesService, metricsMock, mockedSettlementsService, mockedSchedulingService, mockedConfigProvider, mockedAggregate);
 
         // Act
         await Service.stop();
@@ -160,8 +147,6 @@ describe("Transfers Command Handler Service", () => {
         // Assert
         expect(spyMockedConsumer).toBeCalledTimes(1);
         expect(spyMockedProducer).toBeCalledTimes(1);
-        // expect(spyMockedAggregate).toBeCalledTimes(1);
-        // expect(closeSpy).toBeCalledTimes(1);
     });
 
 

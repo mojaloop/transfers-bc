@@ -1296,7 +1296,7 @@ export class TransfersAggregate {
             return;
 		}
 
-        if(transfer.bulkTransferId) {
+        if(!transfer.bulkTransferId) {
             const payload: TransferRejectRequestProcessedEvtPayload = {
                 transferId: message.payload.transferId,
                 errorInformation: message.payload.errorInformation

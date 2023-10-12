@@ -333,7 +333,9 @@ export const mockedHubParticipant:IParticipant = {
 	netDebitCaps: [],
 	netDebitCapChangeRequests: [],
 	participantSourceIpChangeRequests: [],
-	participantAccountsChangeRequest: []
+	participantAccountsChangeRequest: [],
+	participantContacts: [],
+	participantContactInfoChangeRequests: []
 };
 
 export const mockedPayerParticipant:IParticipant = {
@@ -437,7 +439,9 @@ export const mockedPayerParticipant:IParticipant = {
 	netDebitCaps: [],
 	netDebitCapChangeRequests: [],
 	participantSourceIpChangeRequests: [],
-	participantAccountsChangeRequest: []
+	participantAccountsChangeRequest: [],
+	participantContacts: [],
+	participantContactInfoChangeRequests: []
 };
 
 export const mockedPayeeParticipant:IParticipant = {
@@ -540,7 +544,9 @@ export const mockedPayeeParticipant:IParticipant = {
 	netDebitCaps: [],
 	netDebitCapChangeRequests: [],
 	participantSourceIpChangeRequests: [],
-	participantAccountsChangeRequest: []
+	participantAccountsChangeRequest: [],
+	participantContacts: [],
+	participantContactInfoChangeRequests: []
 };
 
 export const mockedParticipantTransferAccounts = {

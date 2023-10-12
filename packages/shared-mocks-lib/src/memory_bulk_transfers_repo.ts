@@ -27,23 +27,53 @@
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
 "use strict";
 
-export * from "./memory_message_producer";
-export * from "./memory_message_consumer";
-export * from "./memory_transfers_repo";
-export * from "./memory_bulk_transfers_repo";
-export * from "./memory_participant_service";
-export * from "./memory_accounts_and_balances_service";
-export * from "./memory_audit_service";
-export * from "./memory_auth_requester";
-export * from "./memory_settlement_service";
-export * from "./memory_scheduling_service";
-export * from "./memory_login_helper";
-export * from "./memory_config_provider";
-export * from "./mocked_data";
-export * from "./helpers/kafkaproducer";
-export * from "./helpers/utils";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { IBulkTransfersRepository, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 
+export class MemoryBulkTransferRepo implements IBulkTransfersRepository {
+	private readonly _logger: ILogger;
+    private readonly _bulkTransfers: IBulkTransfer[] = [];
+
+	constructor(
+		logger: ILogger,
+	) {
+		this._logger = logger;
+	}
+
+    init(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    destroy(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string> {
+        this._bulkTransfers.push(bulkTransfer);
+        return Promise.resolve(bulkTransfer.bulkTransferId);
+    }
+
+    updateBulkTransfer(bulkTransfer: IBulkTransfer): Promise<void> {
+        const transferToUpdate = this._bulkTransfers.find(q => q.bulkTransferId === bulkTransfer.bulkTransferId);
+        if (transferToUpdate) {
+            Object.assign(transferToUpdate, bulkTransfer);
+        }
+        else{
+            throw new Error(`Bulk transfer with id ${bulkTransfer.bulkTransferId} not found`);
+        }
+        return Promise.resolve();
+    }
+
+    getBulkTransferById(id: string): Promise<IBulkTransfer | null> {
+        return Promise.resolve(this._bulkTransfers.find(q => q.bulkTransferId === id) || null);
+    }
+
+    getBulkTransfers(): Promise<IBulkTransfer[]> {
+        return Promise.resolve(this._bulkTransfers);
+    }
+
+}

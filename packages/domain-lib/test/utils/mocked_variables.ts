@@ -34,13 +34,15 @@
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageProducer } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { MemoryTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService, MemorySettlementsService, MemorySchedulingService } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import { ITransfersRepository, IParticipantsServiceAdapter, TransfersAggregate, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter } from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryTransferRepo, MemoryBulkTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService, MemorySettlementsService, MemorySchedulingService } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { ITransfersRepository, IParticipantsServiceAdapter, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
 
 const transfersRepo: ITransfersRepository = new MemoryTransferRepo(logger);
+
+const bulkTransfersRepo: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
 
 const messageProducer: IMessageProducer = new MemoryMessageProducer(logger);
 
@@ -55,6 +57,7 @@ const schedulingService: ISchedulingServiceAdapter = new MemorySchedulingService
 export {
     logger,
     transfersRepo,
+    bulkTransfersRepo,
     messageProducer,
     participantService,
     accountsAndBalancesService,

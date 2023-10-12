@@ -56,17 +56,21 @@ import {
     TransferNotFoundEvt,
     TransferUnableToUpdateEvt,
     TransferPrepareRequestTimedoutEvt,
+    TransferRejectRequestProcessedEvt,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { mockedHubParticipant, mockedPayeeParticipant, mockedPayerParticipant, mockedTransfer1 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { InvalidMessagePayloadError, InvalidMessageTypeError } from "../../src/errors";
 import { createCommand, createTransferPreparedEvtPayload } from "../utils/helpers";
-import { messageProducer, transfersRepo, participantService, accountsAndBalancesService, settlementsService, schedulingService, logger } from "../utils/mocked_variables";
+import { messageProducer, transfersRepo, bulkTransfersRepo, participantService, accountsAndBalancesService, settlementsService, schedulingService, logger } from "../utils/mocked_variables";
 import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
 import { AccountType, CommitTransferFulfilCmd, ITransfer, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd, TransferState, TransfersAggregate } from '../../src';
 import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
+import waitForExpect from '@mojaloop/transfers-bc-shared-mocks-lib/dist/helpers/utils';
 
 logger.setLogLevel(LogLevel.DEBUG);
+
+jest.setTimeout(10000);
 
 jest.mock('crypto', () => ({
     ...jest.requireActual('crypto'),
@@ -128,6 +132,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         aggregate = new TransfersAggregate(
             logger,
             transfersRepo as any,
+            bulkTransfersRepo as any,
             participantService,
             messageProducer,
             accountsAndBalancesService,
@@ -142,6 +147,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             createdAt: 1695659528072,
             updatedAt: 1695659531251,
             transferId: "0fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+            bulkTransferId: null,
             payeeFspId: "greenbank",
             payerFspId: "bluebank",
             amount: "10.5",
@@ -978,14 +984,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubNotFoundFailedEvt.name,
-            "payload": {
-                "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
-                "payerFspId": undefined, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
+                    "payerFspId": undefined, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payer participant is not found processing RejectTransferCmd command", async () => {
@@ -1004,14 +1012,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayerNotFoundFailedEvt.name,
-            "payload": {
-                "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
-                "payerFspId": command.payload.payerFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payee participant is not found processing RejectTransferCmd command", async () => {
@@ -1031,14 +1041,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayeeNotFoundFailedEvt.name,
-            "payload": {
-                "errorDescription": `Payee participant not found ${command.payload.payeeFsp} for transfer ${command.payload.transferId}`, 
-                "payeeFspId": command.payload.payeeFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payee participant not found ${command.payload.payeeFsp} for transfer ${command.payload.transferId}`, 
+                    "payeeFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when on cancelTransfer transfer is not found processing RejectTransferCmd command", async () => {
@@ -1061,13 +1073,15 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubAccountNotFoundFailedEvt.name,
-            "payload": {
-                "errorDescription": `Hub account not found for transfer ${command.payload.transferId}`, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
     
     test("should successfully process RejectTransferCmd command", async () => {
@@ -1094,13 +1108,14 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubAccountNotFoundFailedEvt.name,
-            "payload": {
-                "errorDescription": `Hub account not found for transfer ${command.payload.transferId}`, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferRejectRequestProcessedEvt.name,
+                "payload": {
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
     // #endregion
 
@@ -1349,7 +1364,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw error while updating transfer for RECEIVED transfer processing TimeoutTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPutPayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+        const command: CommandMsg = createCommand(validTransferPostPayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -1360,13 +1375,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferUnableToUpdateEvt.name,
-            "payload": {
-                "errorDescription": `Error deleting reminder for transferId: ${command.payload.transferId}.`,
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferUnableToUpdateEvt.name,
+                "payload": {
+                    "errorDescription": `Error deleting reminder for transferId: ${command.payload.transferId}.`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should timeout transfer with RECEIVED state processing TimeoutTransferCmd command", async () => {

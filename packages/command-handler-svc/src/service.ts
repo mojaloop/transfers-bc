@@ -351,6 +351,7 @@ export class Service {
 
 
     static async stop() {
+        if (this.expressServer) this.expressServer.close();
 		if (this.handler) await this.handler.stop();
 		if (this.messageConsumer) await this.messageConsumer.destroy(true);
 		if (this.messageProducer) await this.messageProducer.destroy();

@@ -33,9 +33,9 @@
 
 import { MLKafkaJsonConsumer, MLKafkaJsonConsumerOptions, MLKafkaJsonProducer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
-import packageJSON from "../../../../package.json";
 import {LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import { IMessage } from "@mojaloop/platform-shared-lib-messaging-types-lib";
+const packageJSON = require("../../../../package.json"); // eslint-disable-line @typescript-eslint/no-var-requires
 
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
 const BC_NAME = "interop-apis-bc";
