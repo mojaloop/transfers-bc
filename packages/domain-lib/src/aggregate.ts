@@ -718,7 +718,7 @@ export class TransfersAggregate {
                     payload: transfer,
                     fspiopOpaqueState: message.fspiopOpaqueState
                 }
-            )
+            );
         } catch (err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
@@ -758,6 +758,8 @@ export class TransfersAggregate {
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer | null
     ): Promise<void> {
+        const preparedAtTime = Date.now();
+
         if (!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
@@ -827,6 +829,8 @@ export class TransfersAggregate {
             ilpPacket: message.payload.ilpPacket,
             condition: message.payload.condition,
             expiration: message.payload.expiration,
+            settlementModel: transfer.settlementModel,
+            preparedAt: preparedAtTime,
             extensionList: message.payload.extensionList
         };
 
@@ -1012,6 +1016,8 @@ export class TransfersAggregate {
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer | null
     ): Promise<void> {
+        const fulfiledAtTime = Date.now();
+        
         if (!transfer) {
 			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAccountsBalancesHighLevelResponse`;
 			this._logger.error(errorMessage);
@@ -1096,7 +1102,8 @@ export class TransfersAggregate {
             amount: transfer.amount,
             currencyCode: transfer.currencyCode,
             settlementModel: transfer.settlementModel,
-            notifyPayee: message.payload.notifyPayee
+            notifyPayee: message.payload.notifyPayee,
+            fulfiledAt: fulfiledAtTime
         });
 
 

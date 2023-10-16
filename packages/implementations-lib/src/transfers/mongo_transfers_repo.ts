@@ -35,7 +35,7 @@
 import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToAddManyTransfersError, UnableToDeleteTransferError } from '../errors';
+import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from '../errors';
 import { randomUUID } from 'crypto';
 
 export class MongoTransfersRepo implements ITransfersRepository {
