@@ -31,6 +31,24 @@
 
  "use strict";
  
+const mocks = new Map();
+
+export function mockProperty<T extends {}, K extends keyof any>(object: T, property: K, value: any) {
+  const descriptor = Object.getOwnPropertyDescriptor(object, property);
+  const mocksForThisObject = mocks.get(object) || {};
+  mocksForThisObject[property] = descriptor;
+  mocks.set(object, mocksForThisObject);
+  Object.defineProperty(object, property, {
+      get: value,
+      configurable: true,
+  });
+
+}
+
+export function undoMockProperty<T extends {}, K extends keyof T>(object: T, property: K) {
+  Object.defineProperty(object, property, mocks.get(object)[property]);
+}
+
 const globalObj = typeof window === "undefined" ? global : window;
 
 // Currently this fn only supports jest timers, but it could support other test runners in the future.

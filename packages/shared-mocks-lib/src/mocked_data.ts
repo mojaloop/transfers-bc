@@ -33,7 +33,7 @@
 "use strict";
 
 import { IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
-import { ITransfer, TransferState } from "@mojaloop/transfers-bc-domain-lib";
+import { BulkTransferState, IBulkTransfer, ITransfer, TransferState } from "@mojaloop/transfers-bc-domain-lib";
 
 const now = Date.now();
 
@@ -590,6 +590,54 @@ export const mockedParticipantTransferAccounts = {
 		"debitBalance": null,
 		"balance": null
 	}
+};
+
+export const mockedBulkTransfer1 : IBulkTransfer = {
+    bulkTransferId: "1",
+    bulkQuoteId: "1",
+    payeeFsp: "greenbank",
+    payerFsp: "bluebank",
+    completedTimestamp: null,
+    individualTransfers: [{
+		"transferId": "1",
+		"transferAmount": {
+			"currency": "USD",
+			"amount": "10"
+		},
+		"ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+		"condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+		"extensionList": null
+	}],
+    expiration: 2697585442210,
+    transfersPreparedProcessedIds: [],
+    transfersNotProcessedIds: [],
+    transfersFulfiledProcessedIds: [],
+    status: BulkTransferState.RECEIVED,
+    extensionList: null
+};
+
+export const mockedBulkTransfer2 : IBulkTransfer = {
+    bulkTransferId: "2",
+    bulkQuoteId: "2",
+    payeeFsp: "greenbank",
+    payerFsp: "bluebank",
+    completedTimestamp: null,
+    individualTransfers: [{
+		"transferId": "2",
+		"transferAmount": {
+			"currency": "USD",
+			"amount": "10"
+		},
+		"ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+		"condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+		"extensionList": null
+	}],
+    expiration: 2697585442210,
+    transfersPreparedProcessedIds: [],
+    transfersNotProcessedIds: [],
+    transfersFulfiledProcessedIds: [],
+    status: BulkTransferState.PROCESSING,
+    extensionList: null
 };
 
 export const mockedTransfers : ITransfer[] = [

@@ -33,9 +33,9 @@
 "use strict";
 
 import { ILogger,ConsoleLogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
-import {  MongoTransfersRepo, NoSuchTransferError, TransferAlreadyExistsError, UnableToGetTransferError, UnableToAddTransferError, UnableToDeleteTransferError, UnableToUpdateTransferError  } from "../../../../../packages/implementations-lib/src";
-import { MongoClient, Collection } from "mongodb";
-import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import {  MongoTransfersRepo, NoSuchTransferError, UnableToGetTransferError, UnableToAddTransferError, UnableToDeleteTransferError, UnableToUpdateTransferError  } from "../../../../../packages/implementations-lib/src";
+import { Collection } from "mongodb";
+import { mockProperty, mockedTransfer1, undoMockProperty } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
 jest.mock('mongodb', () => ({
     ...jest.requireActual('mongodb'),
@@ -48,18 +48,11 @@ jest.mock('mongodb', () => ({
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
 
-const DB_NAME = process.env.ACCOUNT_LOOKUP_DB_TEST_NAME ?? "test";
+const DB_NAME = process.env.TRANSFERS_DB_TEST_NAME ?? "test";
 const CONNECTION_STRING = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
 
 let mongoTransfersRepo : MongoTransfersRepo;
 
-
-const mocks = new Map();
-
-
-function undoMockProperty<T extends {}, K extends keyof T>(object: T, property: K) {
-    Object.defineProperty(object, property, mocks.get(object)[property]);
-}
 
 describe("Implementations - Mongo transfers Repo Unit tests", () => {
 
@@ -72,19 +65,11 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as Collection;
-                userProfile.findOne = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as Collection;
+            userProfile.findOne = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.addTransfer(transfer1)).rejects.toThrowError(UnableToGetTransferError);
@@ -97,20 +82,12 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as Collection;
-                userProfile.findOne = async () => { return null; };
-                userProfile.insertOne = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as Collection;
+            userProfile.findOne = async () => { return null; };
+            userProfile.insertOne = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.addTransfer(transfer1)).rejects.toThrowError(UnableToAddTransferError);
@@ -122,19 +99,11 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as Collection;
-                userProfile.deleteOne = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as Collection;
+            userProfile.deleteOne = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.removeTransfer(transfer1.transferId)).rejects.toThrowError(UnableToDeleteTransferError);
@@ -147,19 +116,11 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as Collection;
-                userProfile.findOne = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as Collection;
+            userProfile.findOne = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.getTransferById(transfer1.transferId)).rejects.toThrowError(UnableToGetTransferError);
@@ -169,24 +130,15 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
 
     test("should throw error when trying to get transfers", async () => {
         // Arrange
-
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as any;
-                userProfile.find = () => {
-                    return { 
-                        toArray: async () => { throw Error(); }
-                    }
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as any;
+            userProfile.find = () => {
+                return { 
+                    toArray: async () => { throw Error(); }
                 }
-                return userProfile;
-            }),
-            configurable: true,
-        });
+            }
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.getTransfers()).rejects.toThrowError(UnableToGetTransferError);
@@ -196,24 +148,15 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
 
     test("should throw error when trying to search for transfers", async () => {
         // Arrange
-
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as any;
-                userProfile.find = () => {
-                    return { 
-                        toArray: async () => { throw Error(); }
-                    }
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as any;
+            userProfile.find = () => {
+                return { 
+                    toArray: async () => { throw Error(); }
                 }
-                return userProfile;
-            }),
-            configurable: true,
-        });
+            }
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.searchTransfers()).rejects.toThrowError(UnableToGetTransferError);
@@ -225,19 +168,11 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as any;
-                userProfile.bulkWrite = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as any;
+            userProfile.bulkWrite = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.storeTransfers([transfer1])).rejects.toThrowError();
@@ -249,20 +184,12 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as any;
-                userProfile.findOne = async () => { return null; };
-                userProfile.bulkWrite = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as any;
+            userProfile.findOne = async () => { return null; };
+            userProfile.bulkWrite = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.updateTransfer(transfer1)).rejects.toThrowError(NoSuchTransferError);
@@ -274,20 +201,12 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         // Arrange
         const transfer1 = mockedTransfer1;
 
-        const descriptor = Object.getOwnPropertyDescriptor(mongoTransfersRepo, "transfers");
-        const mocksForThisObject = mocks.get(mongoTransfersRepo) || {};
-        mocksForThisObject["transfers"] = descriptor;
-        mocks.set(mongoTransfersRepo, mocksForThisObject);
-
-        Object.defineProperty(mongoTransfersRepo, "transfers", {
-            get: jest.fn(() => {
-                let userProfile = {} as any;
-                userProfile.findOne = async () => { return transfer1; };
-                userProfile.updateOne = async () => { throw Error(); };
-                return userProfile;
-            }),
-            configurable: true,
-        });
+        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+            let userProfile = {} as any;
+            userProfile.findOne = async () => { return transfer1; };
+            userProfile.updateOne = async () => { throw Error(); };
+            return userProfile;
+        }));
 
         // Act & Assert
         await expect(mongoTransfersRepo.updateTransfer(transfer1)).rejects.toThrowError(UnableToUpdateTransferError);

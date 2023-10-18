@@ -1615,7 +1615,7 @@ export class TransfersAggregate {
             bulkTransfer = await this._getBulkTransfer(transfer.bulkTransferId as string);
         } catch(err: unknown) {
             const error = (err as Error).message;
-            const errorMessage = `Unable to get transfer record for bulk transferId: ${transfer.bulkTransferId} from repository`;
+            const errorMessage = `Unable to get bulk transferId: ${transfer.bulkTransferId} from repository`;
             this._logger.error(err, `${errorMessage}: ${error}`);
             const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
                 bulkTransferId: transfer.bulkTransferId as string,
@@ -1648,27 +1648,14 @@ export class TransfersAggregate {
             this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
             
             const transfers:ITransfer[] = [];
-            try {
-                /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-                Array.from(this._transfersCache).filter(([_key, cachedTransfer]) => {
-                    if(cachedTransfer.bulkTransferId === bulkTransfer?.bulkTransferId) {
-                        transfers.push(cachedTransfer);
-                    }
-                });
-            } catch(err: unknown) {
-                const error = (err as Error).message;
-                const errorMessage = `Unable to get transfer record for bulkTransferId: ${message.payload.bulkTransferId} from repository`;
-                this._logger.error(err, `${errorMessage}: ${error}`);
-                const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
-                    bulkTransferId: message.payload.bulkTransferId,
-                    errorDescription: errorMessage
-                });
-    
-                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                this._outputEvents.push(errorEvent);
-                return;
-            }
-    
+
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+            Array.from(this._transfersCache).filter(([_key, cachedTransfer]) => {
+                if(cachedTransfer.bulkTransferId === bulkTransfer?.bulkTransferId) {
+                    transfers.push(cachedTransfer);
+                }
+            });
+
             if(transfers.length === 0) {
                 const errorMessage = `BulkTransferId: ${bulkTransfer.bulkTransferId} has no associated transfers`;
                 this._logger.error(errorMessage);
