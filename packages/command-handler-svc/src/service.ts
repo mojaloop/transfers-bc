@@ -115,7 +115,6 @@ const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhos
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
-// const USE_REDIS_TRANSFERS_REPO = (process.env["USE_REDIS_TRANSFERS_REPO"] && process.env["USE_REDIS_TRANSFERS_REPO"].toUpperCase()=="TRUE") || false;
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 100;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 100;
@@ -247,11 +246,7 @@ export class Service {
         this.messageProducer = messageProducer;
 
         if (!transfersRepo) {
-            // if(USE_REDIS_TRANSFERS_REPO) {
-            //     transfersRepo = new RedisTransfersRepo(logger, REDIS_HOST, REDIS_PORT);
-            // }else{
-                transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
-            // }
+            transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
 
             await transfersRepo.init();
             logger.info("Transfer Registry Repo Initialized");

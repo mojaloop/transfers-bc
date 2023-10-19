@@ -75,13 +75,6 @@ export class UnableToDeleteTransferError extends Error {
 }
 
 
-// Cache
-export class LocalCacheError extends Error {
-    constructor(message?: string) {
-        super(message || 'Unable to get local cache');
-    }
-}
-
 // Database
 export class UnableToCloseDatabaseConnectionError extends Error{
     constructor(message?: string) {
