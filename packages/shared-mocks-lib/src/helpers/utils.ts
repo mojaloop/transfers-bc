@@ -88,7 +88,7 @@ const defaults = {
  * @param  interval  Number  Wait-between-retries interval, 50ms by default
  * @return  Promise  Promise to return a callback result
  */
-const waitForExpect = function waitForExpect(
+export const waitForExpect = function waitForExpect(
   expectation: () => void | Promise<void>,
   timeout = defaults.timeout,
   interval = defaults.interval
@@ -124,5 +124,3 @@ const waitForExpect = function waitForExpect(
 };
 
 waitForExpect.defaults = defaults;
-
-export default waitForExpect;

@@ -1579,7 +1579,7 @@ export class TransfersAggregate {
         for(let i=0 ; i<message.payload.individualTransfers.length ; i+=1) {
             const individualTransfer = message.payload.individualTransfers[i];
 
-            const transferCmd:PrepareTransferCmd = new PrepareTransferCmd({
+            const transferCmd = new PrepareTransferCmd({
                 bulkTransferId: message.payload.bulkTransferId,
                 transferId: individualTransfer.transferId,
                 amount: individualTransfer.transferAmount.amount,

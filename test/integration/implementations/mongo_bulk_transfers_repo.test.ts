@@ -33,7 +33,7 @@
 "use strict";
 
 import { ILogger,ConsoleLogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
-import {  BulkTransferAlreadyExistsError, MongoBulkTransfersRepo, MongoTransfersRepo, NoSuchTransferError, TransferAlreadyExistsError } from "../../../packages/implementations-lib/src";
+import {  BulkTransferAlreadyExistsError, MongoBulkTransfersRepo } from "../../../packages/implementations-lib/src";
 import { MongoClient, Collection } from "mongodb";
 import { mockedBulkTransfer1, mockedBulkTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
@@ -74,7 +74,7 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should throw error when is unable to init bulk transfers repo", async () => {
         // Arrange
-        const badMongoRepository = new MongoTransfersRepo(logger, "invalid connection", "invalid_db_name");
+        const badMongoRepository = new MongoBulkTransfersRepo(logger, "invalid connection", "invalid_db_name");
 
         // Act
         await expect(badMongoRepository.init()).rejects.toThrowError();
@@ -83,7 +83,7 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should throw error when is unable to destroy mongo bulk transfer repo", async () => {
         // Arrange
-        const badMongoRepository = new MongoTransfersRepo(logger, "invalid connection", "invalid_db_name");
+        const badMongoRepository = new MongoBulkTransfersRepo(logger, "invalid connection", "invalid_db_name");
 
         // Act
         await expect(badMongoRepository.destroy()).rejects.toThrowError();

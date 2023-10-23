@@ -69,7 +69,7 @@ import {
 	RejectBulkTransferCmdPayload,
 	QueryBulkTransferCmd,
 	QueryBulkTransferCmdPayload
-} from "@mojaloop/transfers-bc-domain-lib";
+} from "../../domain-lib";
 
 import {ICounter, IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 

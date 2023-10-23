@@ -43,8 +43,7 @@
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
-import {CallSecurityContext, IAuthorizationClient} from "@mojaloop/security-bc-public-types-lib";
-import {TokenHelper} from "@mojaloop/security-bc-client-lib";
+import {CallSecurityContext, IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
 import {BaseRoutes} from "./base/base_routes";
 
 // TODO: remove esling disable
@@ -60,7 +59,7 @@ declare module "express-serve-static-core" {
 export class TransferAdminExpressRoutes extends BaseRoutes {
 
 
-    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: TokenHelper, authorizationClient: IAuthorizationClient) {
+    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: ITokenHelper, authorizationClient: IAuthorizationClient) {
         super(authorizationClient, repo, logger, tokenHelper);
         this.logger.createChild(this.constructor.name);
 

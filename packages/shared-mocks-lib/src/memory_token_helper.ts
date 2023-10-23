@@ -21,31 +21,41 @@
 
  * Gates Foundation
  - Name Surname <name.surname@gatesfoundation.com>
-
+ 
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
 
  --------------
- **/
+**/
 
 "use strict";
 
-export * from "./memory_message_producer";
-export * from "./memory_message_consumer";
-export * from "./memory_transfers_repo";
-export * from "./memory_bulk_transfers_repo";
-export * from "./memory_participant_service";
-export * from "./memory_accounts_and_balances_service";
-export * from "./memory_audit_service";
-export * from "./memory_auth_requester";
-export * from "./memory_settlement_service";
-export * from "./memory_scheduling_service";
-export * from "./memory_login_helper";
-export * from "./memory_config_provider";
-export * from "./memory_token_helper";
-export * from "./memory_authorization_client";
-export * from "./mocked_data";
-export * from "./helpers/kafkaproducer";
-export * from "./helpers/utils";
+import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { ITokenHelper } from "@mojaloop/security-bc-public-types-lib";
 
+export class MemoryTokenHelper implements ITokenHelper {
+	private readonly logger: ILogger;
+	
+	constructor(
+		logger: ILogger,
+	) {
+		this.logger = logger;
+	}
+	
+	init(): Promise<void> {
+		return Promise.resolve();
+    }
+	
+    destroy(): Promise<void> {
+		return Promise.resolve();
+    }
+	
+	decodeToken(_accessToken: string) {
+		return;
+	}
+
+	verifyToken(_accessToken: string): Promise<boolean> {
+        return Promise.resolve(true);
+	}
+}

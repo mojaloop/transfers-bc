@@ -40,13 +40,11 @@
 
 "use strict";
 
-import { CallSecurityContext, ForbiddenError, IAuthorizationClient, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
+import { CallSecurityContext, ForbiddenError, IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
 import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import { TokenHelper } from "@mojaloop/security-bc-client-lib";
 import express from "express";
-import { validationResult } from "express-validator";
 
 declare module "express-serve-static-core" {
     export interface Request {
@@ -60,9 +58,9 @@ export abstract class BaseRoutes {
     private readonly _transfersRepo: ITransfersRepository;
     private readonly _logger: ILogger;
     private readonly _mainRouter: express.Router;
-    private readonly _tokenHelper: TokenHelper;
+    private readonly _tokenHelper: ITokenHelper;
 
-    constructor(authorizationClient:IAuthorizationClient, transfersRepo: ITransfersRepository, logger: ILogger, tokenHelper: TokenHelper) {
+    constructor(authorizationClient:IAuthorizationClient, transfersRepo: ITransfersRepository, logger: ILogger, tokenHelper: ITokenHelper) {
         this._mainRouter = express.Router();
         this._authorizationClient = authorizationClient;
         this._transfersRepo = transfersRepo;
@@ -164,12 +162,4 @@ export abstract class BaseRoutes {
         throw error;
     }
 
-    public validateRequest(req: express.Request, res: express.Response) : boolean {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            res.status(422).json({ errors: errors.array() });
-            return false;
-        }
-        return true;
-    }
 }

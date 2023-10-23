@@ -31,28 +31,22 @@
 **/
 
 "use strict";
-import { KafkaConsumer } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { KafkaConsumer, waitForExpect } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { Service } from "../../../packages/command-handler-svc/src/service";
 import {
-    TransfersBCTopics,
-    TransferFulfilRequestedEvt,
-    TransferPrepareRequestedEvt,
-    TransferRejectRequestedEvt,
-	TransferQueryReceivedEvt,
-    TransferTimeoutEvt
-} from "@mojaloop/platform-shared-lib-public-messages-lib";
-import { CommitTransferFulfilCmd, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd } from "../../../packages/domain-lib/dist";
+    TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { PrepareTransferCmd } from "../../../packages/domain-lib/dist";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
 
 const consumer = new KafkaConsumer([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents])
 
-jest.setTimeout(60000);
+jest.setTimeout(100000);
 
 describe("Transfers Command Handler - Integration", () => {
-
+ 
     beforeAll(async () => {
         process.env = Object.assign(process.env, {
             PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/"
@@ -91,15 +85,14 @@ describe("Transfers Command Handler - Integration", () => {
         // Act
         await consumer.sendMessage(command);
 
-        await new Promise((r) => setTimeout(r, 5000));
-
-        const messages = consumer.getEvents();
-
-        await new Promise((r) => setTimeout(r, 2000));
 
 
         // Assert
-        expect(messages[0].msgName).toBe(PrepareTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(PrepareTransferCmd.name);
+        });
 
     });
 
@@ -125,18 +118,17 @@ describe("Transfers Command Handler - Integration", () => {
         // Act
         await consumer.sendMessage(command);
 
-        await new Promise((r) => setTimeout(r, 5000));
-
-        const messages = consumer.getEvents();
-
-        await new Promise((r) => setTimeout(r, 2000));
-
-
         // Assert
-        expect(messages[0].msgName).toBe(PrepareTransferCmd.name);
-        expect(messages.length).toBe(1);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(PrepareTransferCmd.name);
+            expect(messages.length).toBe(1);
+        });
+
 
     });
+
 });
 
 

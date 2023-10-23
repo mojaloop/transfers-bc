@@ -39,12 +39,6 @@ export class TransferNotFoundError extends Error {
     }
 }
 
-export class NoSuchTransferError extends Error {
-    constructor(message?: string) {
-        super(message||"No such transfer");
-    }
-}
-
 export class CheckLiquidityAndReserveFailedError extends Error{
     constructor(message?: string) {
         super(message || "Check liquidity and reserve failed");
@@ -86,12 +80,6 @@ export class PayeeLiquidityAccountNotFoundError extends Error {
 
 
 // Message Producer
-
-export class UnableToProcessMessageError extends Error {
-    constructor(message?: string) {
-        super(message || "Unable to process message");
-    }
-}
 export class InvalidMessagePayloadError extends Error {
     constructor(message?: string) {
         super(message || "Invalid message payload");
@@ -126,19 +114,5 @@ export class PayeeParticipantNotFoundError extends Error {
 export class RequiredParticipantIsNotActive extends Error {
     constructor(message?: string) {
         super(message || "Participant is not active");
-    }
-}
-
-
-export class TransferWouldExceedCreditsError extends Error{
-    constructor(message?: string) {
-        super(message || "Transfer would exceed credits");
-    }
-
-}
-
-export class TransferWouldExceedDebitsError extends Error{
-    constructor(message?: string) {
-        super(message || "Transfer would exceed debits");
     }
 }

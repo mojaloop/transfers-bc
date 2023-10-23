@@ -273,7 +273,7 @@ export type CommitBulkTransferFulfilCmdPayload = {
                     value: string;
                 }[]
             } | null;
-        }
+        } | null;
         extensionList: {
             extension: {
                 key: string;

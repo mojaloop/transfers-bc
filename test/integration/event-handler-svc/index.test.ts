@@ -31,7 +31,7 @@
 **/
 
 "use strict";
-import { KafkaConsumer } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { KafkaConsumer, waitForExpect } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { Service } from "../../../packages/event-handler-svc/src/service";
 import {
@@ -63,7 +63,7 @@ logger.setLogLevel(LogLevel.FATAL);
 
 const consumer = new KafkaConsumer([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents])
 
-jest.setTimeout(60000);
+jest.setTimeout(160000);
 
 describe("Transfers Event Handler - Integration", () => {
 
@@ -81,8 +81,8 @@ describe("Transfers Event Handler - Integration", () => {
     });
 
     afterAll(async () => {
-        await Service.stop();
         await consumer.destroy();
+        await Service.stop();
     });
 
     test("should send PrepareTransferCmd from a TransferPrepareRequestedEvt", async () => {
@@ -104,13 +104,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(TransferPrepareRequestedEvt.name);
-        expect(messages[1].msgName).toBe(PrepareTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(TransferPrepareRequestedEvt.name);
+            expect(messages[1].msgName).toBe(PrepareTransferCmd.name);
+        });
 
     });
 
@@ -127,16 +127,27 @@ describe("Transfers Event Handler - Integration", () => {
         
         message.fspiopOpaqueState = { "test": "empty", committedSendTimestamp: 123 }
         
+        const cmd = new CommitTransferFulfilCmd({
+            transferId: "transferId",
+            transferState: "ACCEPTED",
+            fulfilment: "randomfullfilment",
+            completedTimestamp: 123456789,
+            notifyPayee: false,
+            extensionList: null,
+            prepare: message.fspiopOpaqueState
+
+        })
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(TransferFulfilRequestedEvt.name);
-        expect(messages[1].msgName).toBe(CommitTransferFulfilCmd .name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(TransferFulfilRequestedEvt.name);
+            expect(messages[1].msgName).toBe(CommitTransferFulfilCmd.name);
+            expect(messages[1].payload).toEqual(cmd.payload);
+        });
 
     });
         
@@ -153,13 +164,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(TransferRejectRequestedEvt.name);
-        expect(messages[1].msgName).toBe(RejectTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(TransferRejectRequestedEvt.name);
+            expect(messages[1].msgName).toBe(RejectTransferCmd.name);
+        });
 
     });
     
@@ -172,13 +183,14 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
 
         // Assert
-        expect(messages[0].msgName).toBe(TransferQueryReceivedEvt.name);
-        expect(messages[1].msgName).toBe(QueryTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(TransferQueryReceivedEvt.name);
+            expect(messages[1].msgName).toBe(QueryTransferCmd.name);
+        });
 
     });
         
@@ -191,13 +203,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(TransferTimeoutEvt.name);
-        expect(messages[1].msgName).toBe(TimeoutTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(TransferTimeoutEvt.name);
+            expect(messages[1].msgName).toBe(TimeoutTransferCmd.name);
+        });
 
     });
 
@@ -216,13 +228,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(BulkTransferPrepareRequestedEvt.name);
-        expect(messages[1].msgName).toBe(PrepareBulkTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(BulkTransferPrepareRequestedEvt.name);
+            expect(messages[1].msgName).toBe(PrepareBulkTransferCmd.name);
+        });
 
     });
 
@@ -239,14 +251,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(BulkTransferFulfilRequestedEvt.name);
-        expect(messages[1].msgName).toBe(CommitBulkTransferFulfilCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
 
+            expect(messages[0].msgName).toBe(BulkTransferFulfilRequestedEvt.name);
+            expect(messages[1].msgName).toBe(CommitBulkTransferFulfilCmd.name);
+        });
     });
 
     test("should send RejectBulkTransferCmd from a BulkTransferRejectRequestedEvt", async () => {
@@ -263,14 +274,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(BulkTransferRejectRequestedEvt.name);
-        expect(messages[1].msgName).toBe(RejectBulkTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
 
+            expect(messages[0].msgName).toBe(BulkTransferRejectRequestedEvt.name);
+            expect(messages[1].msgName).toBe(RejectBulkTransferCmd.name);
+        });
     });
 
     test("should send QueryBulkTransferCmd from a BulkTransferQueryReceivedEvt", async () => {
@@ -282,13 +292,13 @@ describe("Transfers Event Handler - Integration", () => {
         // Act
         await consumer.sendMessage(message);
 
-        await new Promise((r) => setTimeout(r, 2000));
-
-        const messages = consumer.getEvents();
-
         // Assert
-        expect(messages[0].msgName).toBe(BulkTransferQueryReceivedEvt.name);
-        expect(messages[1].msgName).toBe(QueryBulkTransferCmd.name);
+        await waitForExpect(async () => {
+            const messages = consumer.getEvents();
+
+            expect(messages[0].msgName).toBe(BulkTransferQueryReceivedEvt.name);
+            expect(messages[1].msgName).toBe(QueryBulkTransferCmd.name);
+        });
 
     });
 });

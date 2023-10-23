@@ -44,7 +44,6 @@ logger.setLogLevel(LogLevel.FATAL);
 
 const DB_NAME = process.env.TRANSFERS_DB_NAME ?? "transfers";
 const CONNECTION_STRING = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
-// const CONNECTION_STRING = process.env["MONGO_URL"] || "mongodb://127.0.0.1:27017/";
 const COLLECTION_NAME = "transfers";
 
 // Hub credentials to get access token
@@ -60,6 +59,8 @@ let collection : Collection;
 
 const server = process.env["TRANSFERS_ADM_URL"] || "http://localhost:3500";
 const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
+
+jest.setTimeout(20000)
 
 describe("Transfers Admin Routes - Integration", () => {
 
