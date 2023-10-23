@@ -32,569 +32,2944 @@
 
 "use strict";
 
-// TODO: fix tests
-describe("Empty - RE-ENABLE", () => {
-    test("Empty - RE-ENABLE", async () => {
-        expect(true).toBeTruthy();
+
+import { IParticipantAccount } from '@mojaloop/participant-bc-public-types-lib';
+import { CommandMsg, IDomainMessage, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import { 
+    TransferFulfiledEvt,
+    TransferUnableToGetTransferByIdEvt,
+    TransferHubNotFoundFailedEvt,
+    TransferQueryResponseEvt,
+    TransferUnableToGetSettlementModelEvt,
+    TransferPayerNotFoundFailedEvt,
+    TransferPayeeNotFoundFailedEvt,
+    TransferHubAccountNotFoundFailedEvt,
+    TransferPayerPositionAccountNotFoundFailedEvt,
+    TransferPayeePositionAccountNotFoundFailedEvt,
+    TransferPayerLiquidityAccountNotFoundFailedEvt,
+    TransferPayeeLiquidityAccountNotFoundFailedEvt,
+    TransferUnableCreateReminderEvt,
+    TransferPrepareLiquidityCheckFailedEvt,
+    TransferPreparedEvt,
+    TransferCancelReservationFailedEvt,
+    TransferNotFoundEvt,
+    TransferUnableToUpdateEvt,
+    TransferPrepareRequestTimedoutEvt,
+    TransferRejectRequestProcessedEvt,
+    TransferCancelReservationAndCommitFailedEvt,
+    TransferBCUnableToAddBulkTransferToDatabaseEvt,
+    BulkTransferPreparedEvt,
+    BulkTransferNotFoundEvt,
+    TransferUnableToGetBulkTransferByIdEvt,
+    BulkTransferFulfiledEvt,
+    BulkTransferRejectRequestProcessedEvt,
+    BulkTransferQueryResponseEvt
+} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { mockedHubParticipant, mockedPayeeParticipant, mockedPayerParticipant } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { createCommand } from "../utils/helpers";
+import { messageProducer, transfersRepo, bulkTransfersRepo, participantService, accountsAndBalancesService, settlementsService, schedulingService, logger } from "../utils/mocked_variables";
+import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
+import { AccountType, CommitTransferFulfilCmd, ITransfer, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd, PrepareBulkTransferCmd, TransferState, TransfersAggregate, CommitBulkTransferFulfilCmd, RejectBulkTransferCmd, QueryBulkTransferCmd } from '../../src';
+import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
+import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
+import { waitForExpect, mockProperty, undoMockProperty } from '@mojaloop/transfers-bc-shared-mocks-lib';
+import { BulkTransferState, IBulkTransfer } from '../../dist';
+
+logger.setLogLevel(LogLevel.DEBUG);
+
+jest.mock('crypto', () => ({
+    ...jest.requireActual('crypto'),
+    randomUUID: jest.fn(() => '123'),
+}));
+
+let aggregate: TransfersAggregate;
+
+const validTransferPostPayload = {
+    "transferId": "0fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "payerFsp": "bluebank",
+    "payeeFsp": "greenbank",
+    "amount": "1",
+    "currencyCode": "USD",
+    "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+    "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+    "expiration": "2023-07-22T05:05:11.304Z"
+};
+
+const validTransferPostContinuePayload = {
+    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "payerFsp": "bluebank",
+    "payeeFsp": "greenbank",
+    "amount": "1",
+    "currencyCode": "USD",
+    "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+    "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+    "expiration": "2023-07-22T05:05:11.304Z"
+};
+
+const validTransferPutPayload = {
+    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "completedTimestamp": "2023-10-22T05:50:41.747Z",
+    "transferState": "COMMITTED",
+    "fulfilment": null,
+    "extensionList": null
+};
+
+const validBulkTransferPostPayload = {
+    "bulkTransferId": "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
+    "bulkQuoteId": "0fbee1f3-c58e-5afe-8cdd-6e65eea2fca9",
+    "payeeFsp": "greenbank",
+    "payerFsp": "bluebank",
+    "individualTransfers": [
+        {
+            "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+            "transferAmount": {
+                "currency": "USD",
+                "amount": "10"
+            },
+            "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+            "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg"
+        }
+    ],
+    "expiration": "2024-02-28T13:27:53.536Z"
+};
+
+const validBulkTransferPutPayload = {
+    bulkTransferId: "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
+	completedTimestamp: 1695659531251,
+	bulkTransferState: BulkTransferState.PROCESSING,
+    individualTransferResults: [{
+        "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+        fulfilment: null,
+        errorInformation: null,
+        extensionList: null
+    }]
+};
+
+const validRejectTransferPostPayload = {
+    "transferId": "2fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "errorInformation": {
+        "errorCode": "123456",
+        "errorDescription": "random error description",
+        "extensionList": null
+    }
+};
+
+const validRejectBulkTransferPostPayload = {
+    "bulkTransferId": "3fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "errorInformation": {
+        "errorCode": "123456",
+        "errorDescription": "random error description",
+        "extensionList": null
+    }
+};
+
+let validTransfer: ITransfer;
+let validBulkTransfer: IBulkTransfer;
+ 
+describe("Domain - Unit Tests for Command Handler", () => {
+
+    beforeEach(async () => {
+        const metricsMock: IMetrics = new MetricsMock();
+        aggregate = new TransfersAggregate(
+            logger,
+            transfersRepo as any,
+            bulkTransfersRepo as any,
+            participantService,
+            messageProducer,
+            accountsAndBalancesService,
+            metricsMock,
+            settlementsService,
+            schedulingService
+        );
+
+        validTransfer = {
+            createdAt: 1695659528072,
+            updatedAt: 1695659531251,
+            transferId: "0fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+            bulkTransferId: null,
+            payeeFspId: "greenbank",
+            payerFspId: "bluebank",
+            amount: "10.5",
+            currencyCode: "USD",
+            ilpPacket: "AYICSwAAAAAAAABkFGcuZ3JlZW5iYW5rLm1zaXNkbi4xggIqZXlKMGNtRnVjMkZqZEdsdmJrbGtJam9pTUdaaVlXWXhZVFV0WkRneVlpMDFZbUptTFRsbVptVXRPV1E0TldabFpEbGpabVE0SWl3aWNYVnZkR1ZKWkNJNklqSXlORE5tWkdKbExUVmtaV0V0TTJGaVpDMWhNakV3TFRNM09EQmxOMlkwWmpGbU5TSXNJbkJoZVdWbElqcDdJbkJoY25SNVNXUkpibVp2SWpwN0luQmhjblI1U1dSVWVYQmxJam9pVFZOSlUwUk9JaXdpY0dGeWRIbEpaR1Z1ZEdsbWFXVnlJam9pTVNJc0ltWnpjRWxrSWpvaVozSmxaVzVpWVc1ckluMTlMQ0p3WVhsbGNpSTZleUp3WVhKMGVVbGtTVzVtYnlJNmV5SndZWEowZVVsa1ZIbHdaU0k2SWsxVFNWTkVUaUlzSW5CaGNuUjVTV1JsYm5ScFptbGxjaUk2SWpFaUxDSm1jM0JKWkNJNkltSnNkV1ZpWVc1ckluMTlMQ0poYlc5MWJuUWlPbnNpWTNWeWNtVnVZM2tpT2lKVlUwUWlMQ0poYlc5MWJuUWlPaUl4SW4wc0luUnlZVzV6WVdOMGFXOXVWSGx3WlNJNmV5SnpZMlZ1WVhKcGJ5STZJa1JGVUU5VFNWUWlMQ0pwYm1sMGFXRjBiM0lpT2lKUVFWbEZVaUlzSW1sdWFYUnBZWFJ2Y2xSNWNHVWlPaUpDVlZOSlRrVlRVeUo5ZlEA",				// move to opaque object
+            condition: "VFWFNc85U0f23hniAuTmwk6XVVlR0llxRZ-xqPrCShk",
+            fulfilment: "on1meDEOvLmjYTvujP438_lhaMCi8V0wx0uUvjp8vT0",
+            expirationTimestamp: new Date("2023-09-19T06:23:25.908Z").getTime(),
+            transferState: TransferState.RESERVED,
+            completedTimestamp: 1695659531014,
+            extensionList: null,
+            errorInformation:  null,
+            settlementModel: "DEFAULT",
+            hash: "FMXpM1VNkEQKj8WGEgNXC5HpohnLJ/afDMFEYHHuUXw"
+        }
+
+        validBulkTransfer = {
+            bulkTransferId: "1bdc3ae0-d8a9-4c2c-befb-810c1a5bd01c",
+            bulkQuoteId: "3adc3be0-d8a9-4c2c-befb-810c1a5bd01c",
+            payeeFsp: "greenbank",
+            payerFsp: "bluebank",
+            completedTimestamp: 1697585442210,
+            individualTransfers: [ {
+                "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+                "transferAmount": {
+                    "currency": "USD",
+                    "amount": "10"
+                },
+                "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+                "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+                "extensionList": null
+            }],
+            expiration: 2697585442210,
+            extensionList: null,
+            transfersPreparedProcessedIds: [],
+            transfersNotProcessedIds: [],
+            transfersFulfiledProcessedIds: [],
+            status: BulkTransferState.RECEIVED,
+        }
+    })
+    afterEach(async () => {
+        jest.restoreAllMocks();
     });
+
+    afterAll(async () => {
+        jest.clearAllMocks();
+    });
+
+    // #region _prepareTransferStart
+    test("should not process command if command message type does not equal COMMAND", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(null, "fake msg name", null, MessageTypes.DOMAIN_EVENT);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
+
+    });
+
+    // test("should throw error when trying to process command", async () => {
+    //     // Arrange
+    //     const command: CommandMsg = createCommand(null, null, null, MessageTypes.COMMAND);
+
+    //     jest.spyOn(messageProducer, "send")
+
+    //     // Act & Assert
+    //     await expect(aggregate.processCommandBatch([command])).rejects.toThrowError();
+    // });
+
+    test("should now process command if not of type command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, "fake msg name", null);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "payload": {
+                "errorDescription": `Command type is unknown: ${command.msgName}`, 
+                "payerFspId": undefined, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw TransferUnableToGetTransferByIdEvt error processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => { throw Error(); };
+            return userProfile;
+        }))
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`, 
+                "payerFspId": undefined, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+    
+    test("should throw TransferUnableToGetTransferByIdEvt error processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => { throw Error(); };
+            return userProfile;
+        }))
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`, 
+                "payerFspId": undefined, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+    test("should ignore when transfer with RECEIVED state is found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => {
+                validTransfer.transferState = TransferState.RECEIVED;
+                return validTransfer;
+            };
+            return userProfile;
+        }))
+          
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+    test("should ignore when transfer with RESERVED state is found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => { 
+                return validTransfer; 
+            };
+            return userProfile;
+        }))
+          
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+    test("should return transfer when transfer with COMMITTED state is found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => {
+                validTransfer.transferState = TransferState.COMMITTED;
+                return validTransfer; 
+            };
+            return userProfile;
+        }));
+          
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferQueryResponseEvt.name,
+            "payload": {
+                "completedTimestamp": validTransfer.completedTimestamp,
+                "extensionList": validTransfer.extensionList,
+                "fulfilment": validTransfer.fulfilment,
+                "transferId": validTransfer.transferId,
+                "transferState": validTransfer.transferState
+            }
+        })]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+    
+    test("should return transfer when transfer with ABORTED state is found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, ITransfer>;
+            userProfile.get = () => {
+                validTransfer.transferState = TransferState.ABORTED;
+                return validTransfer; 
+            };
+            return userProfile;
+        }));
+          
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferQueryResponseEvt.name,
+            "payload": {
+                "completedTimestamp": validTransfer.completedTimestamp,
+                "extensionList": validTransfer.extensionList,
+                "fulfilment": validTransfer.fulfilment,
+                "transferId": validTransfer.transferId,
+                "transferState": validTransfer.transferState
+            }
+        })]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+    test("should return error getting settlement model id processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(settlementsService, "getSettlementModelId")
+            .mockImplementationOnce(() => { throw Error(); })
+         
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetSettlementModelEvt.name,
+            "payload": expect.objectContaining({
+                "errorDescription": `Unable to get settlementModel for transferId: ${command.payload.transferId}`,
+                "transferId": command.payload.transferId
+            })
+        })]);
+
+    });
+
+    test("should return error getting settlement model id processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(settlementsService, "getSettlementModelId")
+            .mockImplementationOnce(() => { throw Error(); })
+         
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetSettlementModelEvt.name,
+            "payload": expect.objectContaining({
+                "errorDescription": `Unable to get settlementModel for transferId: ${command.payload.transferId}`,
+                "transferId": command.payload.transferId
+            })
+        })]);
+
+    });
+    
+    test("should throw when hub participant is not found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferHubNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
+                "payerFspId": undefined, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when payer participant is not found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayerNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                "payerFspId": command.payload.payerFsp, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when payee participant is not found processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayeeNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payee participant not found ${command.payload.payeeFsp} for transfer ${command.payload.transferId}`, 
+                "payeeFspId": command.payload.payeeFsp, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when hub participant has no matching hub account processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const hubParticipantWithNoAccounts = { ...mockedHubParticipant };
+        hubParticipantWithNoAccounts.participantAccounts = hubParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.HUB && value.currencyCode !== command.payload.currencyCode);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(hubParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferHubAccountNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Hub account not found for transfer ${command.payload.transferId}`, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when payer participant has no matching position account processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const payerParticipantWithNoAccounts = { ...mockedPayerParticipant };
+        payerParticipantWithNoAccounts.participantAccounts = payerParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.POSITION);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(payerParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayerPositionAccountNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payer position account not found: transferId: ${command.payload.transferId}, payer: ${command.payload.payerFsp}`,
+                "payerFspId": command.payload.payerFsp,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when payer participant has no matching liquidity account processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const payerParticipantWithNoAccounts = { ...mockedPayerParticipant };
+        payerParticipantWithNoAccounts.participantAccounts = payerParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.SETTLEMENT);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(payerParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayerLiquidityAccountNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payer liquidity account not found: transferId: ${command.payload.transferId}, payer: ${command.payload.payerFsp}`,
+                "payerFspId": command.payload.payerFsp,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+    
+    test("should throw when payee participant has no matching position account processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const payeeParticipantWithNoAccounts = { ...mockedPayeeParticipant };
+        payeeParticipantWithNoAccounts.participantAccounts = [];
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(payeeParticipantWithNoAccounts);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayeePositionAccountNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payee position account not found: transferId: ${command.payload.transferId}, payee: ${command.payload.payeeFsp}`,
+                "payeeFspId": command.payload.payeeFsp,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+    
+    
+    test("should throw when payee participant has no matching liquidity account processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const payeeParticipantWithNoAccounts = { ...mockedPayeeParticipant };
+        payeeParticipantWithNoAccounts.participantAccounts = payeeParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.SETTLEMENT);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(payeeParticipantWithNoAccounts);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayeeLiquidityAccountNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payee liquidity account not found: transferId: ${command.payload.transferId}, payee: ${command.payload.payeeFsp}`,
+                "payeeFspId": command.payload.payeeFsp,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+    // #region
+    
+    // #region _prepareTransferContinue
+    test("should throw when trying to schedule a reminder processing PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(schedulingService, "createSingleReminder")
+            .mockImplementationOnce(() => { throw Error(); })
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        await Promise.resolve();
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableCreateReminderEvt.name,
+            "payload": {
+                "errorDescription": `Unable to create reminder for transferId: ${command.payload.transferId}`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    // test("should throw when not finding a the originalCmdMsg in batchCommand list processing PrepareTransferCmd command", async () => {
+    //     // Arrange
+    //     const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+    //     jest.spyOn(messageProducer, "send");
+
+    //     jest.spyOn(participantService, "getParticipantInfo")
+    //         .mockResolvedValueOnce(mockedHubParticipant)
+    //         .mockResolvedValueOnce(mockedPayerParticipant)
+    //         .mockResolvedValueOnce(mockedPayeeParticipant);
+
+    //     jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+    //         .mockResolvedValueOnce([{
+    //             requestType: 0, 
+    //             requestId: '123', 
+    //             success: true, errorMessage: null
+    //         }]);
+
+    //     Object.defineProperty(aggregate, "_batchCommands", {
+    //         get: jest.fn(() => {
+    //           let userProfile = {} as Map<string, IDomainMessage>;
+    //           userProfile.set = () => { return undefined as any };
+    //           userProfile.get = () => { return undefined; };
+    //           userProfile.clear = () => { return undefined };
+    //           return userProfile;
+    //         }),
+    //         configurable: true,
+    //       });
+
+    //     // Act & Assert
+    //     try {
+    //         await expect(aggregate.processCommandBatch([command])).rejects.toBeTruthy();
+    //     } catch(e: unknown) {
+    //         expect(e).toContainEqual("UnhandledPromiseRejection")
+    //     }
+
+    // });
+
+    test("should throw transfer not found error processing PrepareTransferCmd command continue when processHighLevelBatch", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementationOnce(() => { throw Error(); })
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IDomainMessage>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => { return undefined; };
+            userProfile.clear = () => { return undefined };
+            return userProfile;
+        }))
+        
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([
+            expect.objectContaining({
+                "msgName": TransferUnableToGetTransferByIdEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository - error: null`, 
+                    "payerFspId": undefined, 
+                    "transferId": command.payload.transferId
+                }
+            }),
+            expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })
+        ]);
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+
+    test("should throw liquidity check failed with request error message processing PrepareTransferCmd command continue when processHighLevelBatch is unsuccessful", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const request = {
+            requestType: 0, 
+            requestId: '123', 
+            success: false,
+            errorMessage: "random error message"
+        };
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([request])
+        
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPrepareLiquidityCheckFailedEvt.name,
+            "payload": {
+                "errorDescription": request.errorMessage,
+                "payerFspId": command.payload.payerFsp,
+                "transferId": command.payload.transferId,
+                "amount": command.payload.amount,
+                "currency": command.payload.currencyCode
+            }
+        })]);
+    });
+
+    test("should successfully process PrepareTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        const cmd = new PrepareTransferCmd({
+            bulkTransferId: null,
+            transferId: validTransferPostPayload.transferId,
+            amount: validTransferPostPayload.amount,
+            currencyCode: validTransferPostPayload.currencyCode,
+            payeeFsp: validTransferPostPayload.payeeFsp,
+            payerFsp: validTransferPostPayload.payerFsp,
+            ilpPacket: validTransferPostPayload.ilpPacket,
+            expiration: validTransferPostPayload.expiration as any,
+            condition: command.payload.condition,
+            extensionList: null,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPreparedEvt.name,
+                "payload": expect.objectContaining({
+                    "transferId": cmd.payload.transferId,
+                    "payerFsp": cmd.payload.payerFsp,
+                    "payeeFsp": cmd.payload.payeeFsp,
+                    "condition": cmd.payload.condition,
+                    "currencyCode": cmd.payload.currencyCode,
+                    "expiration": cmd.payload.expiration,
+                    "ilpPacket": cmd.payload.ilpPacket
+                })
+            })]);
+    });
+    // #endregion
+
+    // #region _fulfilTransferStart
+    test("should throw when trying to retrieve a transfer from the repo processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw when not finding corresponding transfer and not able to cancel transfer processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferCancelReservationFailedEvt.name,
+            "payload": {
+                "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw when hub participant is not found and not able to cancel transfer processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when hub participant is not found processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
+                    "payerFspId": undefined, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when payer participant is not found processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+    
+    test("should throw when payee participant is not found processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payee participant not found ${command.payload.payeeFsp} for transfer ${command.payload.transferId}`, 
+                    "payeeFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+        
+    test("should throw when hub participant has no matching hub account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const hubParticipantWithNoAccounts = { ...mockedHubParticipant };
+        hubParticipantWithNoAccounts.participantAccounts = hubParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.HUB && value.currencyCode !== command.payload.currencyCode);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(hubParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Hub account not found for transfer ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when payer participant has no matching position account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const payerParticipantWithNoAccounts = { ...mockedPayerParticipant };
+        payerParticipantWithNoAccounts.participantAccounts = payerParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.POSITION);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(payerParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerPositionAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer position account not found: transferId: ${command.payload.transferId}, payer: ${command.payload.payerFsp}`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+    
+    test("should throw when payer participant has no matching position account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const payerParticipantWithNoAccounts = { ...mockedPayerParticipant };
+        payerParticipantWithNoAccounts.participantAccounts = payerParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.POSITION);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(payerParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerPositionAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer position account not found: transferId: ${command.payload.transferId}, payer: ${command.payload.payerFsp}`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when payer participant has no matching liquidity account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const payerParticipantWithNoAccounts = { ...mockedPayerParticipant };
+        payerParticipantWithNoAccounts.participantAccounts = payerParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.SETTLEMENT);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(payerParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerLiquidityAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer liquidity account not found: transferId: ${command.payload.transferId}, payer: ${command.payload.payerFsp}`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when payee participant has no matching position account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const payeeParticipantWithNoAccounts = { ...mockedPayeeParticipant };
+        payeeParticipantWithNoAccounts.participantAccounts = payeeParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.POSITION);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(payeeParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeePositionAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payee position account not found: transferId: ${command.payload.transferId}, payee: ${command.payload.payeeFsp}`,
+                    "payeeFspId": command.payload.payeeFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when payee participant has no matching liquidity account processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const payeeParticipantWithNoAccounts = { ...mockedPayeeParticipant };
+        payeeParticipantWithNoAccounts.participantAccounts = payeeParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.SETTLEMENT);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(payeeParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeLiquidityAccountNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payee liquidity account not found: transferId: ${command.payload.transferId}, payee: ${command.payload.payeeFsp}`,
+                    "payeeFspId": command.payload.payeeFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+
+    test("should throw when hub participant account is not found and not able to cancel transfer processing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        const hubParticipantWithNoAccounts = { ...mockedHubParticipant };
+        hubParticipantWithNoAccounts.participantAccounts = hubParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.HUB && value.currencyCode !== command.payload.currencyCode);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+        
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(hubParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+
+    });
+    // #endregion
+
+    // #region _fulfilTTransferContinue
+    test("should throw error for no success continuing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+        
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: false,
+                errorMessage: null
+            }]);
+            
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationAndCommitFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to commit transfer for transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+    
+    test("should throw error while canceling transfer when not being able to process CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+        
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: false,
+                errorMessage: null
+            }]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should throw error for no success continuing CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+        
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: false,
+                errorMessage: null
+            }]);
+            
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationAndCommitFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to commit transfer for transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+    
+    test("should successfully process CommitTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPutPayload, CommitTransferFulfilCmd.name, null);
+
+        const cmd = new CommitTransferFulfilCmd({
+            transferId: validTransferPostContinuePayload.transferId,
+            transferState: validTransferPutPayload.transferState,
+            fulfilment: validTransferPutPayload.fulfilment,
+            completedTimestamp: validTransferPutPayload.completedTimestamp as any,
+            extensionList: validTransferPutPayload.extensionList,
+            notifyPayee: false,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+        
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferFulfiledEvt.name,
+                "payload": expect.objectContaining({
+                    "transferId": cmd.payload.transferId,
+                    "fulfilment": cmd.payload.fulfilment,
+                    "completedTimestamp": cmd.payload.completedTimestamp as any,
+                    "extensionList": cmd.payload.extensionList,
+                })
+            })]);
+        });
+
+    });
+    // #endregion
+
+    // #region _prepareBulkTransferStart
+    test("should throw TransferBCUnableToAddBulkTransferToDatabaseEvt error processing PrepareBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "addBulkTransfer")
+            .mockImplementationOnce(() => { throw Error(); })
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferBCUnableToAddBulkTransferToDatabaseEvt.name,
+            "payload": {
+                "errorDescription": expect.stringContaining(`Error adding bulk transfer ${command.payload.bulkTransferId} to database: `), 
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    }); 
+    // #region
+
+    // #region _prepareBulkTransferContinue
+    test("should throw error while fetching bulk transfer processing PrepareBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(null);
+            
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferNotFoundEvt.name,
+                "payload": {
+                    "errorDescription": `Could not find corresponding bulk transfer with id: ${validBulkTransferPostPayload.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`,
+                    "bulkTransferId": validBulkTransferPostPayload.bulkTransferId
+                }
+            })]);
+        });
+    });
+
+    test("should throw error if found bulk transfers is null processing PrepareBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to get bulk transferId: ${validBulkTransferPostPayload.bulkTransferId} from repository`,
+                    "bulkTransferId": validBulkTransferPostPayload.bulkTransferId
+                }
+            })]);
+        });
+    });
+    
+    test("should throw error if fulfil has zero individual transfers processing PrepareBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferNotFoundEvt.name,
+                "payload": {
+                    "errorDescription": `BulkTransferId: ${validBulkTransfer.bulkTransferId} has no associated transfers`,
+                    "transferId": validBulkTransfer.bulkTransferId
+                }
+            })]);
+        });
+    });
+    
+    test("should successfully process PrepareBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        const cmd = new PrepareBulkTransferCmd({
+            bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
+            bulkQuoteId: validBulkTransferPostPayload.bulkQuoteId,
+            payeeFsp: validBulkTransferPostPayload.payeeFsp,
+            payerFsp: validBulkTransferPostPayload.payerFsp,
+            individualTransfers: validBulkTransferPostPayload.individualTransfers as any,
+            expiration: validBulkTransferPostPayload.expiration as any,
+            extensionList: null,
+            prepare: null as any
+    
+        })
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }]);
+
+        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IBulkTransfer>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => {
+                validBulkTransfer.bulkTransferId = validBulkTransferPostPayload.bulkTransferId;
+                validBulkTransfer.transfersPreparedProcessedIds = [];
+                return validBulkTransfer;
+            };
+            userProfile.clear = () => { return undefined };
+            return userProfile;
+        }))
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferPreparedEvt.name,
+                "payload": expect.objectContaining({
+                    "bulkTransferId": cmd.payload.bulkTransferId,
+                    "bulkQuoteId": cmd.payload.bulkQuoteId,
+                    "expiration": cmd.payload.expiration,
+                    "individualTransfers": [{
+                        "transferId": cmd.payload.individualTransfers[0].transferId,
+                        "amount": cmd.payload.individualTransfers[0].transferAmount.amount,
+                        "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+                        "currencyCode": cmd.payload.individualTransfers[0].transferAmount.currency,
+                        "ilpPacket": cmd.payload.individualTransfers[0].ilpPacket,
+                        "extensionList": cmd.payload.individualTransfers[0].extensionList
+                    }]
+                })
+            })]);
+        });
+        
+        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
+    });
+    // #region
+
+    // #region _fulfilBulkTransferStart
+    test("should throw TransferUnableToGetBulkTransferByIdEvt error processing CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(() => { throw Error(); })
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for bulk transferId: ${command.payload.bulkTransferId} from repository`, 
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    }); 
+
+    test("should throw BulkTransferNotFoundEvt error processing CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": BulkTransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `Could not find corresponding bulk transfer with id: ${command.payload.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`, 
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    }); 
+    // #region
+    
+    // #region _fulfilBulkTransferContinue
+    test("should throw when trying to retrieve a bulk transfer from the repo processing continue CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+            
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(async () => validBulkTransfer)
+            .mockImplementationOnce(() => { throw Error(); });
+            
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validBulkTransfer.individualTransfers[0], bulkTransferId: validBulkTransferPutPayload.bulkTransferId, currencyCode: "USD" } as any);
+
+        jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
+
+        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IBulkTransfer>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => { return undefined; };
+            return userProfile;
+        }))
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to get transfer record for bulk transferId: ${command.payload.bulkTransferId} from repository`,
+                    "bulkTransferId": command.payload.bulkTransferId
+                }
+            })]);
+        });
+        
+        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
+    });
+
+    test("should throw when retrieving a null bulk transfer processing continue CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+            
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer)
+            .mockResolvedValue(null);
+            
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validBulkTransfer.individualTransfers[0], bulkTransferId: validBulkTransferPutPayload.bulkTransferId, currencyCode: "USD" } as any);
+
+        jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
+
+        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IBulkTransfer>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => { return undefined; };
+            return userProfile;
+        }))
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferNotFoundEvt.name,
+                "payload": {
+                    "errorDescription": `Could not find corresponding bulk transfer with id: ${command.payload.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`,
+                    "bulkTransferId": command.payload.bulkTransferId
+                }
+            })]);
+        });
+        
+        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
+    });
+    
+    test("should successfully process CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
+
+        const cmd = new CommitBulkTransferFulfilCmd({
+            bulkTransferId: validBulkTransferPutPayload.bulkTransferId,
+            completedTimestamp: validBulkTransferPutPayload.completedTimestamp,
+            bulkTransferState: validBulkTransferPutPayload.bulkTransferState as any,
+            individualTransferResults: validBulkTransferPutPayload.individualTransferResults,
+            extensionList: null,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+                requestId: '123',
+                success: true,
+                errorMessage: null
+            }]);
+            
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(async () => validBulkTransfer)
+            .mockImplementationOnce(() => { throw Error(); });
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validBulkTransfer.individualTransfers[0], bulkTransferId: validBulkTransferPutPayload.bulkTransferId, currencyCode: "USD" } as any);
+
+        jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
+
+        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IBulkTransfer>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => {
+                validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
+                validBulkTransfer.transfersPreparedProcessedIds = [];
+                return validBulkTransfer;
+            };
+            userProfile.clear = () => { return undefined };
+            return userProfile;
+        }))
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferFulfiledEvt.name,
+                "payload": expect.objectContaining({
+                    "bulkTransferId": cmd.payload.bulkTransferId,
+                    "completedTimestamp": cmd.payload.completedTimestamp,
+                    "bulkTransferState": cmd.payload.bulkTransferState,
+                    "individualTransferResults": cmd.payload.individualTransferResults,
+                })
+            })]);
+        });
+        
+        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
+    });
+    // #region
+
+    // #region _rejectTransfer
+    test("should throw when trying to retrieve a transfer from the repo processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, RejectTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw when retrieving a null transfer processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, RejectTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `TransferId: ${command.payload.transferId} could not be found`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw when hub participant is not found processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, RejectTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
+                    "payerFspId": undefined, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should throw when payer participant is not found processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, RejectTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any);
+            
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should throw when payee participant is not found processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, RejectTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotFoundFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Payee participant not found ${command.payload.payeeFsp} for transfer ${command.payload.transferId}`, 
+                    "payeeFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should throw when on cancelTransfer transfer is not found processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, RejectTransferCmd.name, null);
+        const hubParticipantWithNoAccounts = { ...mockedHubParticipant };
+        hubParticipantWithNoAccounts.participantAccounts = hubParticipantWithNoAccounts.participantAccounts.filter((value: IParticipantAccount) => (value.type as string) !== AccountType.HUB && value.currencyCode !== command.payload.currencyCode);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(hubParticipantWithNoAccounts)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferCancelReservationFailedEvt.name,
+                "payload": {
+                    "errorDescription": `Unable to cancel reservation with transferId: ${command.payload.transferId}`, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+    
+    test("should throw when on cancelTransfer transfer is able to update transfer processing RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, RejectTransferCmd.name, null);
+    
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any)
+            .mockResolvedValue(validTransfer as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "updateTransfer")
+            .mockImplementationOnce(async () => { return; })
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferUnableToUpdateEvt.name,
+                "payload": {
+                    "errorDescription": `Error updating transfer for transferId: ${command.payload.transferId}.`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should successfully process RejectTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validRejectTransferPostPayload, RejectTransferCmd.name, null);
+
+        const cmd = new RejectTransferCmd({
+            transferId: validRejectTransferPostPayload.transferId,
+            errorInformation: validRejectTransferPostPayload.errorInformation,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(validTransfer as any)
+            .mockResolvedValue(validTransfer as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferRejectRequestProcessedEvt.name,
+                "payload": expect.objectContaining({
+                    "transferId": cmd.payload.transferId,
+                    "errorInformation": cmd.payload.errorInformation
+                })
+            })]);
+        });
+    });
+    // #endregion
+
+    // #region _rejectBulkTransfer
+    test("should throw when trying to retrieve a transfer from the repo processing RejectBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, RejectBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for bulk transferId: ${command.payload.bulkTransferId} from repository`,
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+
+    test("should throw when not finding corresponding bulk transfer processing RejectBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, RejectBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValueOnce(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": BulkTransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `Could not find corresponding bulk transfer with id: ${command.payload.bulkTransferId}`,
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+
+    test("should throw when trying to retrieve all transfers from a bulk transfer processing RejectBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, RejectBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValueOnce(validBulkTransfer);
+
+        jest.spyOn(transfersRepo, "getTransfersByBulkId")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for bulkTransferId: ${command.payload.bulkTransferId} from repository`,
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+
+    test("should sucessfully process RejectBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validRejectBulkTransferPostPayload, RejectBulkTransferCmd.name, null);
+
+        const cmd = new RejectBulkTransferCmd({
+            bulkTransferId: validRejectBulkTransferPostPayload.bulkTransferId,
+            errorInformation: validRejectBulkTransferPostPayload.errorInformation,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValueOnce(validBulkTransfer);
+
+        jest.spyOn(transfersRepo, "getTransfersByBulkId")
+            .mockResolvedValueOnce([validTransfer] as any);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, bulkTransferId: command.payload.bulkTransferId } as any)
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant)
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferRejectRequestProcessedEvt.name,
+                "payload": expect.objectContaining({
+                    "errorInformation": cmd.payload.errorInformation,
+                    "bulkTransferId": cmd.payload.bulkTransferId
+                })
+            })]);
+        });
+
+    });
+    // #endregion
+
+    // #region _queryTransfer
+    test("should throw when hub participant is not found processing QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferHubNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Hub not found hub for transfer ${command.payload.transferId}`, 
+                "payerFspId": undefined, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+
+    test("should throw when payer participant is not found processing QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayerNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                "payerFspId": command.payload.payerFsp, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when payee participant is not found processing QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayeeNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payee participant not found ${command.payload.payerFsp} for transfer ${command.payload.transferId}`, 
+                "payeeFspId": command.payload.payerFsp, 
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should throw when trying to find transfer when processing QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+    
+    test("should throw when get transfer is null processing QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `TransferId: ${command.payload.transferId} could not be found`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+    });
+
+    test("should successfully process QueryTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        const cmd = new QueryTransferCmd({
+            transferId: validTransferPostContinuePayload.transferId,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferQueryResponseEvt.name,
+                "payload": expect.objectContaining({
+                    "transferId": cmd.payload.transferId,
+                    "transferState": TransferState.RESERVED
+                })
+            })]);
+        });
+
+    });
+    
+    // #endregion
+
+    // #region _queryBulkTransfer
+    test("should throw when trying to retrieve a bulk transfer processing continue QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for bulk transferId: ${command.payload.bulkTransferId} from repository`, 
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+    
+    test("should throw when not finding corresponding bulk transfer processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": BulkTransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `Could not find corresponding bulk transfer with id: ${command.payload.bulkTransferId}`, 
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+
+    test("should throw when hub participant is not found processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferHubNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Hub not found hub for transfer ${command.payload.bulkTransferId}`, 
+                "transferId": command.payload.bulkTransferId
+            }
+        })]);
+
+    });
+
+    test("should throw when payer participant is not found processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayerNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payer participant not found ${command.payload.payerFsp} for transfer ${command.payload.bulkTransferId}`, 
+                "payerFspId": command.payload.payerFsp, 
+                "transferId": command.payload.bulkTransferId
+            }
+        })]);
+    });
+
+    test("should throw when payee participant is not found processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPayeeNotFoundFailedEvt.name,
+            "payload": {
+                "errorDescription": `Payee participant not found ${command.payload.payerFsp} for transfer ${command.payload.bulkTransferId}`, 
+                "payeeFspId": command.payload.payerFsp, 
+                "transferId": command.payload.bulkTransferId
+            }
+        })]);
+    });
+
+    test("should throw when trying to find bulk transfer when processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransfersByBulkId")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for bulkTransferId: ${command.payload.bulkTransferId} from repository`,
+                "bulkTransferId": command.payload.bulkTransferId
+            }
+        })]);
+    });
+    
+    test("should throw when get bulk transfer is null processing QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue(validBulkTransfer);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransfersByBulkId")
+            .mockResolvedValue([]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferNotFoundEvt.name,
+            "payload": {
+                "errorDescription": `BulkTransferId: ${command.payload.bulkTransferId} has no associated transfers`,
+                "transferId": command.payload.bulkTransferId
+            }
+        })]);
+    });
+
+    test("should successfully process QueryBulkTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+        const cmd = new QueryBulkTransferCmd({
+            bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+        
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
+            .mockResolvedValue({ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as any);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransfersByBulkId")
+            .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as any]);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferQueryResponseEvt.name,
+                "payload": expect.objectContaining({
+                    "bulkTransferId": cmd.payload.bulkTransferId,
+                    "bulkTransferState": BulkTransferState.RECEIVED
+                })
+            })]);
+        });
+    });
+    // #endregion
+
+    // #region _timeoutTransfer
+    test("should throw when trying to find transfer when processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, null);
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementationOnce(() => { throw Error(); });
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToGetTransferByIdEvt.name,
+            "payload": {
+                "errorDescription": `Unable to get transfer record for transferId: ${command.payload.transferId} from repository`,
+                "transferId": command.payload.transferId
+            }
+        })]);
+
+    });
+    // #endregion
+
+    test("should not do anything if transfer is null processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
+    });
+
+    
+    test("should not do anything if transfer is null processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue(null);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
+    });
+
+    
+    test("should not do anything if found transfer is COMMITTED processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferState: TransferState.COMMITTED } as any);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledTimes(0);
+    });
+    
+    test("should not do anything if found transfer is ABORTED processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferState: TransferState.ABORTED } as any);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledTimes(0);
+    });
+
+    
+    test("should throw error while updating transfer for RECEIVED transfer processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferState: TransferState.RECEIVED } as any);
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferUnableToUpdateEvt.name,
+                "payload": {
+                    "errorDescription": `Error deleting reminder for transferId: ${command.payload.transferId}.`,
+                    "payerFspId": command.payload.payerFsp,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
+    });
+
+    test("should timeout transfer with RECEIVED state processing TimeoutTransferCmd command", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "bluebank" });
+
+        const cmd = new TimeoutTransferCmd({
+            transferId: validTransferPostContinuePayload.transferId,
+            timeout: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId, transferState: TransferState.RECEIVED } as any);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
+
+        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
+            let userProfile = {} as Map<string, IDomainMessage>;
+            userProfile.set = () => { return undefined as any };
+            userProfile.get = () => { return undefined; };
+            userProfile.clear = () => { return undefined };
+            return userProfile;
+        }));
+        
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPrepareRequestTimedoutEvt.name,
+                "payload": expect.objectContaining({
+                    "transferId": cmd.payload.transferId,
+                })
+            })]);
+        });
+
+        undoMockProperty(aggregate, "_transfersCache" as any)
+    });
+
+
 });
-
-
-
-
-
-
-// import { CommandMsg } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-public-types-lib";
-// import { TransferFulfiledEvtPayload, TransferErrorEvtPayload, TransferPreparedEvtPayload, TransferPrepareRequestedEvt, TransferPrepareRequestedEvtPayload} from "@mojaloop/platform-shared-lib-public-messages-lib";
-// import { InvalidParticipantIdError, NoSuchAccountError, NoSuchParticipantError, RequiredParticipantIsNotActive} from "../../src/errors";
-// import { TransferState } from '../../src/types';
-// import { createCommand,  createTransferFulfiledEvtPayload,  createTransferPreparedEvtPayload } from "../utils/helpers";
-// import { aggregate, transferRepo, messageProducer, participantService, accountsAndBalancesService } from "../utils/mocked_variables";
-// import { mockedTransfer1, mockedTransfer2 } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import {
-	PrepareTransferCmd,
-	TransfersAggregate,
-	CommitTransferFulfilCmd
-} from "@mojaloop/transfers-bc-domain-lib";
-import { NoSuchTransferError } from "@mojaloop/transfers-bc-implementations-lib";
-
-const mockedParticipantAccountHub = {
-    id: "1",
-    type: "HUB_RECONCILIATION",
-    currencyCode: "EUR",
-    debitBalance: 100,
-    creditBalance: 100,
-} as unknown as IParticipantAccount
-
-const mockedParticipantAccountHubNonExisting = {
-    id: "1",
-    type: "HUB_WRONG_TYPE",
-    currencyCode: "EUR",
-    debitBalance: 100,
-    creditBalance: 100,
-} as unknown as IParticipantAccount
-
-const mockedParticipantAccountPosition = {
-    id: "1",
-    type: "POSITION",
-    currencyCode: "EUR",
-    debitBalance: 100,
-    creditBalance: 100,
-} as unknown as IParticipantAccount
-
-const mockedParticipantAccountSettlement = {
-    id: "1",
-    type: "SETTLEMENT",
-    currencyCode: "EUR",
-    debitBalance: 100,
-    creditBalance: 100,
-} as unknown as IParticipantAccount
-
-describe("Domain - Unit Tests for Transfer Events", () => {
-
-    // afterEach(async () => {
-    //     jest.restoreAllMocks();
-    // });
-
-    // afterAll(async () => {
-    //     jest.clearAllMocks();
-    // });
-
-    // //#region handleTransferPreparedEvt
-    // test("handleTransferPreparedEvt - should publish error command if participants list is empty", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = NoSuchParticipantError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent : PrepareTransferCmd.name,
-	// 	};
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //     .mockResolvedValueOnce(mockedTransfer.id);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([]);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-
-    // });
-
-    // test("handleTransferPreparedEvt - should publish error command if participant is invalid", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = InvalidParticipantIdError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent : PrepareTransferCmd.name,
-	// 	};
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //     .mockResolvedValueOnce(mockedTransfer.id);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //     .mockResolvedValueOnce([{ id: "not matching", type: "DFSP", isActive: false} as IParticipant as any]);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-
-    // });
-
-    // test("handleTransferPreparedEvt - should publish error command if participant is not active", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = RequiredParticipantIsNotActive.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent : PrepareTransferCmd.name,
-	// 	};
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //     .mockResolvedValueOnce(mockedTransfer.id);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //     .mockResolvedValueOnce([
-    //         { id: "payee", type: "DFSP", isActive: false} as IParticipant as any,
-    //     ]);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-
-    // });
-
-
-    // test("handleTransferPreparedEvt - should error on not finding all accounts", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = NoSuchAccountError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent : PrepareTransferCmd.name,
-	// 	};
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //         .mockResolvedValueOnce("inserted transfer id");
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([
-    //             { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHubNonExisting] } as IParticipant as any,
-    //             { id: requesterFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
-    //             { id: destinationFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
-    //         ]);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-
-    // });
-
-    // test("handleTransferPreparedEvt - should add transfer to transfer repo", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-    //     const payload:TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const payerFspId = "payer";
-    //     const payeeFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         payerFspId,
-    //         payeeFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([
-    //             { id: "payer", type: "DFSP", isActive: true} as IParticipant as any,
-    //             { id: "payee", type: "DFSP", isActive: true} as IParticipant as any
-    //     ])
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //         .mockResolvedValueOnce(mockedTransfer.transferId);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(transferRepo.addTransfer).toHaveBeenCalled();
-    //     expect(transferRepo.addTransfer).toHaveBeenCalledWith(expect.objectContaining({
-    //         transferId: mockedTransfer.transferId,
-    //         transferState: TransferState.RECEIVED
-    //     }));
-
-    // });
-
-    // test("handleTransferPreparedEvt - should publish TransferRequestAcceptedEvt if event runs successfully", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-    //     const payload:TransferPrepareRequestedEvtPayload = createTransferPreparedEvtPayload(mockedTransfer);
-
-    //     const payerFspId = "payer";
-    //     const payeeFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         payerFspId,
-    //         payeeFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, PrepareTransferCmd.name, fspiopOpaqueState);
-
-    //     const responsePayload: TransferPreparedEvtPayload = {
-    //         transferId: mockedTransfer.transferId,
-    //         payeeFsp: mockedTransfer.payeeFspId,
-    //         payerFsp: mockedTransfer.payerFspId,
-    //         amount: mockedTransfer.amount,
-    //         currencyCode: mockedTransfer.currencyCode,
-    //         ilpPacket: mockedTransfer.ilpPacket,
-    //         condition: mockedTransfer.condition,
-    //         expiration: mockedTransfer.expirationTimestamp,
-    //         extensionList: mockedTransfer.extensionList
-    //     };
-
-    //     jest.spyOn(transferRepo, "addTransfer")
-    //         .mockResolvedValueOnce("inserted transfer id");
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([
-    //             { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub] } as IParticipant as any,
-    //             { id: payerFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
-    //             { id: payeeFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
-    //         ]);
-
-    //     jest.spyOn(transferRepo, "updateTransfer")
-    //         .mockResolvedValue();
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": responsePayload,
-    //     }));
-
-    // });
-
-    // //#endregion
-
-    // //#region handleTransferFulfillEvt
-
-    // test("handleTransferFulfillEvt - should publish error command if transfer to fulfill is not found", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = NoSuchTransferError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent: CommitTransferFulfilCmd.name,
-	// 	};
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transferRepo, "getTransferById")
-    //         .mockResolvedValueOnce(null);
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-    // });
-
-    // test("handleTransferFulfillEvt - should publish error command if transfer to fulfill is not found", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = NoSuchParticipantError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent: CommitTransferFulfilCmd.name,
-	// 	};
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transferRepo, "getTransferById")
-    //         .mockResolvedValueOnce(mockedTransfer1);
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-    // });
-
-    // test("handleTransferFulfillEvt - should publish error command if participant is invalid", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = InvalidParticipantIdError.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent: CommitTransferFulfilCmd.name,
-	// 	};
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transferRepo, "getTransferById")
-    //         .mockResolvedValueOnce(mockedTransfer1);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([{ id: "not matching", type: "DFSP", isActive: false} as IParticipant as any]);
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-    // });
-
-    // test("handleTransferFulfillEvt - should publish error command if participant is not active", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-
-    //     const payload: TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
-
-    //     const requesterFspId = "payer";
-    //     const destinationFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         requesterFspId,
-    //         destinationFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
-
-    //     const errorMsg = RequiredParticipantIsNotActive.name;
-
-    //     const errorPayload: TransferErrorEvtPayload = {
-	// 		errorMsg,
-	// 		destinationFspId,
-    //         requesterFspId,
-    //         transferId: payload.transferId,
-    //         sourceEvent: CommitTransferFulfilCmd.name,
-	// 	};
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transferRepo, "getTransferById")
-    //         .mockResolvedValueOnce(mockedTransfer1);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([
-    //             { id: "payee", type: "DFSP", isActive: false} as IParticipant as any,
-    //         ]);
-
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": errorPayload,
-    //     }));
-    // });
-
-    // test("handleTransferFulfillEvt - should publish TransferFulfiledEvt if event runs successfully", async () => {
-    //     // Arrange
-    //     const mockedTransfer = mockedTransfer1 as any;
-    //     const payload:TransferFulfiledEvtPayload = createTransferFulfiledEvtPayload(mockedTransfer);
-
-    //     const payerFspId = "payer";
-    //     const payeeFspId = "payee";
-    //     const fspiopOpaqueState = {
-    //         payerFspId,
-    //         payeeFspId,
-    //     };
-
-    //     const command: CommandMsg = createCommand(payload, CommitTransferFulfilCmd.name, fspiopOpaqueState);
-
-    //     const responsePayload: TransferFulfiledEvtPayload = {
-    //         transferId: payload.transferId,
-    //         transferState: payload.transferState as any,
-    //         fulfilment: payload.fulfilment,
-    //         completedTimestamp: payload.completedTimestamp,
-    //         extensionList: payload.extensionList,
-    //         payeeFspId: payload.payeeFspId,
-    //         payerFspId: payload.payerFspId,
-    //         amount: payload.amount,
-    //         currencyCode: payload.currencyCode,
-    //         settlementModel: payload.settlementModel,
-    //     };
-
-    //     jest.spyOn(transferRepo, "getTransferById")
-    //         .mockResolvedValueOnce(mockedTransfer1);
-
-    //     jest.spyOn(participantService, "getParticipantsInfo")
-    //         .mockResolvedValueOnce([
-    //             { id: "hub", type: "HUB", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub] } as IParticipant as any,
-    //             { id: payerFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any,
-    //             { id: payeeFspId, type: "DFSP", isActive: true, approved: true, participantAccounts: [mockedParticipantAccountHub, mockedParticipantAccountPosition, mockedParticipantAccountSettlement] } as IParticipant as any
-    //         ]);
-
-    //     jest.spyOn(accountsAndBalancesService, "cancelReservationAndCommit")
-    //         .mockResolvedValue();
-
-    //     jest.spyOn(transferRepo, "updateTransfer")
-    //         .mockResolvedValue();
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     // Act
-    //     await aggregate.handleTransferCommand(command);
-
-    //     // Assert
-    //     expect(messageProducer.send).toHaveBeenCalledWith(expect.objectContaining({
-    //         "payload": responsePayload,
-    //     }));
-    // });
-    // //#endregion
-
-});
-
-
-
-

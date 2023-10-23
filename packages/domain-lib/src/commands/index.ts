@@ -36,6 +36,7 @@ import {TRANSFERS_BOUNDED_CONTEXT_NAME, TRANSFERS_AGGREGATE_NAME, TransfersBCTop
 
 
 export type PrepareTransferCmdPayload = {
+	bulkTransferId: string | null;
 	transferId: string;
 	amount: string;
 	currencyCode: string;
@@ -195,6 +196,180 @@ export class TimeoutTransferCmd extends CommandMsg {
 		super();
 
 		this.aggregateId = this.msgKey = payload.transferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+
+export type PrepareBulkTransferCmdPayload = {
+    bulkTransferId: string;
+    bulkQuoteId: string;
+    payeeFsp: string;
+    payerFsp: string;
+    individualTransfers: {
+        transferId: string;
+        transferAmount: {
+            currency: string;
+            amount: string;
+        };
+        ilpPacket: string;
+        condition: string;
+        extensionList: {
+            extension: {
+                key: string;
+                value: string;
+            }[]
+        } | null;
+    }[];
+    expiration: number;
+    extensionList: {
+        extension: {
+            key: string;
+            value: string;
+        }[]
+    } | null;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+export class PrepareBulkTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: PrepareBulkTransferCmdPayload;
+
+	constructor(payload: PrepareBulkTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type CommitBulkTransferFulfilCmdPayload = {
+    bulkTransferId: string;
+	completedTimestamp: number,
+	bulkTransferState: "PENDING" | "ACCEPTED" | "PROCESSING" | "COMPLETED" | "REJECTED",
+    individualTransferResults: {
+        transferId: string;
+        fulfilment: string | null;
+        errorInformation: {
+            errorCode: string;
+            errorDescription: string;
+            extensionList: {
+                extension: {
+                    key: string;
+                    value: string;
+                }[]
+            } | null;
+        } | null;
+        extensionList: {
+            extension: {
+                key: string;
+                value: string;
+            }[]
+        } | null;
+    }[];
+	extensionList: {
+        extension: {
+            key: string;
+            value: string;
+        }[]
+    } | null;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+export class CommitBulkTransferFulfilCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: CommitBulkTransferFulfilCmdPayload;
+
+	constructor(payload: CommitBulkTransferFulfilCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type RejectBulkTransferCmdPayload = {
+	bulkTransferId: string;
+	errorInformation: {
+		errorCode: string;
+		errorDescription: string;
+		extensionList: {
+			extension: {
+				key: string;
+				value: string;
+			}[]
+		} | null;
+	};
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class RejectBulkTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: RejectBulkTransferCmdPayload;
+
+	constructor(payload: RejectBulkTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
+		this.payload = payload;
+	}
+
+	validatePayload(): void {
+		// TODO
+	}
+}
+
+export type QueryBulkTransferCmdPayload = {
+	bulkTransferId: string;
+	prepare: {
+		headers: { [key: string]: string };
+		payload: string;
+	};
+}
+
+export class QueryBulkTransferCmd extends CommandMsg {
+	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+	aggregateId: string;
+	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+	msgKey: string;
+	msgTopic: string = TransfersBCTopics.DomainRequests;
+	payload: QueryBulkTransferCmdPayload;
+
+	constructor(payload: QueryBulkTransferCmdPayload) {
+		super();
+
+		this.aggregateId = this.msgKey = payload.bulkTransferId;
 		this.payload = payload;
 	}
 

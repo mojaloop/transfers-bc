@@ -44,7 +44,6 @@ logger.setLogLevel(LogLevel.FATAL);
 
 const DB_NAME = process.env.TRANSFERS_DB_NAME ?? "transfers";
 const CONNECTION_STRING = process.env["MONGO_URL"] || "mongodb://root:mongoDbPas42@localhost:27017/";
-// const CONNECTION_STRING = process.env["MONGO_URL"] || "mongodb://127.0.0.1:27017/";
 const COLLECTION_NAME = "transfers";
 
 // Hub credentials to get access token
@@ -61,9 +60,15 @@ let collection : Collection;
 const server = process.env["TRANSFERS_ADM_URL"] || "http://localhost:3500";
 const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
 
+jest.setTimeout(20000)
+
 describe("Transfers Admin Routes - Integration", () => {
 
     beforeAll(async () => {
+        process.env = Object.assign(process.env, {
+            PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/"
+        });
+        
         mongoClient = await MongoClient.connect(CONNECTION_STRING);
         collection = mongoClient.db(DB_NAME).collection(COLLECTION_NAME);
         mongoTransfersRepo = new MongoTransfersRepo(logger, CONNECTION_STRING, DB_NAME);
@@ -180,13 +185,46 @@ describe("Transfers Admin Routes - Integration", () => {
         expect(response.body.length).toBe(1);
         expect(response.body[0]).toEqual(mockedTransfer1);
     });
+
+    test("GET - should return 401 error when no access token for /transfers route", async () => {
+        // Act
+        const response = await request(server)
+                .get("/transfers");
+    
+        // Assert
+        expect(response.status).toBe(401);
+    });
+
+    test("GET - should return 401 error due to baddly formatted bearer token", async () => {
+        // Act
+        const response = await request(server)
+            .get("/transfers")
+            .set(`Authorization`, `badbearertoken`)
+    
+        // Assert
+        expect(response.status).toBe(401);
+    });
+
+    test("GET - should return 401 error due to unverifiable token", async () => {
+        // Act
+        const response = await request(server)
+            .get("/transfers")
+            .set(`Authorization`, `Bearer badtoken`);
+    
+        // Assert
+        expect(response.status).toBe(401);
+    });
+
+    test("GET - should return 404 error when route doesn't exist", async () => {
+        // Act
+        const response = await request(server)
+            .get("/non-existing-route")
+            .set(`Authorization`, `Bearer ${accessToken}`)
+    
+        // Assert
+        expect(response.status).toBe(404);
+    });
+    
 });
 
-test("GET - should return 401 error when no access token for /transfers route", async () => {
-    // Act
-    const response = await request(server)
-            .get("/transfers");
 
-    // Assert
-    expect(response.status).toBe(401);
-});

@@ -40,20 +40,15 @@
 
 // TODO: fix cmd handler tests
 
-describe("Empty - RE-ENABLE", () => {
-    test("Empty - RE-ENABLE", async () => {
-        expect(true).toBeTruthy();
-    });
-});
 
-/*
-
-import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter} from "@mojaloop/transfers-bc-domain-lib";
-import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { TransfersAggregate, IParticipantsServiceAdapter, ITransfersRepository, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryMessageProducer, MemoryMessageConsumer, MemoryParticipantService, MemoryAuthenticatedHttpRequesterMock, MemoryTransferRepo, MemoryAccountsAndBalancesService, MemoryAuditService, MemorySettlementsService, MemorySchedulingService, MemoryConfigProvider, MemoryBulkTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";
 import { Service } from "../../src/service";
+import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
+import { IConfigProvider } from "@mojaloop/platform-configuration-bc-client-lib";
 const express = require("express");
 
 
@@ -70,46 +65,51 @@ const mockedAuditService = new MemoryAuditService(logger);
 
 const mockedAccountsAndBalancesService: IAccountsBalancesAdapter = new MemoryAccountsAndBalancesService(logger);
 
+const mockedSettlementsService: ISettlementsServiceAdapter = new MemorySettlementsService(logger);
+
+const mockedSchedulingService: ISchedulingServiceAdapter = new MemorySchedulingService(logger);
+
 const mockedTransferRepository: ITransfersRepository = new MemoryTransferRepo(logger);
 
-const mockedAuthRequester: IAuthenticatedHttpRequester = new MemoryAuthenticatedHttpRequesterMock(logger,"fake token");
+const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
+
+const mockedConfigProvider: IConfigProvider = new MemoryConfigProvider(logger);
+
+const metricsMock: IMetrics = new MetricsMock();
 
 const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     logger,
     mockedTransferRepository,
+    mockedBulkTransferRepository,
     mockedParticipantService,
     mockedProducer,
-    mockedAccountsAndBalancesService
+    mockedAccountsAndBalancesService,
+    metricsMock,
+    mockedSettlementsService,
+    mockedSchedulingService
 );
 
 // Express mock
-const useSpy = jest.fn();
-const closeSpy = jest.fn();
-const listenSpy = jest.fn().mockReturnValue({ close: closeSpy });
-const routerSpy = {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-};
+const expressAppMock = {
+    listen: jest.fn(),
+    use: jest.fn(),
+    get: jest.fn()
+}
+jest.doMock('express', () => {
+    return () => {
+      return expressAppMock
+    }
+})
 
 
-jest.mock('express', () => {
-  return () => ({
-    listen: listenSpy,
-    close: jest.fn(),
-    use: useSpy
-    });
-});
-
-express.json = jest.fn();
-express.urlencoded = jest.fn();
-express.Router = jest.fn().mockImplementation(() => { return routerSpy });
+jest.mock("@mojaloop/platform-configuration-bc-client-lib");
 
 describe("Transfers Command Handler Service", () => {
 
     beforeAll(async () => {
-
+        process.env = Object.assign(process.env, {
+            PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/"
+        });
     });
 
 
@@ -122,23 +122,17 @@ describe("Transfers Command Handler Service", () => {
         const spyConsumerSetTopics = jest.spyOn(mockedConsumer, "setTopics");
         const spyConsumerConnect = jest.spyOn(mockedConsumer, "connect");
         const spyConsumerStart = jest.spyOn(mockedConsumer, "connect");
-        const spyConsumerCallback = jest.spyOn(mockedConsumer, "setCallbackFn");
-        const spyProducerInit = jest.spyOn(mockedProducer, "connect");
-        const spyAggregateInit = jest.spyOn(mockedAggregate, "init");
+        const spyConsumerBackCallback = jest.spyOn(mockedConsumer, "setBatchCallbackFn");
 
         // Act
-        await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository,
-            mockedAccountsAndBalancesService, mockedAggregate);
+        await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository, mockedBulkTransferRepository,
+            mockedAccountsAndBalancesService, metricsMock, mockedSettlementsService, mockedSchedulingService, mockedConfigProvider, mockedAggregate);
 
         // Assert
         expect(spyConsumerSetTopics).toBeCalledTimes(1);
         expect(spyConsumerConnect).toBeCalledTimes(1);
         expect(spyConsumerStart).toBeCalledTimes(1);
-        expect(spyConsumerCallback).toBeCalledTimes(1);
-        expect(spyProducerInit).toBeCalledTimes(1);
-        expect(spyAggregateInit).toBeCalledTimes(1);
-        expect(useSpy).toBeCalledWith("/admin", routerSpy);
-        expect(listenSpy).toBeCalledTimes(1);
+        expect(spyConsumerBackCallback).toBeCalledTimes(1);
 
     });
 
@@ -146,9 +140,6 @@ describe("Transfers Command Handler Service", () => {
         // Arrange
         const spyMockedConsumer = jest.spyOn(mockedConsumer, "destroy");
         const spyMockedProducer = jest.spyOn(mockedProducer, "destroy");
-        // const spyMockedAggregate = jest.spyOn(mockedAggregate, "destroy");
-        await Service.start(logger, mockedAuditService, mockedConsumer, mockedProducer, mockedParticipantService, mockedTransferRepository,
-            mockedAccountsAndBalancesService, mockedAggregate);
 
         // Act
         await Service.stop();
@@ -156,10 +147,8 @@ describe("Transfers Command Handler Service", () => {
         // Assert
         expect(spyMockedConsumer).toBeCalledTimes(1);
         expect(spyMockedProducer).toBeCalledTimes(1);
-        // expect(spyMockedAggregate).toBeCalledTimes(1);
-        expect(closeSpy).toBeCalledTimes(1);
     });
 
 
 });
-*/
+

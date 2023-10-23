@@ -56,7 +56,6 @@ import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
 import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 import {existsSync} from "fs";
 import process from "process";
-import util from "util";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -271,20 +270,27 @@ export class Service {
     }
 
 	static async stop() {
-        if (this.expressServer){
-            const closeExpress = util.promisify(this.expressServer.close);
-            await closeExpress();
+        if (this.expressServer) {
+            this.logger.debug("Closing express server");
+            await new Promise((resolve) => {
+                this.expressServer.close(() => {
+                    resolve(true);
+                });
+            });
         }
-
-        await this.configClient.destroy();
-        if (this.auditClient) {
+        if (this.configClient) { 
+            this.logger.debug("Tearing down config client");
+            await this.configClient.destroy();
+        }
+        if (this.auditClient) { 
+            this.logger.debug("Tearing down audit client");
             await this.auditClient.destroy();
-
-		}
-        if (this.logger && this.logger instanceof KafkaLogger) {
-            await this.logger.destroy();
-
-		}
+        }
+        if (this.logger && this.logger instanceof KafkaLogger) { 
+            setTimeout(async ()=>{
+                await (this.logger as KafkaLogger).destroy();
+            }, 500);
+        }
 	}
 }
 

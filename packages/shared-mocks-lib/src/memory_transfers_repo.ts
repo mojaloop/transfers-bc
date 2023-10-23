@@ -32,7 +32,7 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
 
 export class MemoryTransferRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
@@ -86,6 +86,10 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers);
     }
 
+    getTransfersByBulkId(id: string): Promise<ITransfer[]> {
+        return Promise.resolve(this._transfers.filter(transfer => transfer.bulkTransferId === id));
+    }
+
     searchTransfers(_state?: string, _currencyCode?: string, _startDate?: number, _endDate?: number, _id?: string): Promise<ITransfer[]> {
         return Promise.resolve(this._transfers);
     }
@@ -93,4 +97,5 @@ export class MemoryTransferRepo implements ITransfersRepository {
     storeTransfers(_transfers:ITransfer[]):Promise<void> {
         return Promise.resolve();
     }
+
 }

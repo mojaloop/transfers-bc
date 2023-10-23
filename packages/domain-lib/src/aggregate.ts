@@ -32,7 +32,6 @@
  --------------
  ******/
 
-"use strict";
 import {createHash, randomUUID} from "crypto";
 import {
     AccountsBalancesHighLevelRequestTypes,
@@ -49,13 +48,24 @@ import {
     IMessageProducer,
     MessageTypes
 } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import {PrepareTransferCmd, CommitTransferFulfilCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd} from "./commands";
+import {
+    PrepareTransferCmd, 
+    CommitTransferFulfilCmd, 
+    QueryTransferCmd, 
+    RejectTransferCmd, 
+    TimeoutTransferCmd, 
+    PrepareBulkTransferCmd, 
+    CommitBulkTransferFulfilCmd,
+    RejectBulkTransferCmd,
+    QueryBulkTransferCmd
+} from "./commands";
 import {
     IAccountsBalancesAdapter,
     IParticipantsServiceAdapter,
     ITransfersRepository,
     ISettlementsServiceAdapter,
-    ISchedulingServiceAdapter
+    ISchedulingServiceAdapter,
+    IBulkTransfersRepository
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -71,7 +81,7 @@ import {
     PayerPositionAccountNotFoundError,
     TransferNotFoundError,
     UnableToCancelTransferError} from "./errors";
-import {AccountType, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
+import {AccountType, BulkTransferState, IBulkTransfer, IErrorInformation, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
@@ -101,7 +111,18 @@ import {
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
     TransferFulfilCommittedRequestedTimedoutEvt,
-    TransferFulfilCommittedRequestedTimedoutEvtPayload
+    TransferFulfilCommittedRequestedTimedoutEvtPayload,
+    TransferUnableCreateReminderEvt,
+    BulkTransferPreparedEvt,
+    BulkTransferPreparedEvtPayload,
+    BulkTransferFulfiledEvt,
+    BulkTransferNotFoundEvt,
+    BulkTransferRejectRequestProcessedEvt,
+    BulkTransferRejectRequestProcessedEvtPayload,
+    TransferBCUnableToAddBulkTransferToDatabaseEvt,
+    TransferUnableToGetBulkTransferByIdEvt,
+    BulkTransferQueryResponseEvt,
+    BulkTransferQueryResponseEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 
 const HUB_ID = "hub"; // move to shared lib
@@ -110,6 +131,7 @@ export class TransfersAggregate {
     private _logger: ILogger;
     private _auditClient: IAuditClient;
     private _transfersRepo: ITransfersRepository;
+    private _bulkTransfersRepo: IBulkTransfersRepository;
     private _messageProducer: IMessageProducer;
     private _participantAdapter: IParticipantsServiceAdapter;
     private _accountAndBalancesAdapter: IAccountsBalancesAdapter;
@@ -126,6 +148,7 @@ export class TransfersAggregate {
     private _schedulingAdapter: ISchedulingServiceAdapter;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
+    private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
     private _abBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
@@ -135,6 +158,7 @@ export class TransfersAggregate {
     constructor(
         logger: ILogger,
         transfersRepo: ITransfersRepository,
+        bulkTransfersRepo: IBulkTransfersRepository,
         participantsServiceAdapter: IParticipantsServiceAdapter,
         messageProducer: IMessageProducer,
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
@@ -144,6 +168,7 @@ export class TransfersAggregate {
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
+        this._bulkTransfersRepo = bulkTransfersRepo;
         this._participantAdapter = participantsServiceAdapter;
         this._messageProducer = messageProducer;
         this._accountAndBalancesAdapter = accountAndBalancesAdapter;
@@ -178,7 +203,18 @@ export class TransfersAggregate {
                 for (const cmd of cmdMessages) {
                     if(cmd.msgType !== MessageTypes.COMMAND) continue;
                     await this._processCommand(cmd);
-                    this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+                    if(cmd.payload.bulkTransferId) {
+                        if(cmd.msgName === PrepareBulkTransferCmd.name) {
+                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransfers.length);
+                        } else if(cmd.msgName === CommitBulkTransferFulfilCmd.name) {
+                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransferResults.length);
+                        }
+                    } else {
+                        this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+                    }
+        
+
+
                 }
                 execStarts_timerEndFn({success:"true"});
 
@@ -238,7 +274,21 @@ export class TransfersAggregate {
 
     private async _processCommand(cmd: CommandMsg): Promise<void> {
         // cache command for later retrieval in continue methods - do this first!
-        this._batchCommands.set(cmd.payload.transferId, cmd);
+        if(cmd.payload.bulkTransferId) {
+            let transfers = [];
+
+            if(cmd.msgName === PrepareBulkTransferCmd.name) {
+                transfers = cmd.payload.individualTransfers;
+            } else if(cmd.msgName === CommitBulkTransferFulfilCmd.name) {
+                transfers = cmd.payload.individualTransferResults;
+            }
+            for(let i=0 ; i<transfers.length ; i+=1) {
+                const individualTransfer = transfers[i];
+                this._batchCommands.set(transfers[i].transferId, { ...cmd, ...individualTransfer });
+            }
+        } else {
+            this._batchCommands.set(cmd.payload.transferId, cmd);
+        }
 
         // validate message
         this._ensureValidMessage(cmd);
@@ -253,6 +303,14 @@ export class TransfersAggregate {
             return this._queryTransfer(cmd as QueryTransferCmd);
         } else if (cmd.msgName === TimeoutTransferCmd.name) {
             return this._timeoutTransfer(cmd as TimeoutTransferCmd);
+        } else if (cmd.msgName === PrepareBulkTransferCmd.name) {
+            return this._prepareBulkTransferStart(cmd as PrepareBulkTransferCmd);
+        } else if (cmd.msgName === CommitBulkTransferFulfilCmd.name) {
+            return this._fulfilBulkTransferStart(cmd as CommitBulkTransferFulfilCmd);
+        } else if (cmd.msgName === RejectBulkTransferCmd.name) {
+            return this._rejectBulkTransfer(cmd as RejectBulkTransferCmd);
+        } else if (cmd.msgName === QueryBulkTransferCmd.name) {
+            return this._queryBulkTransfer(cmd as QueryBulkTransferCmd);
         } else {
             const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
             const transferId = cmd.payload?.transferId;
@@ -301,9 +359,17 @@ export class TransfersAggregate {
 		}
 
         if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.checkLiquidAndReserve) {
-            return this._prepareTransferContinue(abResponse, request, originalCmdMsg, transfer);
+            if(originalCmdMsg.payload.bulkTransferId) {
+                return this._prepareBulkTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
+            } else {
+                return this._prepareTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
+            }
         } else if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit) {
-            return this._fulfilTTransferContinue(abResponse, request, originalCmdMsg, transfer);
+            if(originalCmdMsg.payload.bulkTransferId) {
+                return this._fulfilBulkTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
+            } else {
+                return this._fulfilTTransferContinue(abResponse, request, originalCmdMsg, transfer);
+            }
         } else if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.cancelReservation) {
             throw new Error("not implemented");
         } else {
@@ -338,6 +404,21 @@ export class TransfersAggregate {
         if(transfer){
             this._transfersCache.set(id, transfer);
             return transfer;
+        }
+
+        return null;
+    }
+
+    private async  _getBulkTransfer(id:string):Promise<IBulkTransfer | null>{
+        let bulkTransfer: IBulkTransfer | null = this._bulkTransfersCache.get(id) || null;
+        if(bulkTransfer){
+            return bulkTransfer;
+        }
+
+        bulkTransfer = await this._bulkTransfersRepo.getBulkTransferById(id);
+        if(bulkTransfer){
+            this._bulkTransfersCache.set(id, bulkTransfer);
+            return bulkTransfer;
         }
 
         return null;
@@ -600,6 +681,7 @@ export class TransfersAggregate {
             createdAt: now,
             updatedAt: now,
             transferId: message.payload.transferId,
+            bulkTransferId: message.payload.bulkTransferId,
             payeeFspId: message.payload.payeeFsp,
             payerFspId: message.payload.payerFsp,
             amount: message.payload.amount,
@@ -638,7 +720,7 @@ export class TransfersAggregate {
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
+                    payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
                 });
             } else {
@@ -721,14 +803,10 @@ export class TransfersAggregate {
             );
         } catch (err: unknown) {
 			const error = (err as Error).message;
-			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
+			const errorMessage = `Unable to create reminder for transferId: ${message.payload.transferId}`;
 			this._logger.error(err, `${errorMessage}: ${error}`);
-			const errorEvent = new TransferUnableToGetSettlementModelEvt({
+			const errorEvent = new TransferUnableCreateReminderEvt({
 				transferId: message.payload.transferId,
-				amount: message.payload.amount,
-				payerCurrency: message.payload.currencyCode,
-				payeeCurrency: message.payload.currencyCode,
-				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
 				errorDescription: errorMessage
 			});
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
@@ -820,27 +898,29 @@ export class TransfersAggregate {
         transfer.transferState = TransferState.RESERVED;
         this._transfersCache.set(transfer.transferId, transfer);
 
-        const payload: TransferPreparedEvtPayload = {
-            transferId: message.payload.transferId,
-            payeeFsp: message.payload.payeeFsp,
-            payerFsp: message.payload.payerFsp,
-            amount: message.payload.amount,
-            currencyCode: message.payload.currencyCode,
-            ilpPacket: message.payload.ilpPacket,
-            condition: message.payload.condition,
-            expiration: message.payload.expiration,
-            settlementModel: transfer.settlementModel,
-            preparedAt: preparedAtTime,
-            extensionList: message.payload.extensionList
-        };
+        if(!transfer.bulkTransferId) {
+            const payload: TransferPreparedEvtPayload = {
+                transferId: message.payload.transferId,
+                payeeFsp: message.payload.payeeFsp,
+                payerFsp: message.payload.payerFsp,
+                amount: message.payload.amount,
+                currencyCode: message.payload.currencyCode,
+                ilpPacket: message.payload.ilpPacket,
+                condition: message.payload.condition,
+                expiration: message.payload.expiration,
+                settlementModel: transfer.settlementModel,
+                preparedAt: preparedAtTime,
+                extensionList: message.payload.extensionList
+            };
 
-        const event = new TransferPreparedEvt(payload);
+            const event = new TransferPreparedEvt(payload);
 
-        event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-        if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferContinue() - completed for transferId: ${transfer.transferId}`);
+            if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferContinue() - completed for transferId: ${transfer.transferId}`);
 
-        this._outputEvents.push(event);
+            this._outputEvents.push(event);
+        }
     }
 
     private async _fulfilTransferStart(message: CommitTransferFulfilCmd): Promise<void> {
@@ -1092,27 +1172,29 @@ export class TransfersAggregate {
 
         this._transfersCache.set(transfer.transferId, transfer);
 
-        const event = new TransferFulfiledEvt({
-            transferId: message.payload.transferId,
-            fulfilment: message.payload.fulfilment,
-            completedTimestamp: message.payload.completedTimestamp,
-            extensionList: message.payload.extensionList,
-            payerFspId: transfer.payerFspId,
-            payeeFspId: transfer.payeeFspId,
-            amount: transfer.amount,
-            currencyCode: transfer.currencyCode,
-            settlementModel: transfer.settlementModel,
-            notifyPayee: message.payload.notifyPayee,
-            fulfiledAt: fulfiledAtTime
-        });
+        if(!transfer.bulkTransferId) {
+            const event = new TransferFulfiledEvt({
+                transferId: message.payload.transferId,
+                fulfilment: message.payload.fulfilment,
+                completedTimestamp: message.payload.completedTimestamp,
+                extensionList: message.payload.extensionList,
+                payerFspId: transfer.payerFspId,
+                payeeFspId: transfer.payeeFspId,
+                amount: transfer.amount,
+                currencyCode: transfer.currencyCode,
+                settlementModel: transfer.settlementModel,
+                notifyPayee: message.payload.notifyPayee,
+                fulfiledAt: fulfiledAtTime
+            });
 
+            // carry over opaque state fields
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-        // carry over opaque state fields
-        event.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
 
-        this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
+            this._outputEvents.push(event);
+        }
 
-        this._outputEvents.push(event);
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
     }
 
@@ -1220,18 +1302,20 @@ export class TransfersAggregate {
             return;
 		}
 
-		const payload: TransferRejectRequestProcessedEvtPayload = {
-			transferId: message.payload.transferId,
-			errorInformation: message.payload.errorInformation
-		};
+        if(!transfer.bulkTransferId) {
+            const payload: TransferRejectRequestProcessedEvtPayload = {
+                transferId: message.payload.transferId,
+                errorInformation: message.payload.errorInformation
+            };
 
-		const event = new TransferRejectRequestProcessedEvt(payload);
+            const event = new TransferRejectRequestProcessedEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
 
-        this._logger.debug("_rejectTransfer completed for transferId: " + transfer.transferId);
+            this._logger.debug("_rejectTransfer completed for transferId: " + transfer.transferId);
 
-        this._outputEvents.push(event);
+            this._outputEvents.push(event);
+        }
         if(this._logger.isDebugEnabled()) this._logger.debug(`_rejectTransfer() - completed for transferId: ${transfer.transferId}`);
 	}
 
@@ -1463,6 +1547,503 @@ export class TransfersAggregate {
         }
     }
 
+    private async _prepareBulkTransferStart(message: PrepareBulkTransferCmd): Promise<void> {
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_prepareBulkTransferStart() - Got BulkTransferPrepareRequestedEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
+
+        const bulkTransferId = message.payload.bulkTransferId;
+        const bulkTransfer: IBulkTransfer = {
+            bulkTransferId: message.payload.bulkTransferId,
+			bulkQuoteId: message.payload.bulkQuoteId,
+            payeeFsp: message.payload.payeeFsp,
+            payerFsp: message.payload.payerFsp,
+            individualTransfers: message.payload.individualTransfers,
+            expiration: message.payload.expiration,
+            completedTimestamp: null,
+            extensionList: message.payload.extensionList,
+            transfersPreparedProcessedIds: [],
+			transfersNotProcessedIds: [],
+			transfersFulfiledProcessedIds: [],
+			status: BulkTransferState.RECEIVED
+		};
+
+        try{
+            this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
+        }
+        catch(err:unknown){
+            const error = (err as Error).message;
+            const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${error}`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferBCUnableToAddBulkTransferToDatabaseEvt({
+                bulkTransferId: bulkTransfer.bulkTransferId,
+                errorDescription: errorMessage
+            });
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        for(let i=0 ; i<message.payload.individualTransfers.length ; i+=1) {
+            const individualTransfer = message.payload.individualTransfers[i];
+
+            const transferCmd = new PrepareTransferCmd({
+                bulkTransferId: message.payload.bulkTransferId,
+                transferId: individualTransfer.transferId,
+                amount: individualTransfer.transferAmount.amount,
+                currencyCode: individualTransfer.transferAmount.currency,
+                payerFsp: message.payload.payerFsp,
+                payeeFsp: message.payload.payeeFsp,
+                ilpPacket: individualTransfer.ilpPacket,
+                expiration: message.payload.expiration,
+                condition: individualTransfer.condition,
+                extensionList: individualTransfer.extensionList,
+                prepare: message.fspiopOpaqueState
+            });
+
+            await this._prepareTransferStart(transferCmd);
+        }
+        
+        if(this._logger.isDebugEnabled()) this._logger.debug("_prepareBulkTransferStart() - complete");
+    }
+
+    private async _prepareBulkTransferContinue(
+        abResponse: IAccountsBalancesHighLevelResponse,
+        request: IAccountsBalancesHighLevelRequest,
+        originalCmdMsg:IDomainMessage,
+        transfer: ITransfer
+    ): Promise<void> {
+        await this._prepareTransferContinue(abResponse, request, originalCmdMsg, transfer);
+        
+        // TODO validate type
+        const message = originalCmdMsg;// as PrepareBulkTransferCmd;
+
+        let bulkTransfer: IBulkTransfer | null = null;
+        try {
+            bulkTransfer = await this._getBulkTransfer(transfer.bulkTransferId as string);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to get bulk transferId: ${transfer.bulkTransferId} from repository`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+                bulkTransferId: transfer.bulkTransferId as string,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(!bulkTransfer) {
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			this._logger.error(errorMessage);
+			const errorEvent = new BulkTransferNotFoundEvt({
+				bulkTransferId: transfer.bulkTransferId as string,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+        
+        bulkTransfer?.transfersPreparedProcessedIds.push(transfer.transferId as string);
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+        if(bulkTransfer.transfersPreparedProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer.individualTransfers.length) {
+            bulkTransfer.status = BulkTransferState.PENDING;
+            this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+            
+            const transfers:ITransfer[] = [];
+
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+            Array.from(this._transfersCache).filter(([_key, cachedTransfer]) => {
+                if(cachedTransfer.bulkTransferId === bulkTransfer?.bulkTransferId) {
+                    transfers.push(cachedTransfer);
+                }
+            });
+
+            if(transfers.length === 0) {
+                const errorMessage = `BulkTransferId: ${bulkTransfer.bulkTransferId} has no associated transfers`;
+                this._logger.error(errorMessage);
+                const errorEvent = new TransferNotFoundEvt({
+                    transferId: bulkTransfer.bulkTransferId,
+                    errorDescription: errorMessage
+                });
+    
+                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                this._outputEvents.push(errorEvent);
+                return;
+            }
+            
+            const payload: BulkTransferPreparedEvtPayload = {
+                bulkTransferId: message.payload.bulkTransferId,
+                bulkQuoteId: message.payload.bulkQuoteId,
+                payeeFsp: message.payload.payeeFsp,
+                payerFsp: message.payload.payerFsp,
+                expiration: message.payload.expiration,
+                extensionList: message.payload.extensionList,
+                individualTransfers: transfers.map((transferResult: ITransfer) => {
+                    return {
+                        transferId: transferResult.transferId,
+                        amount: transferResult.amount,
+                        currencyCode: transferResult.currencyCode,
+                        ilpPacket: transferResult.ilpPacket,
+                        condition: transferResult.condition,
+                        extensionList: transferResult.extensionList
+                    };
+                }),
+            };
+
+            const event = new BulkTransferPreparedEvt(payload);
+
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+            if(this._logger.isDebugEnabled()) this._logger.debug(`prepareBulkTransferContinue() - completed for transferId: ${transfer.transferId}`);
+
+            this._outputEvents.push(event);
+        }
+    }
+
+    private async _fulfilBulkTransferStart(message: CommitBulkTransferFulfilCmd): Promise<void> {
+        if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTransfer() - Got CommitBulkTransferFulfilCmd msg for bulkTransferId: ${message.payload.bulkTransferId}`);
+
+        const bulkTransferId = message.payload.bulkTransferId;
+        let bulkTransfer: IBulkTransfer | null = null;
+        try {
+            bulkTransfer = await this._getBulkTransfer(bulkTransferId as string);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to get transfer record for bulk transferId: ${bulkTransferId} from repository`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+                bulkTransferId: bulkTransferId as string,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(!bulkTransfer) {
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			this._logger.error(errorMessage);
+			const errorEvent = new BulkTransferNotFoundEvt({
+				bulkTransferId: bulkTransferId as string,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+        
+        bulkTransfer.status = BulkTransferState.ACCEPTED;
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+        for(let i=0 ; i<message.payload.individualTransferResults.length ; i+=1) {
+            const individualTransfer = message.payload.individualTransferResults[i];
+
+            const transferCmd:CommitTransferFulfilCmd = new CommitTransferFulfilCmd({
+                transferId: individualTransfer.transferId,
+                transferState: message.payload.bulkTransferState,
+                fulfilment: individualTransfer.fulfilment,
+                completedTimestamp: message.payload.completedTimestamp,
+                notifyPayee: false,
+                extensionList: individualTransfer.extensionList,
+                prepare: message.fspiopOpaqueState
+            });
+
+            await this._fulfilTransferStart(transferCmd);
+        }
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_fulfilBulkTransferStart() - completed for bulkTransferId: ${message.payload.bulkTransferId}`);
+    }
+
+    private async _fulfilBulkTransferContinue(
+        abResponse: IAccountsBalancesHighLevelResponse,
+        request: IAccountsBalancesHighLevelRequest,
+        originalCmdMsg:IDomainMessage,
+        transfer: ITransfer
+    ): Promise<void> {        
+        // TODO validate type
+        const message = originalCmdMsg;// as PrepareBulkTransferCmd;
+
+        let bulkTransfer: IBulkTransfer | null = null;
+        try {
+            bulkTransfer = await this._getBulkTransfer(transfer.bulkTransferId as string);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to get transfer record for bulk transferId: ${transfer.bulkTransferId} from repository`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+                bulkTransferId: transfer.bulkTransferId as string,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(!bulkTransfer) {
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			this._logger.error(errorMessage);
+			const errorEvent = new BulkTransferNotFoundEvt({
+				bulkTransferId: transfer.bulkTransferId as string,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        bulkTransfer.status = BulkTransferState.PROCESSING;
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+        await this._fulfilTTransferContinue(abResponse, request, originalCmdMsg, transfer);
+
+        bulkTransfer?.transfersFulfiledProcessedIds.push(transfer.transferId as string);
+        this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+
+        if(bulkTransfer?.transfersFulfiledProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer?.individualTransfers.length) {
+            bulkTransfer.status = BulkTransferState.COMPLETED;
+            this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
+
+            const event = new BulkTransferFulfiledEvt({
+                bulkTransferId: message.payload.bulkTransferId,
+                bulkTransferState: message.payload.bulkTransferState,
+                completedTimestamp: message.payload.completedTimestamp,
+                individualTransferResults: message.payload.individualTransferResults,
+                extensionList: message.payload.extensionList
+            });
+
+
+            // carry over opaque state fields
+            event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+            this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
+
+            this._outputEvents.push(event);
+
+            this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+            this._bulkTransfersCache.clear();
+            if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
+        }
+    }
+    
+    private async _rejectBulkTransfer(message: RejectBulkTransferCmd):Promise<void> {
+		this._logger.debug(`rejectBulkTransfer() - Got bulkTransferRejectRequestedEvt msg for transferId: ${message.payload.bulkTransferId}`);
+        
+        const bulkTransferId = message.payload.bulkTransferId;
+                
+        let bulkTransfer: IBulkTransfer | null = null;
+        try {
+            bulkTransfer = await this._getBulkTransfer(bulkTransferId as string);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to get transfer record for bulk transferId: ${bulkTransferId} from repository`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+                bulkTransferId: bulkTransferId,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(!bulkTransfer) {
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId}`;
+			this._logger.error(errorMessage);
+			const errorEvent = new BulkTransferNotFoundEvt({
+				bulkTransferId: bulkTransferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+        
+        let transfers:ITransfer[] = [];
+        try {
+			transfers = await this._transfersRepo.getTransfersByBulkId(message.payload.bulkTransferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for bulkTransferId: ${message.payload.bulkTransferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+				bulkTransferId: message.payload.bulkTransferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+        
+        for(let i=0 ; i<transfers.length ; i+=1) {
+            const individualTransfer = transfers[i];
+
+            const transferCmd:RejectTransferCmd = new RejectTransferCmd({
+                transferId: individualTransfer.transferId,
+                errorInformation: individualTransfer.errorInformation as IErrorInformation,
+                prepare: message.fspiopOpaqueState
+            });
+
+            await this._rejectTransfer(transferCmd);
+        }
+
+        bulkTransfer.status = BulkTransferState.REJECTED;
+        this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+        
+		const payload: BulkTransferRejectRequestProcessedEvtPayload = {
+			bulkTransferId: message.payload.bulkTransferId,
+			errorInformation: message.payload.errorInformation
+		};
+
+		const event = new BulkTransferRejectRequestProcessedEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+        this._logger.debug("_rejectBulkTransfer completed for bulkTransferId: " + message.payload.bulkTransferId);
+
+        this._outputEvents.push(event);
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_rejectBulkTransfer() - completed for bulkTransferId: ${message.payload.bulkTransferId}`);
+	}
+
+    private async _queryBulkTransfer(message: QueryBulkTransferCmd):Promise<void> {
+        this._logger.debug(`queryBulkTransfer() - Got transferBulkQueryRequestEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
+        
+		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
+		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
+        const bulkTransferId = message.payload.bulkTransferId;
+        
+        let bulkTransfer: IBulkTransfer | null = null;
+        try {
+            bulkTransfer = await this._getBulkTransfer(bulkTransferId as string);
+        } catch(err: unknown) {
+            const error = (err as Error).message;
+            const errorMessage = `Unable to get transfer record for bulk transferId: ${bulkTransferId} from repository`;
+            this._logger.error(err, `${errorMessage}: ${error}`);
+            const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+                bulkTransferId: bulkTransferId,
+                errorDescription: errorMessage
+            });
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(!bulkTransfer) {
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId}`;
+			this._logger.error(errorMessage);
+			const errorEvent = new BulkTransferNotFoundEvt({
+				bulkTransferId: bulkTransferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryBulkTransfer() - before getParticipants...");
+
+        try{
+            await this._getParticipantsInfo(requesterFspId, destinationFspId, message.payload.bulkTransferId);
+        } catch (err: unknown) {
+            let errorEvent:DomainErrorEventMsg;
+
+            if(err instanceof HubNotFoundError) {
+                errorEvent = new TransferHubNotFoundFailedEvt({
+                    transferId: bulkTransferId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotFoundError) {
+                errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: bulkTransferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotFoundError) {
+                errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: bulkTransferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else {
+                this._logger.error("Unable to handle _getParticipantsInfo error - _queryBulkTransfer");
+                return;
+            }
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+        }
+
+        if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - after getParticipants");
+
+		let transfers:ITransfer[] = [];
+
+		try {
+			transfers = await this._transfersRepo.getTransfersByBulkId(message.payload.bulkTransferId);
+		} catch(err: unknown) {
+			const error = (err as Error).message;
+			const errorMessage = `Unable to get transfer record for bulkTransferId: ${message.payload.bulkTransferId} from repository`;
+			this._logger.error(err, `${errorMessage}: ${error}`);
+			const errorEvent = new TransferUnableToGetBulkTransferByIdEvt({
+				bulkTransferId: message.payload.bulkTransferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		if(transfers.length === 0) {
+			const errorMessage = `BulkTransferId: ${bulkTransferId} has no associated transfers`;
+			this._logger.error(errorMessage);
+			const errorEvent = new TransferNotFoundEvt({
+				transferId: bulkTransferId,
+				errorDescription: errorMessage
+			});
+
+            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._outputEvents.push(errorEvent);
+            return;
+		}
+
+		const payload: BulkTransferQueryResponseEvtPayload = {
+            bulkTransferId: bulkTransfer.bulkTransferId,
+            completedTimestamp: bulkTransfer.completedTimestamp,
+            individualTransferResults: transfers.map((transferResult: ITransfer) => {
+                return {
+                    transferId: transferResult.transferId,
+                    fulfilment: transferResult.fulfilment,
+                    errorInformation: transferResult.errorInformation as IErrorInformation,
+                    extensionList: transferResult.extensionList
+                };
+            }),
+            bulkTransferState: bulkTransfer.status,
+            extensionList: bulkTransfer.extensionList
+		};
+
+		const event = new BulkTransferQueryResponseEvt(payload);
+
+		event.fspiopOpaqueState = message.fspiopOpaqueState;
+
+        this._logger.debug("_queryTransfer completed for bulkTransferId: " + bulkTransferId);
+
+        this._outputEvents.push(event);
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_queryBulkTransfer() - completed for bulkTransferId: ${bulkTransferId}`);
+	}
+
     private _generateSha256(object:{[key: string]: string | number}):string {
 		const hashSha256 = createHash('sha256')
 
@@ -1475,4 +2056,5 @@ export class TransfersAggregate {
 		// remove trailing '=' as per specification
 		return hashSha256.slice(0, -1);
 	}
+
 }

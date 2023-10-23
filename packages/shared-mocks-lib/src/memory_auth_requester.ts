@@ -61,14 +61,14 @@ export class MemoryAuthenticatedHttpRequesterMock implements IAuthenticatedHttpR
         this.client_secret = client_secret;
     }
 
-    fetch(_requestInfo: RequestInfo, _timeoutMs?: number | undefined): Promise<Response> {
-        return new Promise<Response>((_resolve, _reject) => {
-            const mockResponse = <Response>{
-                body: {}
-            };
-
-            return Promise.resolve(mockResponse);
-        });
+    async fetch(_requestInfo: RequestInfo, _timeoutMs?: number | undefined): Promise<Response> {
+        return await fetch(_requestInfo)
+            .then((response) => {
+                return response;
+            })
+            .catch((error) => {
+                throw error;
+            });
     }
 
 }

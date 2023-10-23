@@ -36,9 +36,17 @@ import {
 	ITransfersRepository,
 	IAccountsBalancesAdapter,
     ISettlementsServiceAdapter,
-    ISchedulingServiceAdapter
+    ISchedulingServiceAdapter,
+    IBulkTransfersRepository
 } from "@mojaloop/transfers-bc-domain-lib";
-import { ParticipantAdapter, MongoTransfersRepo, GrpcAccountsAndBalancesAdapter, SettlementsAdapter, SchedulingAdapter } from "@mojaloop/transfers-bc-implementations-lib";
+import { 
+    ParticipantAdapter,
+    MongoTransfersRepo,
+    MongoBulkTransfersRepo,
+    GrpcAccountsAndBalancesAdapter,
+    SettlementsAdapter,
+    SchedulingAdapter 
+} from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
 import {Server} from "net";
@@ -106,7 +114,6 @@ const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhos
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
-// const USE_REDIS_TRANSFERS_REPO = (process.env["USE_REDIS_TRANSFERS_REPO"] && process.env["USE_REDIS_TRANSFERS_REPO"].toUpperCase()=="TRUE") || false;
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 100;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 100;
@@ -144,6 +151,7 @@ export class Service {
 	static aggregate: TransfersAggregate;
 	static participantService: IParticipantsServiceAdapter;
 	static transfersRepo: ITransfersRepository;
+    static bulkTransfersRepo: IBulkTransfersRepository;
 	static accountAndBalancesAdapter: IAccountsBalancesAdapter;
     static metrics:IMetrics;
 	static settlementsAdapter: ISettlementsServiceAdapter;
@@ -158,6 +166,7 @@ export class Service {
         messageProducer?: IMessageProducer,
         participantAdapter?: IParticipantsServiceAdapter,
         transfersRepo?: ITransfersRepository,
+        bulkTransfersRepo?: IBulkTransfersRepository,
         accountAndBalancesAdapter?: IAccountsBalancesAdapter,
         metrics?:IMetrics,
         settlementsAdapter?: ISettlementsServiceAdapter,
@@ -236,16 +245,20 @@ export class Service {
         this.messageProducer = messageProducer;
 
         if (!transfersRepo) {
-            // if(USE_REDIS_TRANSFERS_REPO) {
-            //     transfersRepo = new RedisTransfersRepo(logger, REDIS_HOST, REDIS_PORT);
-            // }else{
-                transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
-            // }
+            transfersRepo = new MongoTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
 
             await transfersRepo.init();
             logger.info("Transfer Registry Repo Initialized");
         }
         this.transfersRepo = transfersRepo;
+
+        if (!bulkTransfersRepo) {
+                bulkTransfersRepo = new MongoBulkTransfersRepo(logger,MONGO_URL, DB_NAME_TRANSFERS);
+
+            await bulkTransfersRepo.init();
+            logger.info("Transfer Registry Repo Initialized");
+        }
+        this.bulkTransfersRepo = bulkTransfersRepo;
 
         if (!participantAdapter) {
             const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
@@ -289,7 +302,7 @@ export class Service {
 		this.schedulingAdapter = schedulingAdapter;
 
         if (!aggregate) {
-            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
+            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.bulkTransfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
         }
         this.aggregate = aggregate;
 
@@ -332,12 +345,40 @@ export class Service {
 
 
     static async stop() {
-		if (this.handler) await this.handler.stop();
-		if (this.messageConsumer) await this.messageConsumer.destroy(true);
-		if (this.messageProducer) await this.messageProducer.destroy();
-        if (this.configClient) await this.configClient.destroy();
-		if (this.auditClient) await this.auditClient.destroy();
-		if (this.logger && this.logger instanceof KafkaLogger) await this.logger.destroy();
+        if (this.expressServer) {
+            this.logger.debug("Closing express server");
+            await new Promise((resolve) => {
+                this.expressServer.close(() => {
+                    resolve(true);
+                });
+            });
+        }
+        if (this.handler) { 
+            this.logger.debug("Stoppping handler");
+            await this.handler.stop();
+        }
+        if (this.messageConsumer) { 
+            this.logger.debug("Tearing down message consumer");
+            await this.messageConsumer.destroy(true);
+        }
+        if (this.messageProducer) { 
+            this.logger.debug("Tearing down message producer");
+            await this.messageProducer.destroy();
+        }
+        if (this.configClient) { 
+            this.logger.debug("Tearing down config client");
+            await this.configClient.destroy();
+        }
+        if (this.auditClient) { 
+            this.logger.debug("Tearing down audit client");
+            await this.auditClient.destroy();
+        }
+        if (this.logger && this.logger instanceof KafkaLogger) { 
+            setTimeout(async ()=>{
+                await (this.logger as KafkaLogger).destroy();
+            }, 500);
+        }
+        
 	}
 }
 

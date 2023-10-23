@@ -45,6 +45,16 @@ export declare const enum TransferState {
     EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
 }
 
+export declare const enum BulkTransferState {
+    RECEIVED = "RECEIVED", 		// initial state
+	PENDING = "PENDING", 		// after prepare
+	ACCEPTED = "ACCEPTED", 		// when fulfil starts
+    PROCESSING = "PROCESSING", 	// while fulfiling each individual transfer
+    COMPLETED = "COMPLETED", 	// after fulfil (final state of processing all individual transfers)
+    EXPIRED = "EXPIRED",		// system changed it expired (need the timeout mechanism)
+    REJECTED = "REJECTED" 		// rejected bulk transfer for a reason (e.g. reject transfer directly from payee)
+}
+
 export declare const enum AccountType {
 	HUB = "HUB_RECONCILIATION",
 	POSITION = "POSITION",
@@ -71,16 +81,17 @@ export interface ITransfer {
 	currencyCode: string;
 	ilpPacket: string;				// move to opaque object
 	condition: string;				// move to opaque object
-	fulfilment: string | null,		// move to opaque object
+	fulfilment: string | null;		// move to opaque object
 	expirationTimestamp: number;
-	transferState: TransferState,
-	completedTimestamp: number | null,
+	transferState: TransferState;
+	completedTimestamp: number | null;
     extensionList: IExtensionList | null;
     errorInformation: IErrorInformation | null;
 
 	// populated from the settlements lib during prepare
 	settlementModel: string;
 	hash: string;
+    bulkTransferId: string | null;
 }
 
 export interface ITransferParticipants {
@@ -97,3 +108,36 @@ export interface ITransferAccounts {
 	payeeLiqAccount: IParticipantAccount
 }
 
+export interface IBulkTransfer {
+    bulkTransferId: string;
+    bulkQuoteId: string;
+    payeeFsp: string;
+    payerFsp: string;
+	completedTimestamp: number | null;
+    individualTransfers: {
+        transferId: string;
+        transferAmount: {
+            currency: string;
+            amount: string;
+        };
+        ilpPacket: string;
+        condition: string;
+        extensionList: {
+            extension: {
+                key: string;
+                value: string;
+            }[]
+        } | null;
+    }[];
+    expiration: number;
+    extensionList: {
+        extension: {
+            key: string;
+            value: string;
+        }[]
+    } | null;
+    transfersPreparedProcessedIds: string[]
+    transfersNotProcessedIds: string[];
+    transfersFulfiledProcessedIds: string[];
+    status: BulkTransferState;
+}

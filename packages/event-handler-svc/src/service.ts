@@ -84,7 +84,7 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
 
-const SERVICE_START_TIMEOUT_MS = 30_000;
+const SERVICE_START_TIMEOUT_MS = 60_000;
 
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
     kafkaBrokerList: KAFKA_URL,
@@ -241,11 +241,40 @@ export class Service {
     }
 
         static async stop() {
-		if (this.handler) await this.handler.stop();
-		if (this.messageConsumer) await this.messageConsumer.destroy(true);
+			if (this.expressServer) {
+				this.logger.debug("Closing express server");
+				await new Promise((resolve) => {
+					this.expressServer.close(() => {
+						resolve(true);
+					});
+				});
+			}
+			if (this.handler) { 
+				this.logger.debug("Stoppping handler");
+				await this.handler.stop();
+			}
+			if (this.messageConsumer) { 
+				this.logger.debug("Tearing down message consumer");
+				await this.messageConsumer.destroy(true);
+			}
+			if (this.messageProducer) { 
+				this.logger.debug("Tearing down message producer");
+				await this.messageProducer.destroy();
+			}
+			if (this.configClient) { 
+				this.logger.debug("Tearing down config client");
+				await this.configClient.destroy();
+			}
+			if (this.auditClient) { 
+				this.logger.debug("Tearing down audit client");
+				await this.auditClient.destroy();
+			}
+			if (this.logger && this.logger instanceof KafkaLogger) { 
+				setTimeout(async ()=>{
+					await (this.logger as KafkaLogger).destroy();
+				}, 500);
+			}
 
-		if (this.auditClient) await this.auditClient.destroy();
-		if (this.logger && this.logger instanceof KafkaLogger) await this.logger.destroy();
 	}
 }
 

@@ -34,13 +34,15 @@
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageProducer } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { MemoryTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import { ITransfersRepository, IParticipantsServiceAdapter, TransfersAggregate, IAccountsBalancesAdapter } from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryTransferRepo, MemoryBulkTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService, MemorySettlementsService, MemorySchedulingService } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { ITransfersRepository, IParticipantsServiceAdapter, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
 
-const transferRepo: ITransfersRepository = new MemoryTransferRepo(logger);
+const transfersRepo: ITransfersRepository = new MemoryTransferRepo(logger);
+
+const bulkTransfersRepo: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
 
 const messageProducer: IMessageProducer = new MemoryMessageProducer(logger);
 
@@ -48,6 +50,17 @@ const participantService: IParticipantsServiceAdapter = new MemoryParticipantSer
 
 const accountsAndBalancesService: IAccountsBalancesAdapter = new MemoryAccountsAndBalancesService(logger);
 
-const aggregate: TransfersAggregate = new TransfersAggregate(logger,transferRepo, participantService, messageProducer, accountsAndBalancesService);
+const settlementsService: ISettlementsServiceAdapter = new MemorySettlementsService(logger);
 
-export { aggregate, logger, transferRepo, messageProducer, participantService, accountsAndBalancesService };
+const schedulingService: ISchedulingServiceAdapter = new MemorySchedulingService(logger);
+
+export {
+    logger,
+    transfersRepo,
+    bulkTransfersRepo,
+    messageProducer,
+    participantService,
+    accountsAndBalancesService,
+    settlementsService,
+    schedulingService
+};

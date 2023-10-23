@@ -43,13 +43,8 @@
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
-import {
-    ForbiddenError,
-    UnauthorizedError,
-    CallSecurityContext, IAuthorizationClient,
-} from "@mojaloop/security-bc-public-types-lib";
-import {TokenHelper} from "@mojaloop/security-bc-client-lib";
-import { BaseRoutes } from "./base/base_routes";
+import {CallSecurityContext, IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
+import {BaseRoutes} from "./base/base_routes";
 
 // TODO: remove esling disable
 /* eslint-disable */
@@ -64,34 +59,13 @@ declare module "express-serve-static-core" {
 export class TransferAdminExpressRoutes extends BaseRoutes {
 
 
-    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: TokenHelper, authorizationClient: IAuthorizationClient) {
+    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: ITokenHelper, authorizationClient: IAuthorizationClient) {
         super(authorizationClient, repo, logger, tokenHelper);
         this.logger.createChild(this.constructor.name);
 
 
         this.mainRouter.get("/transfers/:id", this.getTransferById.bind(this));
         this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
-    }
-
-
-    private _handleUnauthorizedError(err: Error, res: express.Response): boolean {
-        if (err instanceof UnauthorizedError) {
-            this.logger.warn(err.message);
-            res.status(401).json({
-                status: "error",
-                msg: err.message,
-            });
-            return true;
-        } else if (err instanceof ForbiddenError) {
-            this.logger.warn(err.message);
-            res.status(403).json({
-                status: "error",
-                msg: err.message,
-            });
-            return true;
-        }
-
-        return false;
     }
 
     private async getAllTransfers(req: express.Request, res: express.Response) {
