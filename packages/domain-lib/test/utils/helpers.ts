@@ -46,7 +46,9 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
         ilpPacket: mockedTransfer.ilpPacket,
         condition: mockedTransfer.condition,
         expiration: mockedTransfer.expirationTimestamp,
-        extensionList: mockedTransfer.extensionList
+        settlementModel: mockedTransfer.settlementModel, 
+        extensionList: mockedTransfer.extensionList,
+        preparedAt: Date.now()
     };
 }
 
@@ -61,7 +63,8 @@ export function createTransferFulfiledEvtPayload(mockedTransfer: ITransfer): Tra
         amount: mockedTransfer.amount,
         currencyCode: mockedTransfer.currencyCode,
         settlementModel: mockedTransfer.settlementModel,
-        notifyPayee: false
+        notifyPayee: false,
+        fulfiledAt: Date.now()
     };
 }
 

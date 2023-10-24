@@ -44,7 +44,6 @@ const mockedProducer: IMessageProducer = new MemoryMessageProducer(logger);
 
 const mockedConsumer : IMessageConsumer = new MemoryMessageConsumer();
 
-
 const mockedAuditService = new MemoryAuditService(logger);
 
 const metricsMock: IMetrics = new MetricsMock();
@@ -58,13 +57,6 @@ const mockedEventHandler: TransfersEventHandler = new TransfersEventHandler(
 );
 
 describe("Transfers Event Handler", () => {
-
-    beforeAll(async () => {
-        process.env = Object.assign(process.env, {
-            PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/"
-        });
-    });
-
 
     afterAll(async () => {
         jest.clearAllMocks();
@@ -87,9 +79,7 @@ describe("Transfers Event Handler", () => {
         expect(spyConsumerStart).toBeCalledTimes(1);
         expect(spyConsumerBackCallback).toBeCalledTimes(1);
 
-
     });
-
 
 });
 

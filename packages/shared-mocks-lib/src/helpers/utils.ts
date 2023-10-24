@@ -33,7 +33,7 @@
  
 const mocks = new Map();
 
-export function mockProperty<T extends {}, K extends keyof any>(object: T, property: K, value: any) {
+export function mockProperty<T extends object, K extends keyof any>(object: T, property: K, value: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const descriptor = Object.getOwnPropertyDescriptor(object, property);
   const mocksForThisObject = mocks.get(object) || {};
   mocksForThisObject[property] = descriptor;
@@ -45,7 +45,7 @@ export function mockProperty<T extends {}, K extends keyof any>(object: T, prope
 
 }
 
-export function undoMockProperty<T extends {}, K extends keyof T>(object: T, property: K) {
+export function undoMockProperty<T extends object, K extends keyof T>(object: T, property: K) {
   Object.defineProperty(object, property, mocks.get(object)[property]);
 }
 

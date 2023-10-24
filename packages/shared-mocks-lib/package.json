@@ -19,10 +19,9 @@
   ],
   "scripts": {
     "build": "tsc",
+    "clean": "(npm run clean:npm || true) && npm run clean:dist",
     "clean:dist": "rm -rf dist",
     "clean:npm": "rm -rf node_modules",
-    "clean:dist-and-node-modules": "rm -rf dist node_modules",
-    "clean": "npm run clean:dist",
     "audit:check": "npm npm audit",
     "dep:check": "ncu -e 2",
     "dep:update": "ncu -u",
@@ -33,13 +32,13 @@
     "@mojaloop/transfers-bc-domain-lib": "*",
     "@mojaloop/logging-bc-public-types-lib": "~0.1.20",
     "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.101",
-    "@mojaloop/security-bc-client-lib": "~0.2.3",
+    "@mojaloop/security-bc-client-lib": "~0.3.2",
     "@mojaloop/participant-bc-public-types-lib": "~0.0.18",
-    "@mojaloop/security-bc-public-types-lib": "~0.2.1"
+    "@mojaloop/security-bc-public-types-lib": "~0.3.2"
 
   },
   "devDependencies": {
-    "eslint": "^8.51.0",
+    "eslint": "^8.52.0",
     "npm-check-updates": "^16.14.6",
     "typescript": "^4.7.3"
   }

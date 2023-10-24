@@ -25,7 +25,7 @@
     "service": "node dist/index.js",
     "build": "tsc",
     "watch": "tsc -w",
-    "clean": "npm run clean:npm; npm run clean:dist",
+    "clean": "(npm run clean:npm || true) && npm run clean:dist",
     "clean:dist": "rm -rf dist",
     "clean:npm": "rm -rf node_modules",
     "pretest": "npm run build",
@@ -53,7 +53,7 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.5",
+    "@types/jest": "^29.5.6",
     "@types/node": "^20.3.3",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",

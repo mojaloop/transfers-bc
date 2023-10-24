@@ -37,7 +37,7 @@ import request from "supertest";
 import { TransferAdminExpressRoutes } from "../../src/routes/transfer_admin_routes";
 import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { MemoryAuthorizationClient, MemoryTokenHelper, MemoryTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import { ForbiddenError, IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
+import { IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
 import express, {Express} from "express";
 import { Server } from "http";
 

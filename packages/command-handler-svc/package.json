@@ -32,7 +32,7 @@
     "standard": "npm run lint",
     "lint": "npm run build && npx eslint ./src",
     "lint:fix": "npm run build && npx eslint ./src --fix",
-    "test:unit": "jest --passWithNoTests --testMatch **/test/unit/**/*.test.ts --detectOpenHandles --forceExit",
+    "test:unit": "jest --passWithNoTests --testMatch **/test/unit/**/*.test.ts",
     "dep:check": "ncu -e 2",
     "dep:update": "ncu -u"
   },
@@ -52,9 +52,10 @@
     "@mojaloop/transfers-bc-config-lib": "~0.1.0"
   },
   "devDependencies": {
+    "@mojaloop/transfers-bc-shared-mocks-lib": "*",
     "@mojaloop/logging-bc-public-types-lib": "^0.1.20",
-    "@types/express": "^4.17.19",
-    "@types/jest": "^29.5.5",
+    "@types/express": "^4.17.20",
+    "@types/jest": "^29.5.6",
     "@types/node": "^20.3.3",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",

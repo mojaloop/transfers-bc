@@ -20,10 +20,9 @@
   ],
   "scripts": {
     "build": "tsc",
+    "clean": "(npm run clean:npm || true) && npm run clean:dist",
     "clean:dist": "rm -rf dist",
     "clean:npm": "rm -rf node_modules",
-    "clean:dist-and-node-modules": "rm -rf dist node_modules",
-    "clean": "npm run clean:dist",
     "audit:check": "npm npm audit",
     "dep:check": "ncu -e 2",
     "dep:update": "ncu -u",
@@ -34,7 +33,7 @@
 
   },
   "devDependencies": {
-    "eslint": "^8.51.0",
+    "eslint": "^8.52.0",
     "npm-check-updates": "^16.14.6",
     "typescript": "^4.7.3"
   }
