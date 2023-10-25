@@ -41,7 +41,7 @@
 "use strict";
 
 import { CallSecurityContext, ForbiddenError, IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
-import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
+import { IBulkTransfersRepository, ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import express from "express";
@@ -56,14 +56,16 @@ export abstract class BaseRoutes {
 
     private readonly _authorizationClient: IAuthorizationClient;
     private readonly _transfersRepo: ITransfersRepository;
+    private readonly _bulkTransfersRepo: IBulkTransfersRepository;
     private readonly _logger: ILogger;
     private readonly _mainRouter: express.Router;
     private readonly _tokenHelper: ITokenHelper;
 
-    constructor(authorizationClient:IAuthorizationClient, transfersRepo: ITransfersRepository, logger: ILogger, tokenHelper: ITokenHelper) {
+    constructor(authorizationClient:IAuthorizationClient, transfersRepo: ITransfersRepository, bulkTransfersRepo: IBulkTransfersRepository, logger: ILogger, tokenHelper: ITokenHelper) {
         this._mainRouter = express.Router();
         this._authorizationClient = authorizationClient;
         this._transfersRepo = transfersRepo;
+        this._bulkTransfersRepo = bulkTransfersRepo;
         this._logger = logger;
         this._tokenHelper = tokenHelper;
 
@@ -81,6 +83,10 @@ export abstract class BaseRoutes {
 
     get transfersRepo(): ITransfersRepository {
         return this._transfersRepo;
+    }
+
+    get bulkTransfersRepo(): IBulkTransfersRepository {
+        return this._bulkTransfersRepo;
     }
 
     private async _authenticationMiddleware(

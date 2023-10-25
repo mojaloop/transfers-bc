@@ -32,7 +32,7 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { ITransfersRepository, ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, IBulkTransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
 
 export class MemoryTransferRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
@@ -43,6 +43,12 @@ export class MemoryTransferRepo implements ITransfersRepository {
 	) {
 		this._logger = logger;
 	}
+    searchEntries(userId: string | null, state: string | null, currency: string | null, id: string | null, startDate: number | null, endDate: number | null, pageIndex?: number | undefined, pageSize?: number | undefined): Promise<TransfersSearchResults> {
+        throw new Error("Method not implemented.");
+    }
+    getSearchKeywords(): Promise<{ fieldName: string; distinctTerms: string[]; }[]> {
+        throw new Error("Method not implemented.");
+    }
 
     init(): Promise<void> {
         return Promise.resolve();

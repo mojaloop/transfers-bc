@@ -31,7 +31,7 @@
 "use strict";
 
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
-import { IBulkTransfer, ITransfer } from "../types";
+import { IBulkTransfer, ITransfer, TransfersSearchResults } from "../types";
 import {
     AccountsAndBalancesAccount,
     AccountsAndBalancesJournalEntry,
@@ -56,6 +56,19 @@ export interface ITransfersRepository {
 	):Promise<ITransfer[]>
 
     storeTransfers(transfers:ITransfer[]):Promise<void>;
+	
+	searchEntries(
+        userId:string|null,
+        state:string|null,
+        currency:string|null,
+        id:string|null,
+        startDate:number|null,
+        endDate:number|null,
+        pageIndex?:number,
+        pageSize?: number
+    ): Promise<TransfersSearchResults>;
+
+    getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
 }
 
 export interface IBulkTransfersRepository {

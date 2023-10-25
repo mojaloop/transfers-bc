@@ -141,3 +141,11 @@ export interface IBulkTransfer {
     transfersFulfiledProcessedIds: string[];
     status: BulkTransferState;
 }
+
+export declare type TransfersSearchResults = {
+    pageSize: number;
+    totalPages: number;
+    pageIndex: number;
+    items: ITransfer[];
+  }
+  

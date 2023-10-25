@@ -35,8 +35,8 @@
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import request from "supertest";
 import { TransferAdminExpressRoutes } from "../../src/routes/transfer_admin_routes";
-import { ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
-import { MemoryAuthorizationClient, MemoryTokenHelper, MemoryTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { IBulkTransfersRepository, ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryAuthorizationClient, MemoryBulkTransferRepo, MemoryTokenHelper, MemoryTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
 import express, {Express} from "express";
 import { Server } from "http";
@@ -51,6 +51,8 @@ const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
 let transferAdminRoutes : TransferAdminExpressRoutes;
 
 const mockedTransferRepository: ITransfersRepository = new MemoryTransferRepo(logger);
+
+const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
 
 const mockedTokenHelper: ITokenHelper = new MemoryTokenHelper(logger);
 
@@ -81,7 +83,7 @@ describe("Transfers Admin Routes - Unit tests", () => {
         app.use(express.json()); // for parsing application/json
         app.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
 
-        transferAdminRoutes = new TransferAdminExpressRoutes(logger, mockedTransferRepository, mockedTokenHelper, mockedAuthorizationClient)
+        transferAdminRoutes = new TransferAdminExpressRoutes(logger, mockedTransferRepository, mockedBulkTransferRepository, mockedTokenHelper, mockedAuthorizationClient)
 
         app.use("/", transferAdminRoutes.mainRouter);
 

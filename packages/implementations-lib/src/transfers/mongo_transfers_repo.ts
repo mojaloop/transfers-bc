@@ -32,11 +32,13 @@
 
 "use strict";
 
-import { Collection, Document, MongoClient, WithId } from 'mongodb';
+import { Collection, Document, FindOptions, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
-import { ITransfersRepository, ITransfer } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfersRepository, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
 import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from '../errors';
 import { randomUUID } from 'crypto';
+
+const MAX_ENTRIES_PER_PAGE = 100;
 
 export class MongoTransfersRepo implements ITransfersRepository {
 	private readonly _logger: ILogger;
@@ -269,4 +271,121 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 		return transferMapped;
 	}
+
+	async searchEntries(
+        userId:string|null,
+        state:string|null,
+        currency:string|null,
+        id:string|null,
+        startDate:number|null,
+        endDate:number|null,
+        pageIndex = 0,
+        pageSize: number = MAX_ENTRIES_PER_PAGE
+    ): Promise<any> {
+        // make sure we don't go over or below the limits
+        pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
+        pageIndex = Math.max(pageIndex, 0);
+
+        const searchResults: TransfersSearchResults = {
+            pageSize: pageSize,
+            pageIndex: pageIndex,
+            totalPages: 0,
+            items: []
+        };
+
+        const conditions = [];
+
+        if(userId) conditions.push({match: {"securityContext.userId": userId}});
+        if(state) conditions.push({match: {"state": state}});
+        if(currency) conditions.push({match: {"currency": currency}});
+        if(id) conditions.push({match: {"id": id}});
+
+		let filter:any = {$and:[]};
+		if(id){
+			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
+		}
+		if(state){
+			filter.$and.push({transferState: state});
+		}
+		if(currency){
+			filter.$and.push({currencyCode: currency});
+		}
+		if(startDate){
+			filter.$and.push({updatedAt: {$gte:startDate}});
+		}
+		if(endDate){
+			filter.$and.push({updatedAt: {$lte:endDate}});
+		}
+        if(filter.$and.length === 0) {
+            filter = {}
+        }
+
+        try {
+            const skip = Math.floor(pageIndex * pageSize);
+			const result = await this.transfers.find(
+				filter,
+				{
+					sort:["updatedAt", "desc"], 
+					projection: {_id: 0}, 
+					skip: skip
+				}
+				).toArray().catch((e: unknown) => {
+					this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+					throw new UnableToGetTransferError();
+				});
+
+			searchResults.items = result as unknown as ITransfer[];
+
+			const totalEntries = await this.transfers.find(
+				filter
+            ).toArray().catch((e: unknown) => {
+                this._logger.error(`Unable to get transfers page size: ${(e as Error).message}`);
+                throw new UnableToGetTransferError("Unable to get transfers page size");
+			});
+
+			searchResults.totalPages = Math.ceil(totalEntries.length / pageSize);
+			searchResults.pageSize = Math.max(pageSize, result.length);
+            
+        } catch (err) {
+            this._logger.error(err);
+        }
+
+        return Promise.resolve(searchResults);
+    }
+
+	async getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>{
+        const retObj:{fieldName:string, distinctTerms:string[]}[] = [];
+
+        try {
+            const result = await this.transfers
+                .find({})
+                .project({_id: 0})
+                .toArray() as ITransfer[];
+
+			const state:{fieldName:string, distinctTerms:string[]} = {
+				fieldName: "state",
+				distinctTerms: []
+			};
+
+            for (let i=0; i<result.length ; i+=1) { 
+				if(!state.distinctTerms.includes(result[i].transferState)) state.distinctTerms.push(result[i].transferState);
+			}
+			retObj.push(state);
+
+			const currency:{fieldName:string, distinctTerms:string[]} = {
+				fieldName: "currency",
+				distinctTerms: []
+			};
+
+            for (let i=0; i<result.length ; i+=1) { 
+				if(!currency.distinctTerms.includes(result[i].currencyCode)) currency.distinctTerms.push(result[i].currencyCode);
+			}
+			retObj.push(currency);
+			
+        } catch (err) {
+            this._logger.error(err);
+        }
+
+        return Promise.resolve(retObj);
+    }
 }

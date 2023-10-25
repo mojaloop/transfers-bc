@@ -47,9 +47,9 @@ import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
-import {ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
+import {IBulkTransfersRepository, ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
 import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
-import {MongoTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib";
+import {MongoBulkTransfersRepo, MongoTransfersRepo} from "@mojaloop/transfers-bc-implementations-lib";
 import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 import {Server} from "net";
 import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
@@ -103,6 +103,7 @@ export class Service {
     static expressServer: Server;
 	static auditClient: IAuditClient;
 	static transfersRepo: ITransfersRepository;
+	static bulkTransfersRepo: IBulkTransfersRepository;
     static configClient: IConfigurationClient;
     static tokenHelper: TokenHelper;
     static metrics:IMetrics;
@@ -113,6 +114,7 @@ export class Service {
 		logger?: ILogger,
 		auditClient?: IAuditClient,
 		transfersRepo?: ITransfersRepository,
+		bulkTransfersRepo?: IBulkTransfersRepository,
         configProvider?: IConfigProvider,
         metrics?:IMetrics,
         authorizationClient?: IAuthorizationClient
@@ -202,6 +204,20 @@ export class Service {
 		}
 		this.transfersRepo = transfersRepo;
 
+        if (!bulkTransfersRepo) {
+			const DB_NAME_BULK_TRANSFERS = process.env.BULK_TRANSFERS_DB_NAME ?? "transfers";
+
+			bulkTransfersRepo = new MongoBulkTransfersRepo(
+				logger,
+				MONGO_URL,
+				DB_NAME_BULK_TRANSFERS
+			);
+
+			await bulkTransfersRepo.init();
+			logger.info("Bulk Transfer Registry Repo Initialized");
+		}
+		this.bulkTransfersRepo = bulkTransfersRepo;
+
         // authorization client
         if (!authorizationClient) {
             // setup privileges - bootstrap app privs and get priv/role associations
@@ -247,7 +263,7 @@ export class Service {
             });
 
             // Add admin and client http routes
-            const transferAdminRoutes = new TransferAdminExpressRoutes(this.logger, this.transfersRepo, this.tokenHelper, this.authorizationClient);
+            const transferAdminRoutes = new TransferAdminExpressRoutes(this.logger, this.transfersRepo, this.bulkTransfersRepo, this.tokenHelper, this.authorizationClient);
 
             this.app.use("/", transferAdminRoutes.mainRouter);
 

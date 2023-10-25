@@ -42,7 +42,7 @@
 
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
+import {IBulkTransfersRepository, ITransfersRepository, TransfersPrivileges, TransfersSearchResults} from "@mojaloop/transfers-bc-domain-lib";
 import {CallSecurityContext, IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
 import {BaseRoutes} from "./base/base_routes";
 
@@ -59,13 +59,19 @@ declare module "express-serve-static-core" {
 export class TransferAdminExpressRoutes extends BaseRoutes {
 
 
-    constructor(logger: ILogger, repo: ITransfersRepository, tokenHelper: ITokenHelper, authorizationClient: IAuthorizationClient) {
-        super(authorizationClient, repo, logger, tokenHelper);
+    constructor(logger: ILogger, repo: ITransfersRepository, bulkTransfersRepo: IBulkTransfersRepository, tokenHelper: ITokenHelper, authorizationClient: IAuthorizationClient) {
+        super(authorizationClient, repo, bulkTransfersRepo, logger, tokenHelper);
         this.logger.createChild(this.constructor.name);
 
 
         this.mainRouter.get("/transfers/:id", this.getTransferById.bind(this));
         this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
+
+        // this.mainRouter.get("/bulk-transfers/:id", this.getBulkTransferById.bind(this));
+        this.mainRouter.get("/bulk-transfers", this.getAllBulkTransfers.bind(this));
+
+        this.mainRouter.get("/entries/", this._getSearchEntries.bind(this));
+        this.mainRouter.get("/searchKeywords/", this._getSearchKeywords.bind(this));
     }
 
     private async getAllTransfers(req: express.Request, res: express.Response) {
@@ -128,4 +134,80 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             });
         }
     }
+
+    private async getAllBulkTransfers(
+        _req: express.Request,
+        res: express.Response
+    ) {
+        this.logger.info("Fetching all bulk transfers");
+        try {
+            const fetched = await this.bulkTransfersRepo.getBulkTransfers();
+            res.send(fetched);
+        } catch (err: unknown) {
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+
+    private async _getSearchEntries(req: express.Request, res: express.Response){
+        // const text = req.query.text as string || null;
+        const state = req.query.state as string || null;
+        const currency = req.query.currency as string || null;
+        const id = req.query.id as string || null;
+        const userId = req.query.userId as string || null;
+        const startDateStr = req.query.startDate as string || req.query.startdate as string;
+        const startDate = startDateStr ? parseInt(startDateStr) : null;
+        const endDateStr = req.query.endDate as string || req.query.enddate as string;
+        const endDate = endDateStr ? parseInt(endDateStr) : null;
+
+        // optional pagination
+        const pageIndexStr = req.query.pageIndex as string || req.query.pageindex as string;
+        const pageIndex = pageIndexStr ? parseInt(pageIndexStr) : undefined;
+
+        const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
+        const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
+
+
+        try{
+            const ret:TransfersSearchResults = await this.transfersRepo.searchEntries(
+                // text,
+                userId,
+                state,
+                currency,
+                id,
+                startDate,
+                endDate,
+                pageIndex,
+                pageSize
+            );
+            res.send(ret);
+        }   catch (err: any) {
+            if (this._handleUnauthorizedError(err, res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+    
+    private async _getSearchKeywords(req: express.Request, res: express.Response){
+        try{
+            const ret = await this.transfersRepo.getSearchKeywords();
+            res.send(ret);
+        }   catch (err: any) {
+            if (this._handleUnauthorizedError(err, res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+
 }

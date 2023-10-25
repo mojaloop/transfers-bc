@@ -1,6 +1,6 @@
 {
   "name": "@mojaloop/transfers-bc-command-handler-svc",
-  "version": "0.2.11",
+  "version": "0.3.0",
   "description": "Mojaloop vNext Transfers BC - Command Handler Service",
   "license": "Apache-2.0",
   "homepage": "https://github.com/mojaloop/transfers-bc/command-handler-svc",
@@ -39,8 +39,8 @@
   "dependencies": {
     "@mojaloop/auditing-bc-client-lib": "~0.0.15",
     "@mojaloop/logging-bc-client-lib": "^0.1.26",
-    "@mojaloop/platform-configuration-bc-client-lib": "~0.3.4",
-    "@mojaloop/platform-configuration-bc-public-types-lib": "^0.3.3",
+    "@mojaloop/platform-configuration-bc-client-lib": "~0.3.6",
+    "@mojaloop/platform-configuration-bc-public-types-lib": "^0.3.5",
     "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "^0.3.67",
     "@mojaloop/platform-shared-lib-observability-client-lib": "~0.1.10",
     "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.9",
