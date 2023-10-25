@@ -58,7 +58,6 @@ declare module "express-serve-static-core" {
 
 export class TransferAdminExpressRoutes extends BaseRoutes {
 
-
     constructor(logger: ILogger, repo: ITransfersRepository, bulkTransfersRepo: IBulkTransfersRepository, tokenHelper: ITokenHelper, authorizationClient: IAuthorizationClient) {
         super(authorizationClient, repo, bulkTransfersRepo, logger, tokenHelper);
         this.logger.createChild(this.constructor.name);
@@ -95,8 +94,8 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
                 fetched = await this.transfersRepo.searchTransfers(state, currencyCode, startDate, endDate, id);
             }
             res.send(fetched);
-        } catch (err: any) {
-            if (this._handleUnauthorizedError(err, res)) return;
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
 
             this.logger.error(err);
             res.status(500).json({
@@ -124,8 +123,8 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
                 status: "error",
                 msg: "Transfer not found",
             });
-        } catch (err: any) {
-            if (this._handleUnauthorizedError(err, res)) return;
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
 
             this.logger.error(err);
             res.status(500).json({
@@ -153,7 +152,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
     }
 
     private async _getSearchEntries(req: express.Request, res: express.Response){
-        // const text = req.query.text as string || null;
         const state = req.query.state as string || null;
         const currency = req.query.currency as string || null;
         const id = req.query.id as string || null;
@@ -173,7 +171,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
 
         try{
             const ret:TransfersSearchResults = await this.transfersRepo.searchEntries(
-                // text,
                 userId,
                 state,
                 currency,
@@ -184,8 +181,8 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
                 pageSize
             );
             res.send(ret);
-        }   catch (err: any) {
-            if (this._handleUnauthorizedError(err, res)) return;
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
 
             this.logger.error(err);
             res.status(500).json({
@@ -199,8 +196,8 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         try{
             const ret = await this.transfersRepo.getSearchKeywords();
             res.send(ret);
-        }   catch (err: any) {
-            if (this._handleUnauthorizedError(err, res)) return;
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
 
             this.logger.error(err);
             res.status(500).json({

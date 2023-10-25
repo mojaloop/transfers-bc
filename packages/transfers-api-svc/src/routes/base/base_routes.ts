@@ -96,10 +96,7 @@ export abstract class BaseRoutes {
     ) {
         const authorizationHeader = req.headers["authorization"];
 
-        if (!authorizationHeader)
-        {
-            return res.sendStatus(401);
-        }
+        if (!authorizationHeader) return res.sendStatus(401);
 
         const bearer = authorizationHeader.trim().split(" ");
         if (bearer.length != 2) {
@@ -107,33 +104,13 @@ export abstract class BaseRoutes {
         }
 
         const bearerToken = bearer[1];
-        let verified;
-        try {
-            verified = await this._tokenHelper.verifyToken(bearerToken);
-        } catch (err) {
-            this._logger.error(err, "unable to verify token");
-            return res.sendStatus(401);
-        }
-        if (!verified) {
+        const callSecCtx:  CallSecurityContext | null = await this._tokenHelper.getCallSecurityContextFromAccessToken(bearerToken);
+
+        if(!callSecCtx){
             return res.sendStatus(401);
         }
 
-        const decoded = this._tokenHelper.decodeToken(bearerToken);
-        if (!decoded.sub || decoded.sub.indexOf("::") == -1) {
-            return res.sendStatus(401);
-        }
-
-        const subSplit = decoded.sub.split("::");
-        const subjectType = subSplit[0];
-        const subject = subSplit[1];
-
-        req.securityContext = {
-            accessToken: bearerToken,
-            clientId: subjectType.toUpperCase().startsWith("APP") ? subject : null,
-            username: subjectType.toUpperCase().startsWith("USER") ? subject : null,
-            rolesIds: decoded.roles,
-        };
-
+        req.securityContext = callSecCtx;
         return next();
     }
 
@@ -158,12 +135,12 @@ export abstract class BaseRoutes {
     }
 
     public _enforcePrivilege(secCtx: CallSecurityContext, privilegeId: string): void {
-        for (const roleId of secCtx.rolesIds) {
+        for (const roleId of secCtx.platformRoleIds) {
             if (this._authorizationClient.roleHasPrivilege(roleId, privilegeId)) {
                 return;
             }
         }
-        const error = new ForbiddenError("Caller is missing role with privilegeId: " + privilegeId);
+        const error = new ForbiddenError("Caller is missing platform role with privilegeId: " + privilegeId);
         this._logger.isWarnEnabled() && this._logger.warn(error.message);
         throw error;
     }

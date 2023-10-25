@@ -37,7 +37,7 @@ import request from "supertest";
 import { TransferAdminExpressRoutes } from "../../src/routes/transfer_admin_routes";
 import { IBulkTransfersRepository, ITransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { MemoryAuthorizationClient, MemoryBulkTransferRepo, MemoryTokenHelper, MemoryTransferRepo } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import { IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
+import { CallSecurityContext, IAuthorizationClient, ITokenHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
 import express, {Express} from "express";
 import { Server } from "http";
 
@@ -73,6 +73,13 @@ const decoded = {
     "sub": "user::user",
     "jti": "e0ca5ff9-1a2f-4548-b474-a3aa3256cad4"
 };
+
+const securityContext:CallSecurityContext = {
+    "accessToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkR1RVNzRFdmb2JjRURQODR4c2hjU2sxUFJsMnMwMUN0RW9ibkNoRUVFT2cifQ.eyJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1iYy11aSIsInJvbGVzIjpbImFkbWluIl0sImlhdCI6MTY5ODE1NDUzNSwiZXhwIjoxNjk4NzU5MzM1LCJhdWQiOiJtb2phbG9vcC52bmV4dC5kZXYuZGVmYXVsdF9hdWRpZW5jZSIsImlzcyI6Im1vamFsb29wLnZuZXh0LmRldi5kZWZhdWx0X2lzc3VlciIsInN1YiI6InVzZXI6OmFkbWluIiwianRpIjoiZTg1MGY1NmItMDM2Yi00YTE0LWI5ZjUtNWUyZWM1NzFlMjdmIn0.kkdTEy1ISNu_nwHRpwg0iaK1aWPfMChZF1Lpbkne5LackYGXCnjnIY5Xt2fY0pJK2awEbduxPM7RWLKoZcKbw_9Vq63OupFqqr8s69q3EjLMZLSeGMTVVNWWEKKm16NM1LSD_z7Em7RcgeQFMcEtU2tOZvFpnvZpXk_-r-mL7AuYAy2ZVI05F0SMczInVAg_3s13yPs_oEPa-zeY9q-nU0d-pvNm7f0USZpZYULjcTmUkdNiM_rZsjdJxI4vrTmumTdts5JV7Qirt4Jk-kf-sFKRpnwQ_ORosBrQiW_B8usqqQb3qWkS4wXOgxnUMqoTneJzXHy_2L4AeDcrS_r6Dw",
+    "clientId": "1",
+    "platformRoleIds": ["2"],
+    "username": "admin"
+}
 
 describe("Transfers Admin Routes - Unit tests", () => {
     let app: Express;
@@ -115,14 +122,14 @@ describe("Transfers Admin Routes - Unit tests", () => {
     });
 
     test("GET - should throw general error with request to get a transfer by its id", async () => {
-        // Arrange
+        // Arrange 
         const transferId = "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9";
 
         jest.spyOn(mockedTransferRepository, "getTransferById")
             .mockImplementationOnce(() => { throw new Error(); })
 
-        jest.spyOn(mockedTokenHelper, "decodeToken")
-            .mockReturnValueOnce(decoded);
+        jest.spyOn(mockedTokenHelper, "getCallSecurityContextFromAccessToken")
+            .mockResolvedValueOnce(securityContext);
 
         // Act
         const response = await request(server)
@@ -140,9 +147,6 @@ describe("Transfers Admin Routes - Unit tests", () => {
         jest.spyOn(mockedTransferRepository, "getTransferById")
             .mockImplementationOnce(() => { throw new UnauthorizedError(); })
 
-        jest.spyOn(mockedTokenHelper, "decodeToken")
-            .mockReturnValueOnce(decoded);
-
         // Act
         const response = await request(server)
             .get(`/transfers/${transferId}`)
@@ -159,8 +163,8 @@ describe("Transfers Admin Routes - Unit tests", () => {
         jest.spyOn(mockedAuthorizationClient, "roleHasPrivilege")
             .mockReturnValue(false)
 
-        jest.spyOn(mockedTokenHelper, "decodeToken")
-            .mockReturnValueOnce(decoded);
+        jest.spyOn(mockedTokenHelper, "getCallSecurityContextFromAccessToken")
+            .mockResolvedValueOnce(securityContext);
 
         // Act
         const response = await request(server)
@@ -176,8 +180,8 @@ describe("Transfers Admin Routes - Unit tests", () => {
         jest.spyOn(mockedTransferRepository, "getTransfers")
             .mockImplementationOnce(() => { throw new Error(); })
 
-        jest.spyOn(mockedTokenHelper, "decodeToken")
-            .mockReturnValueOnce(decoded);
+        jest.spyOn(mockedTokenHelper, "getCallSecurityContextFromAccessToken")
+            .mockResolvedValueOnce(securityContext);
 
         // Act
         const response = await request(server)

@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { Collection, Document, FindOptions, MongoClient, WithId } from 'mongodb';
+import { Collection, Document, MongoClient, WithId } from 'mongodb';
 import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
 import { ITransfersRepository, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
 import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from '../errors';
@@ -144,8 +144,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		endDate?:number,
 		id?:string
 	):Promise<ITransfer[]>{
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const filter:any = {$and:[]};
+		const filter:any = {$and:[]}; // eslint-disable-line @typescript-eslint/no-explicit-any
 		if(id){
 			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
 		}
@@ -281,7 +280,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
         endDate:number|null,
         pageIndex = 0,
         pageSize: number = MAX_ENTRIES_PER_PAGE
-    ): Promise<any> {
+    ): Promise<TransfersSearchResults> {
         // make sure we don't go over or below the limits
         pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
         pageIndex = Math.max(pageIndex, 0);
@@ -300,7 +299,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
         if(currency) conditions.push({match: {"currency": currency}});
         if(id) conditions.push({match: {"id": id}});
 
-		let filter:any = {$and:[]};
+		let filter:any = {$and:[]}; // eslint-disable-line @typescript-eslint/no-explicit-any
 		if(id){
 			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
 		}
@@ -317,7 +316,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			filter.$and.push({updatedAt: {$lte:endDate}});
 		}
         if(filter.$and.length === 0) {
-            filter = {}
+            filter = {};
         }
 
         try {

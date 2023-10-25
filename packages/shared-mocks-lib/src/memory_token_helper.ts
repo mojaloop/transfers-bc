@@ -32,7 +32,7 @@
 "use strict";
 
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import { ITokenHelper } from "@mojaloop/security-bc-public-types-lib";
+import { CallSecurityContext, ITokenHelper } from "@mojaloop/security-bc-public-types-lib";
 
 export class MemoryTokenHelper implements ITokenHelper {
 	private readonly logger: ILogger;
@@ -57,5 +57,9 @@ export class MemoryTokenHelper implements ITokenHelper {
 
 	verifyToken(_accessToken: string): Promise<boolean> {
         return Promise.resolve(true);
+	}
+
+	getCallSecurityContextFromAccessToken(accessToken: string): Promise<CallSecurityContext | null> {
+		return Promise.resolve(null);
 	}
 }

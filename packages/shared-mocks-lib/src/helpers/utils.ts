@@ -100,7 +100,7 @@ export const waitForExpect = function waitForExpect(
   const maxTries = Math.ceil(timeout / interval);
   let tries = 0;
   return new Promise<void>((resolve, reject) => {
-    const rejectOrRerun = (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const rejectOrRerun = (error: unknown) => {
 
       if (tries > maxTries) {
         reject(error);
