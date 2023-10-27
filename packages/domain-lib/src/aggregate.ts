@@ -230,9 +230,9 @@ export class TransfersAggregate {
 
                 // send to A&B
                 const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
-                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()`);
+                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()");
                 this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
-                if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()`);
+                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()");
                 execAB_timerEndFn({success:"true"});
 
                 // peek first and check count to establish no errors - or any other way to determine error
@@ -248,9 +248,9 @@ export class TransfersAggregate {
                 if(this._abCancelationBatchRequests.length){
                     // send cancellations to A&B
                     const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelCancelationBatch"});
-                    if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()");
                     this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancelationBatchRequests);
-                    if(this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()`);
+                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()");
                     execAB_timerEndFn({success:"true"});
                 }
 
@@ -379,12 +379,12 @@ export class TransfersAggregate {
 
     private _ensureValidMessage(message: CommandMsg): void {
         if (!message.payload) {
-            this._logger.error(`TransferCommandHandler: message payload has invalid format or value`);
+            this._logger.error("TransferCommandHandler: message payload has invalid format or value");
             throw new InvalidMessagePayloadError();
         }
 
         if (!message.msgName) {
-            this._logger.error(`TransferCommandHandler: message name is invalid`);
+            this._logger.error("TransferCommandHandler: message name is invalid");
             throw new InvalidMessageTypeError();
         }
 
@@ -1568,8 +1568,7 @@ export class TransfersAggregate {
 
         try{
             this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
-        }
-        catch(err:unknown){
+        } catch(err:unknown){
             const error = (err as Error).message;
             const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${error}`;
             this._logger.error(err, `${errorMessage}: ${error}`);
@@ -2045,7 +2044,7 @@ export class TransfersAggregate {
 	}
 
     private _generateSha256(object:{[key: string]: string | number}):string {
-		const hashSha256 = createHash('sha256')
+		const hashSha256 = createHash("sha256")
 
 		// updating data
 		.update(JSON.stringify(object))

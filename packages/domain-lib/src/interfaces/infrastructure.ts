@@ -45,28 +45,20 @@ export interface ITransfersRepository {
     updateTransfer(transfer: ITransfer):Promise<void>;
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
-    getTransfers():Promise<ITransfer[]>;
-	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
-	searchTransfers(
-		state?:string,
-		currencyCode?:string,
-		startDate?:number,
-		endDate?:number,
-		id?:string
-	):Promise<ITransfer[]>
-
-    storeTransfers(transfers:ITransfer[]):Promise<void>;
-	
-	searchEntries(
-        userId:string|null,
+    getTransfers(
+        id:string|null,
         state:string|null,
         currency:string|null,
-        id:string|null,
         startDate:number|null,
         endDate:number|null,
+        bulkTransferId:string|null,
         pageIndex?:number,
         pageSize?: number
-    ): Promise<TransfersSearchResults>;
+    ):Promise<TransfersSearchResults>;
+	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
+
+    storeTransfers(transfers:ITransfer[]):Promise<void>;
+
 
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
 }
@@ -79,7 +71,7 @@ export interface IBulkTransfersRepository {
 	getBulkTransferById(id: string): Promise<IBulkTransfer | null>;
 	getBulkTransfers(): Promise<IBulkTransfer[]>;
   }
-  
+
 export interface IParticipantsServiceAdapter {
     getParticipantInfo(fspId: string): Promise<IParticipant| null>;
     getParticipantsInfo(fspIds: string[]): Promise<IParticipant[]|null>;

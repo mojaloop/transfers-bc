@@ -323,7 +323,9 @@ export class Service {
             this.app.use(express.urlencoded({extended: true})); // for parsing application/x-www-form-urlencoded
 
             // Add health and metrics http routes
-            this.app.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+            this.app.get("/health", (req: express.Request, res: express.Response) => {
+return res.send({ status: "OK" }); 
+});
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
                 return res.send(strMetrics);

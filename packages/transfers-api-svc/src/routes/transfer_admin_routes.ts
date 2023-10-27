@@ -69,7 +69,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         // this.mainRouter.get("/bulk-transfers/:id", this.getBulkTransferById.bind(this));
         this.mainRouter.get("/bulk-transfers", this.getAllBulkTransfers.bind(this));
 
-        this.mainRouter.get("/entries/", this._getSearchEntries.bind(this));
         this.mainRouter.get("/searchKeywords/", this._getSearchKeywords.bind(this));
     }
 
@@ -77,22 +76,35 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         try {
             this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
 
-            const id = req.query.id as string;
-            const state = req.query.state as string;
+            const state = req.query.state as string || null;
+            const currency = req.query.currency as string || null;
+            const id = req.query.id as string || null;
+            const bulkTransferId = req.query.bulkTransferId as string || null;
             const startDateStr = req.query.startDate as string || req.query.startdate as string;
-            const startDate = startDateStr ? parseInt(startDateStr) : undefined;
+            const startDate = startDateStr ? parseInt(startDateStr) : null;
             const endDateStr = req.query.endDate as string || req.query.enddate as string;
-            const endDate = endDateStr ? parseInt(endDateStr) : undefined;
-            const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+            const endDate = endDateStr ? parseInt(endDateStr) : null;
+
+            // optional pagination
+            const pageIndexStr = req.query.pageIndex as string || req.query.pageindex as string;
+            const pageIndex = pageIndexStr ? parseInt(pageIndexStr) : undefined;
+
+            const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
+            const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
 
             this.logger.debug("Fetching all transfers");
 
-            let fetched = [];
-            if (!id && !state && !startDate && !endDate && !currencyCode) {
-                fetched = await this.transfersRepo.getTransfers();
-            } else {
-                fetched = await this.transfersRepo.searchTransfers(state, currencyCode, startDate, endDate, id);
-            }
+            const fetched= await this.transfersRepo.getTransfers(
+                id,
+                state,
+                currency,
+                startDate,
+                endDate,
+                bulkTransferId,
+                pageIndex,
+                pageSize
+            );
+
             res.send(fetched);
         } catch (err: unknown) {
             if (this._handleUnauthorizedError((err as Error), res)) return;
@@ -151,47 +163,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         }
     }
 
-    private async _getSearchEntries(req: express.Request, res: express.Response){
-        const state = req.query.state as string || null;
-        const currency = req.query.currency as string || null;
-        const id = req.query.id as string || null;
-        const userId = req.query.userId as string || null;
-        const startDateStr = req.query.startDate as string || req.query.startdate as string;
-        const startDate = startDateStr ? parseInt(startDateStr) : null;
-        const endDateStr = req.query.endDate as string || req.query.enddate as string;
-        const endDate = endDateStr ? parseInt(endDateStr) : null;
 
-        // optional pagination
-        const pageIndexStr = req.query.pageIndex as string || req.query.pageindex as string;
-        const pageIndex = pageIndexStr ? parseInt(pageIndexStr) : undefined;
-
-        const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
-        const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
-
-
-        try{
-            const ret:TransfersSearchResults = await this.transfersRepo.searchEntries(
-                userId,
-                state,
-                currency,
-                id,
-                startDate,
-                endDate,
-                pageIndex,
-                pageSize
-            );
-            res.send(ret);
-        } catch (err: unknown) {
-            if (this._handleUnauthorizedError((err as Error), res)) return;
-
-            this.logger.error(err);
-            res.status(500).json({
-                status: "error",
-                msg: (err as Error).message,
-            });
-        }
-    }
-    
     private async _getSearchKeywords(req: express.Request, res: express.Response){
         try{
             const ret = await this.transfersRepo.getSearchKeywords();

@@ -2,7 +2,7 @@
 import process from "process";
 import {randomUUID} from "crypto";
 
-import PubMessages, {TransferFulfilCommittedRequestedEvt} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import PubMessages, {TransferFulfilRequestedEvt} from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { MLKafkaJsonConsumer, MLKafkaJsonProducer } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {ConsoleLogger} from "@mojaloop/logging-bc-public-types-lib";
 
@@ -54,9 +54,9 @@ async function handler(message){
             extensionList: null
         }
 
-        const evt = new PubMessages.TransferFulfilCommittedRequestedEvt(fulfilRequestedPayload);
+        const evt = new PubMessages.TransferFulfilRequestedEvt(fulfilRequestedPayload);
         evt.fspiopOpaqueState = {
-            headers: {},
+            headers: evt.fspiopOpaqueState?.headers,
             prepareSendTimestamp: message.fspiopOpaqueState.prepareSendTimestamp,
             committedSendTimestamp: now
         }

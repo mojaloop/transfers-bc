@@ -45,12 +45,12 @@ export class UnableToAddTransferError extends Error {
 }
 export class UnableToGetTransferError extends Error {
     constructor(message?: string) {
-        super(message || 'Unable to get transfer');
+        super(message || "Unable to get transfer");
     }
 }
 export class TransferAlreadyExistsError extends Error {
     constructor(message?:string) {
-        super(message || 'Transfer already registered');
+        super(message || "Transfer already registered");
     }
 }
 export class UnableToUpdateTransferError extends Error {
@@ -65,12 +65,12 @@ export class NoSuchTransferError extends Error {
 }
 export class UnableToAddManyTransfersError extends Error {
     constructor(message?: string) {
-        super(message || 'Unable to add many transfers');
+        super(message || "Unable to add many transfers");
     }
 }
 export class UnableToDeleteTransferError extends Error {
     constructor(message?:string) {
-        super(message || 'Unable to delete transfer');
+        super(message || "Unable to delete transfer");
     }
 }
 
@@ -78,13 +78,13 @@ export class UnableToDeleteTransferError extends Error {
 // Database
 export class UnableToCloseDatabaseConnectionError extends Error{
     constructor(message?: string) {
-        super(message || 'Unable to close database connection');
+        super(message || "Unable to close database connection");
     }
 }
 
 export class UnableToInitTransferRegistryError extends Error {
     constructor(message?: string) {
-        super(message || 'Unable to initialize transfer registry');
+        super(message || "Unable to initialize transfer registry");
     }
 }
 

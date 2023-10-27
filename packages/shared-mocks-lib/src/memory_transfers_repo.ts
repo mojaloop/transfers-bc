@@ -43,9 +43,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
 	) {
 		this._logger = logger;
 	}
-    searchEntries(userId: string | null, state: string | null, currency: string | null, id: string | null, startDate: number | null, endDate: number | null, pageIndex?: number | undefined, pageSize?: number | undefined): Promise<TransfersSearchResults> {
-        throw new Error("Method not implemented.");
-    }
+
     getSearchKeywords(): Promise<{ fieldName: string; distinctTerms: string[]; }[]> {
         throw new Error("Method not implemented.");
     }
@@ -72,8 +70,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         const transferToUpdate = this._transfers.find(q => q.transferId === transfer.transferId);
         if (transferToUpdate) {
             Object.assign(transferToUpdate, transfer);
-        }
-        else{
+        } else{
             throw new Error(`Transfer with id ${transfer.transferId} not found`);
         }
         return Promise.resolve();
@@ -88,16 +85,12 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers.find(q => q.transferId === id) || null);
     }
 
-    getTransfers(): Promise<ITransfer[]> {
-        return Promise.resolve(this._transfers);
+    getTransfers(id: string | null, state: string | null, currency: string | null, startDate: number | null, endDate: number | null, bulkTransferId: string | null, pageIndex?: number, pageSize?: number): Promise<TransfersSearchResults> {
+        throw new Error("Method not implemented.");
     }
 
     getTransfersByBulkId(id: string): Promise<ITransfer[]> {
         return Promise.resolve(this._transfers.filter(transfer => transfer.bulkTransferId === id));
-    }
-
-    searchTransfers(_state?: string, _currencyCode?: string, _startDate?: number, _endDate?: number, _id?: string): Promise<ITransfer[]> {
-        return Promise.resolve(this._transfers);
     }
 
     storeTransfers(_transfers:ITransfer[]):Promise<void> {

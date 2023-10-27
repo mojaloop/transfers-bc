@@ -33,7 +33,7 @@
   "dependencies": {
     "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.2.2",
     "@mojaloop/auditing-bc-public-types-lib": "~0.0.17",
-    "@mojaloop/logging-bc-public-types-lib": "~0.1.20",
+    "@mojaloop/logging-bc-public-types-lib": "~0.1.21",
     "@mojaloop/participant-bc-public-types-lib": "~0.0.19",
     "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.101",
     "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.9",

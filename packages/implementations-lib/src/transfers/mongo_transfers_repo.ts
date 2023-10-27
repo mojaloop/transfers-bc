@@ -32,11 +32,11 @@
 
 "use strict";
 
-import { Collection, Document, MongoClient, WithId } from 'mongodb';
-import { ILogger } from '@mojaloop/logging-bc-public-types-lib';
+import { Collection, Document, MongoClient, WithId } from "mongodb";
+import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { ITransfersRepository, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from '../errors';
-import { randomUUID } from 'crypto';
+import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from "../errors";
+import { randomUUID } from "crypto";
 
 const MAX_ENTRIES_PER_PAGE = 100;
 
@@ -74,8 +74,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	async destroy(): Promise<void> {
 		try{
 			await this.mongoClient.close();
-		}
-		catch(e: unknown){
+		} catch(e: unknown){
 			this._logger.error(`Unable to close the database connection: ${(e as Error).message}`);
 			throw new UnableToCloseDatabaseConnectionError();
 		}
@@ -105,8 +104,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 		if(deleteResult.deletedCount == 1){
 			return;
-		}
-		else{
+		}else{
 			throw new NoSuchTransferError();
 		}
 	}
@@ -120,59 +118,84 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		if(!transfer){
 			return null;
 		}
-		return this.mapToTransfer(transfer);
+		return this._mapToTransfer(transfer);
 	}
 
-	async getTransfers():Promise<ITransfer[]>{
-		const transfers = await this.transfers.find(
-			{},
-			{sort:["updatedAt", "desc"], projection: {_id: 0}}
-		).toArray().catch((e: unknown) => {
-			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
-			throw new UnableToGetTransferError();
-		});
+	async getTransfers(
+        id:string|null,
+        state:string|null,
+        currency:string|null,
+        startDate:number|null,
+        endDate:number|null,
+        bulkTransferId:string|null,
+        pageIndex:number = 0,
+        pageSize: number = MAX_ENTRIES_PER_PAGE
+    ):Promise<TransfersSearchResults>{
+        // make sure we don't go over or below the limits
+        pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
+        pageIndex = Math.max(pageIndex, 0);
 
-		const mappedTransfers = transfers.map(this.mapToTransfer);
+        const searchResults: TransfersSearchResults = {
+            pageSize: pageSize,
+            pageIndex: pageIndex,
+            totalPages: 0,
+            items: []
+        };
 
-		return mappedTransfers;
+        let filter:any = {$and:[]};
+        if(id){
+            filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
+        }
+        if(state){
+            filter.$and.push({transferState: state});
+        }
+        if(bulkTransferId){
+            filter.$and.push({bulkTransferId: state});
+        }
+        if(currency){
+            filter.$and.push({currencyCode: currency});
+        }
+        if(startDate){
+            filter.$and.push({updatedAt: {$gte:startDate}});
+        }
+        if(endDate){
+            filter.$and.push({updatedAt: {$lte:endDate}});
+        }
+        if(filter.$and.length === 0) {
+            filter = {};
+        }
+
+        try {
+            const skip = Math.floor(pageIndex * pageSize);
+            const result = await this.transfers.find(
+                filter,
+                {
+                    sort:["updatedAt", "desc"],
+                    projection: {_id: 0},
+                    skip: skip,
+                    limit: pageSize
+                }
+            ).toArray().catch((e: unknown) => {
+                this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+                throw new UnableToGetTransferError();
+            });
+
+            const countResult = await this.transfers.countDocuments(filter).catch(reason => {
+                this._logger.error("Unable to get transfers count");
+            }) || result.length;
+
+            searchResults.items = result.map(this._mapToTransfer);
+
+            searchResults.totalPages = Math.ceil(countResult / pageSize);
+            searchResults.pageSize = Math.max(pageSize, result.length);
+
+        } catch (err) {
+            this._logger.error(err);
+        }
+
+        return Promise.resolve(searchResults);
 	}
 
-	async searchTransfers(
-		state?:string,
-		currencyCode?:string,
-		startDate?:number,
-		endDate?:number,
-		id?:string
-	):Promise<ITransfer[]>{
-		const filter:any = {$and:[]}; // eslint-disable-line @typescript-eslint/no-explicit-any
-		if(id){
-			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
-		}
-		if(currencyCode){
-			filter.$and.push({currencyCode: currencyCode});
-		}
-		if(startDate){
-			filter.$and.push({updatedAt: {$gte:startDate}});
-		}
-		if(endDate){
-			filter.$and.push({updatedAt: {$lte:endDate}});
-		}
-		if(state){
-			filter.$and.push({transferState: state});
-		}
-
-		const transfers = await this.transfers.find(
-			filter,
-			{sort:["updatedAt", "desc"], projection: {_id: 0}}
-		).toArray().catch((e: unknown) => {
-			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
-			throw new UnableToGetTransferError();
-		});
-
-		const mappedTransfers = transfers.map(this.mapToTransfer);
-
-		return mappedTransfers;
-	}
 
     async storeTransfers(transfers:ITransfer[]):Promise<void>{
         const operations = transfers.map(value=>{
@@ -226,9 +249,9 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			throw new UnableToGetTransferError();
 		});
 
-		const mappedTransfers = transfers.map(this.mapToTransfer);
+		const mappedTransfers = transfers.map(this._mapToTransfer);
 
-		return mappedTransfers;	
+		return mappedTransfers;
 	}
 
 	private async checkIfTransferExists(transfer: ITransfer) {
@@ -246,7 +269,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		}
 	}
 
-	private mapToTransfer(transfer: WithId<Document>): ITransfer {
+	private _mapToTransfer(transfer: WithId<Document>): ITransfer {
 		const transferMapped: ITransfer = {
 			createdAt: transfer.createdAt ?? null,
 			updatedAt: transfer.updatedAt ?? null,
@@ -271,91 +294,14 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return transferMapped;
 	}
 
-	async searchEntries(
-        userId:string|null,
-        state:string|null,
-        currency:string|null,
-        id:string|null,
-        startDate:number|null,
-        endDate:number|null,
-        pageIndex = 0,
-        pageSize: number = MAX_ENTRIES_PER_PAGE
-    ): Promise<TransfersSearchResults> {
-        // make sure we don't go over or below the limits
-        pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
-        pageIndex = Math.max(pageIndex, 0);
-
-        const searchResults: TransfersSearchResults = {
-            pageSize: pageSize,
-            pageIndex: pageIndex,
-            totalPages: 0,
-            items: []
-        };
-
-        const conditions = [];
-
-        if(userId) conditions.push({match: {"securityContext.userId": userId}});
-        if(state) conditions.push({match: {"state": state}});
-        if(currency) conditions.push({match: {"currency": currency}});
-        if(id) conditions.push({match: {"id": id}});
-
-		let filter:any = {$and:[]}; // eslint-disable-line @typescript-eslint/no-explicit-any
-		if(id){
-			filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
-		}
-		if(state){
-			filter.$and.push({transferState: state});
-		}
-		if(currency){
-			filter.$and.push({currencyCode: currency});
-		}
-		if(startDate){
-			filter.$and.push({updatedAt: {$gte:startDate}});
-		}
-		if(endDate){
-			filter.$and.push({updatedAt: {$lte:endDate}});
-		}
-        if(filter.$and.length === 0) {
-            filter = {};
-        }
-
-        try {
-            const skip = Math.floor(pageIndex * pageSize);
-			const result = await this.transfers.find(
-				filter,
-				{
-					sort:["updatedAt", "desc"], 
-					projection: {_id: 0}, 
-					skip: skip
-				}
-				).toArray().catch((e: unknown) => {
-					this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
-					throw new UnableToGetTransferError();
-				});
-
-			searchResults.items = result as unknown as ITransfer[];
-
-			const totalEntries = await this.transfers.find(
-				filter
-            ).toArray().catch((e: unknown) => {
-                this._logger.error(`Unable to get transfers page size: ${(e as Error).message}`);
-                throw new UnableToGetTransferError("Unable to get transfers page size");
-			});
-
-			searchResults.totalPages = Math.ceil(totalEntries.length / pageSize);
-			searchResults.pageSize = Math.max(pageSize, result.length);
-            
-        } catch (err) {
-            this._logger.error(err);
-        }
-
-        return Promise.resolve(searchResults);
-    }
 
 	async getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>{
         const retObj:{fieldName:string, distinctTerms:string[]}[] = [];
 
         try {
+
+            //TODO: use something like db.collection.distinct('fieldName');
+
             const result = await this.transfers
                 .find({})
                 .project({_id: 0})
@@ -366,7 +312,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				distinctTerms: []
 			};
 
-            for (let i=0; i<result.length ; i+=1) { 
+            for (let i=0; i<result.length ; i+=1) {
 				if(!state.distinctTerms.includes(result[i].transferState)) state.distinctTerms.push(result[i].transferState);
 			}
 			retObj.push(state);
@@ -376,11 +322,11 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				distinctTerms: []
 			};
 
-            for (let i=0; i<result.length ; i+=1) { 
+            for (let i=0; i<result.length ; i+=1) {
 				if(!currency.distinctTerms.includes(result[i].currencyCode)) currency.distinctTerms.push(result[i].currencyCode);
 			}
 			retObj.push(currency);
-			
+
         } catch (err) {
             this._logger.error(err);
         }

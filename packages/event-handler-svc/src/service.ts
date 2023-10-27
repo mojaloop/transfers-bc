@@ -221,7 +221,9 @@ export class Service {
 
 
             // Add health and metrics http routes
-            this.app.get("/health", (req: express.Request, res: express.Response) => {return res.send({ status: "OK" }); });
+            this.app.get("/health", (req: express.Request, res: express.Response) => {
+return res.send({ status: "OK" }); 
+});
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
                 return res.send(strMetrics);

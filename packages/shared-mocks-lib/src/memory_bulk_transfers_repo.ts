@@ -61,8 +61,7 @@ export class MemoryBulkTransferRepo implements IBulkTransfersRepository {
         const transferToUpdate = this._bulkTransfers.find(q => q.bulkTransferId === bulkTransfer.bulkTransferId);
         if (transferToUpdate) {
             Object.assign(transferToUpdate, bulkTransfer);
-        }
-        else{
+        } else{
             throw new Error(`Bulk transfer with id ${bulkTransfer.bulkTransferId} not found`);
         }
         return Promise.resolve();

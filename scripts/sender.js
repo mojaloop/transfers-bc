@@ -2,7 +2,7 @@
 import process from "process";
 import {randomUUID} from "crypto";
 
-import PubMessages, {TransferFulfilCommittedRequestedEvt} from "@mojaloop/platform-shared-lib-public-messages-lib";
+import PubMessages, {TransferFulfilRequestedEvt} from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { MLKafkaJsonConsumer, MLKafkaJsonProducer } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {ConsoleLogger} from "@mojaloop/logging-bc-public-types-lib";
 
@@ -25,9 +25,9 @@ const kafkaProducerOptions = {
 let messageProducer = new MLKafkaJsonProducer(kafkaProducerOptions, logger);
 await messageProducer.connect();
 
-const MESSAGE_COUNT = 1440000;
-const BATCH_SIZE = 52;
-const BATCH_WAIT_MS = 500;
+const MESSAGE_COUNT = 1;
+const BATCH_SIZE = 1;
+const BATCH_WAIT_MS = 1000;
 
 let sent=0;
 
@@ -57,8 +57,10 @@ async function sendNewPrepareEvt(batchSize){
         const evt = new PubMessages.TransferPrepareRequestedEvt(msgPayload);
         evt.fspiopOpaqueState = {
             headers: {
-                "fspiop-source": payerId,
-                "fspiop-destination": payeeId
+                "requesterFspId":"greenbank",
+                "destinationFspId": null
+                // "fspiop-source": payerId,
+                // "fspiop-destination": payeeId
             },
             prepareSendTimestamp:now
         }
