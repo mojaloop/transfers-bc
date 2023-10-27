@@ -150,7 +150,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
             filter.$and.push({transferState: state});
         }
         if(bulkTransferId){
-            filter.$and.push({bulkTransferId: state});
+            filter.$and.push({bulkTransferId: bulkTransferId});
         }
         if(currency){
             filter.$and.push({currencyCode: currency});

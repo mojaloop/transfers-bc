@@ -66,7 +66,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         this.mainRouter.get("/transfers/:id", this.getTransferById.bind(this));
         this.mainRouter.get("/transfers", this.getAllTransfers.bind(this));
 
-        // this.mainRouter.get("/bulk-transfers/:id", this.getBulkTransferById.bind(this));
+        this.mainRouter.get("/bulk-transfers/:id", this.getBulkTransferById.bind(this));
         this.mainRouter.get("/bulk-transfers", this.getAllBulkTransfers.bind(this));
 
         this.mainRouter.get("/searchKeywords/", this._getSearchKeywords.bind(this));
@@ -134,6 +134,35 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             res.status(404).json({
                 status: "error",
                 msg: "Transfer not found",
+            });
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+
+    private async getBulkTransferById(req: express.Request, res: express.Response) {
+        try {
+            this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
+
+            const id = req.params["id"] ?? null;
+            this.logger.debug("Fetching bulk transfer by id " + id);
+
+            const fetched = await this.bulkTransfersRepo.getBulkTransferById(id);
+
+            if (fetched) {
+                res.send(fetched);
+                return;
+            }
+
+            res.status(404).json({
+                status: "error",
+                msg: "Bulk Transfer not found",
             });
         } catch (err: unknown) {
             if (this._handleUnauthorizedError((err as Error), res)) return;
