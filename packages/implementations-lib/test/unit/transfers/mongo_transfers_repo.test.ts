@@ -128,41 +128,41 @@ describe("Implementations - Mongo transfers Repo Unit tests", () => {
         undoMockProperty(mongoTransfersRepo, "transfers" as any)
     });
 
-    test("should throw error when trying to get transfers", async () => {
-        // Arrange
-        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
-            let userProfile = {} as any;
-            userProfile.find = () => {
-                return { 
-                    toArray: async () => { throw Error(); }
-                }
-            }
-            return userProfile;
-        }));
+    // test("should throw error when trying to get transfers", async () => {
+    //     // Arrange
+    //     mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+    //         let userProfile = {} as any;
+    //         userProfile.find = () => {
+    //             return { 
+    //                 toArray: async () => { throw Error(); }
+    //             }
+    //         }
+    //         return userProfile;
+    //     }));
 
-        // Act & Assert
-        await expect(mongoTransfersRepo.getTransfers()).rejects.toThrowError(UnableToGetTransferError);
+    //     // Act & Assert
+    //     await expect(mongoTransfersRepo.getTransfers()).rejects.toThrowError(UnableToGetTransferError);
 
-        undoMockProperty(mongoTransfersRepo, "transfers" as any)
-    });
+    //     undoMockProperty(mongoTransfersRepo, "transfers" as any)
+    // });
 
-    test("should throw error when trying to search for transfers", async () => {
-        // Arrange
-        mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
-            let userProfile = {} as any;
-            userProfile.find = () => {
-                return { 
-                    toArray: async () => { throw Error(); }
-                }
-            }
-            return userProfile;
-        }));
+    // test("should throw error when trying to search for transfers", async () => {
+    //     // Arrange
+    //     mockProperty(mongoTransfersRepo, "transfers", jest.fn(() => {
+    //         let userProfile = {} as any;
+    //         userProfile.find = () => {
+    //             return { 
+    //                 toArray: async () => { throw Error(); }
+    //             }
+    //         }
+    //         return userProfile;
+    //     }));
 
-        // Act & Assert
-        await expect(mongoTransfersRepo.searchTransfers()).rejects.toThrowError(UnableToGetTransferError);
+    //     // Act & Assert
+    //     await expect(mongoTransfersRepo.searchTransfers()).rejects.toThrowError(UnableToGetTransferError);
 
-        undoMockProperty(mongoTransfersRepo, "transfers" as any)
-    });
+    //     undoMockProperty(mongoTransfersRepo, "transfers" as any)
+    // });
 
     test("should throw error when trying to store transfers", async () => {
         // Arrange

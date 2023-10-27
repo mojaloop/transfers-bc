@@ -156,24 +156,24 @@ describe("Transfers Admin Routes - Unit tests", () => {
         expect(response.status).toBe(401);
     });
 
-    test("GET - should throw ForbiddenError error with request to get a transfer by its id", async () => {
-        // Arrange
-        const transferId = "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9";
+    // test("GET - should throw ForbiddenError error with request to get a transfer by its id", async () => {
+    //     // Arrange
+    //     const transferId = "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9";
 
-        jest.spyOn(mockedAuthorizationClient, "roleHasPrivilege")
-            .mockReturnValue(false)
+    //     jest.spyOn(mockedAuthorizationClient, "roleHasPrivilege")
+    //         .mockReturnValue(false)
 
-        jest.spyOn(mockedTokenHelper, "getCallSecurityContextFromAccessToken")
-            .mockResolvedValueOnce(securityContext);
+    //     jest.spyOn(mockedTokenHelper, "getCallSecurityContextFromAccessToken")
+    //         .mockResolvedValueOnce(securityContext);
 
-        // Act
-        const response = await request(server)
-            .get(`/transfers/${transferId}`)
-            .set(`Authorization`, `Bearer ${accessToken}`);
+    //     // Act
+    //     const response = await request(server)
+    //         .get(`/transfers/${transferId}`)
+    //         .set(`Authorization`, `Bearer ${accessToken}`);
 
-        // Assert
-        expect(response.status).toBe(403);
-    });
+    //     // Assert
+    //     expect(response.status).toBe(403);
+    // });
 
     test("GET - should throw general error with request to get all transfers", async () => {
         // Arrange

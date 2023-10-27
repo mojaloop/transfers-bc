@@ -299,34 +299,33 @@ export class MongoTransfersRepo implements ITransfersRepository {
         const retObj:{fieldName:string, distinctTerms:string[]}[] = [];
 
         try {
-
-            //TODO: use something like db.collection.distinct('fieldName');
-
-            const result = await this.transfers
-                .find({})
-                .project({_id: 0})
-                .toArray() as ITransfer[];
+            const result = this.transfers
+                .aggregate([
+					{$group: { "_id": { transferState: "$transferState", currencyCode: "$currencyCode" } } }
+				]);
 
 			const state:{fieldName:string, distinctTerms:string[]} = {
 				fieldName: "state",
 				distinctTerms: []
 			};
 
-            for (let i=0; i<result.length ; i+=1) {
-				if(!state.distinctTerms.includes(result[i].transferState)) state.distinctTerms.push(result[i].transferState);
-			}
-			retObj.push(state);
-
 			const currency:{fieldName:string, distinctTerms:string[]} = {
 				fieldName: "currency",
 				distinctTerms: []
 			};
 
-            for (let i=0; i<result.length ; i+=1) {
-				if(!currency.distinctTerms.includes(result[i].currencyCode)) currency.distinctTerms.push(result[i].currencyCode);
-			}
-			retObj.push(currency);
+			for await (const term of result) {
 
+				if(!state.distinctTerms.includes(term._id.transferState)) {
+					state.distinctTerms.push(term._id.transferState);
+				}
+				retObj.push(state);
+
+				if(!currency.distinctTerms.includes(term._id.currencyCode)) {
+					currency.distinctTerms.push(term._id.currencyCode);
+				}
+				retObj.push(currency);
+			}
         } catch (err) {
             this._logger.error(err);
         }
