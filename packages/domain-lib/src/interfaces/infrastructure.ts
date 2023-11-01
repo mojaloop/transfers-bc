@@ -61,6 +61,22 @@ export interface ITransfersRepository {
 
 
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
+
+    searchTransfers(userId: string | null,
+        payeeDfspName: string | null,
+        payerDfspName: string | null,
+        state: string | null,
+        transferType: string | null,
+        payerIdType: string | null,
+        payeeIdType: string | null,
+        currency: string | null,
+        id: string | null,
+        payerIdValue: string | null,
+        payeeIdValue: string | null,
+        startDate?: number,
+        endDate?: number,
+        pageIndex?: number,
+        pageSize?: number): Promise<TransfersSearchResults>;
 }
 
 export interface IBulkTransfersRepository {
@@ -135,3 +151,6 @@ export interface ISchedulingServiceAdapter {
 	getReminder(reminderId: string): Promise<IReminder | null | void>;
 	deleteReminder(reminderId: string): Promise<void>;
 }
+
+
+

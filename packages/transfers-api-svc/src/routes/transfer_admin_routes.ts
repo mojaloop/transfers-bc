@@ -70,6 +70,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         this.mainRouter.get("/bulk-transfers", this.getAllBulkTransfers.bind(this));
 
         this.mainRouter.get("/searchKeywords/", this._getSearchKeywords.bind(this));
+        this.mainRouter.get("/searchTransfers/", this._getSearchEntries.bind(this));
     }
 
     private async getAllTransfers(req: express.Request, res: express.Response) {
@@ -196,6 +197,62 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
     private async _getSearchKeywords(req: express.Request, res: express.Response){
         try{
             const ret = await this.transfersRepo.getSearchKeywords();
+            res.send(ret);
+        } catch (err: unknown) {
+            if (this._handleUnauthorizedError((err as Error), res)) return;
+
+            this.logger.error(err);
+            res.status(500).json({
+                status: "error",
+                msg: (err as Error).message,
+            });
+        }
+    }
+
+    private async _getSearchEntries(req: express.Request, res: express.Response) {
+
+        try {
+            //this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
+
+            const payeeDfspName = req.query.payeeDfspName as string || req.query.payeedfspname as string;
+            const payerDfspName = req.query.payerDfspName as string || req.query.payerdfspname as string;
+            const state = req.query.state as string;
+            const transferType = req.query.transferType as string || req.query.transfertype as string;
+            const payerIdType = req.query.payerIdType as string || req.query.payeridtype as string;
+            const payeeIdType = req.query.payeeIdType as string || req.query.payeeidtype as string;
+            const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+            const id = req.query.id as string;
+            const payerIdValue = req.query.payerIdValue as string || req.query.payeridvalue as string;
+            const payeeIdValue = req.query.payeeIdValue as string || req.query.payeeidvalue as string;
+
+            const startDateStr = req.query.startDate as string || req.query.startdate as string;
+            const startDate = startDateStr ? parseInt(startDateStr) : undefined;
+            const endDateStr = req.query.endDate as string || req.query.enddate as string;
+            const endDate = endDateStr ? parseInt(endDateStr) : undefined;
+
+            const pageIndexStr = req.query.pageIndex as string || req.query.pageindex as string;
+            const pageIndex = pageIndexStr ? parseInt(pageIndexStr) : undefined;
+
+            const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
+            const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
+
+            const ret: TransfersSearchResults = await this.transfersRepo.searchTransfers(
+                null,
+                payeeDfspName,
+                payerDfspName,
+                state,
+                transferType,
+                payerIdType,
+                payeeIdType,
+                currencyCode,
+                id,
+                payerIdValue,
+                payeeIdValue,
+                startDate,
+                endDate,
+                pageIndex,
+                pageSize
+            );
             res.send(ret);
         } catch (err: unknown) {
             if (this._handleUnauthorizedError((err as Error), res)) return;
