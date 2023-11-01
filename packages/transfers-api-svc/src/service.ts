@@ -38,7 +38,7 @@ import {
 } from "@mojaloop/auditing-bc-client-lib";
 import {AuthenticatedHttpRequester, AuthorizationClient, TokenHelper} from "@mojaloop/security-bc-client-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
-import {IAuthorizationClient} from "@mojaloop/security-bc-public-types-lib";
+import {IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import {MLKafkaJsonConsumer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import express, {Express} from "express";
@@ -105,7 +105,7 @@ export class Service {
 	static transfersRepo: ITransfersRepository;
 	static bulkTransfersRepo: IBulkTransfersRepository;
     static configClient: IConfigurationClient;
-    static tokenHelper: TokenHelper;
+    static tokenHelper: ITokenHelper;
     static metrics:IMetrics;
     static authorizationClient: IAuthorizationClient;
     static startupTimer: NodeJS.Timeout;
@@ -257,8 +257,8 @@ export class Service {
 
             // Add health and metrics http routes - before others (to avoid authZ middleware)
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-return res.send({ status: "OK" }); 
-});
+                return res.send({ status: "OK" }); 
+            });
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
                 return res.send(strMetrics);
