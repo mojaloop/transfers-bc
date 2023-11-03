@@ -1,6 +1,6 @@
 {
   "name": "@mojaloop/transfers-bc-command-handler-svc",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Mojaloop vNext Transfers BC - Command Handler Service",
   "license": "Apache-2.0",
   "homepage": "https://github.com/mojaloop/transfers-bc/command-handler-svc",
@@ -25,7 +25,7 @@
     "service": "node dist/index.js",
     "build": "tsc",
     "watch": "tsc -w",
-    "clean": "(npm run clean:npm || true) && npm run clean:dist",
+    "clean": "npm run clean:npm; npm run clean:dist",
     "clean:dist": "rm -rf dist",
     "clean:npm": "rm -rf node_modules",
     "pretest": "npm run build",
