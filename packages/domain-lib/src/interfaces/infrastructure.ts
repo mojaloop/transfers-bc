@@ -45,16 +45,6 @@ export interface ITransfersRepository {
     updateTransfer(transfer: ITransfer):Promise<void>;
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
-    getTransfers(
-        id:string|null,
-        state:string|null,
-        currency:string|null,
-        startDate:number|null,
-        endDate:number|null,
-        bulkTransferId:string|null,
-        pageIndex?:number,
-        pageSize?: number
-    ):Promise<TransfersSearchResults>;
 	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 
     storeTransfers(transfers:ITransfer[]):Promise<void>;
@@ -62,7 +52,7 @@ export interface ITransfersRepository {
 
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
 
-    searchTransfers(userId: string | null,
+    getTransfers(
         payeeDfspName: string | null,
         payerDfspName: string | null,
         state: string | null,
