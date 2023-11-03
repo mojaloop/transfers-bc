@@ -188,6 +188,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		}
 
 		try {
+			const totalRecordsCount = await this.transfers.countDocuments(filter);
 			const results = await this.transfers.find(
 				filter,
 				{
@@ -222,7 +223,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 			}else {
 				searchResults.items = results as any;
-				searchResults.totalPages = Math.ceil(results.length / pageSize);
+				searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
 			}
 
 		} catch (err) {
