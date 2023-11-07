@@ -288,7 +288,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			settlementModel: transfer.settlementModel ?? null,
 			hash: transfer.hash ?? null,
 			bulkTransferId: transfer.bulkTransferId ?? null,
-			errorInformation: transfer.errorInformation ?? null
+			errorInformation: transfer.errorInformation ?? null,
+			payerIdType: transfer.payerIdType ?? null, 
+			payeeIdType: transfer.payeeIdType ?? null,
+			transferType: transfer.transferType ?? null
 		};
 
 		return transferMapped;

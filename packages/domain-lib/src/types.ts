@@ -92,6 +92,9 @@ export interface ITransfer {
 	settlementModel: string;
 	hash: string;
     bulkTransferId: string | null;
+    payerIdType: string; 
+    payeeIdType: string;
+    transferType: string;
 }
 
 export interface ITransferParticipants {

@@ -51,6 +51,9 @@ export type PrepareTransferCmdPayload = {
 			value: string;
 		}[];
 	} | null;
+	payerIdType: string; 
+    payeeIdType: string;
+    transferType: string;
 	prepare: {
 		headers: { [key: string]: string };
 		payload: string;
@@ -224,6 +227,9 @@ export type PrepareBulkTransferCmdPayload = {
                 value: string;
             }[]
         } | null;
+		payerIdType: string; 
+		payeeIdType: string;
+		transferType: string;
     }[];
     expiration: number;
     extensionList: {

@@ -206,7 +206,10 @@ export class TransfersEventHandler{
 			expiration: evt.payload.expiration,
 			condition: evt.payload.condition,
 			prepare: evt.fspiopOpaqueState,
-			extensionList: evt.payload.extensionList
+			extensionList: evt.payload.extensionList,
+			payerIdType: evt.payload.payerIdType, 
+			payeeIdType: evt.payload.payeeIdType,
+			transferType: evt.payload.transferType
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;

@@ -200,7 +200,10 @@ describe("Domain - Unit Tests for Command Handler", () => {
             extensionList: null,
             errorInformation:  null,
             settlementModel: "DEFAULT",
-            hash: "FMXpM1VNkEQKj8WGEgNXC5HpohnLJ/afDMFEYHHuUXw"
+            hash: "FMXpM1VNkEQKj8WGEgNXC5HpohnLJ/afDMFEYHHuUXw",
+            payerIdType: "MSISDN",
+            payeeIdType: "IBAN",
+            transferType: "DEPOSIT"
         }
 
         validBulkTransfer = {
@@ -874,6 +877,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             expiration: validTransferPostPayload.expiration as any,
             condition: command.payload.condition,
             extensionList: null,
+            payerIdType: command.payload.payerIdType,
+            payeeIdType: command.payload.payeeIdType,
+            transferType: command.payload.transferType,
             prepare: {
                 headers: {},
                 payload: ''

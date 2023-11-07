@@ -77,7 +77,10 @@ export const mockedTransfer1 : ITransfer = {
           }
         ]
       }
-    }
+    },
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer2 : ITransfer = {
@@ -120,7 +123,10 @@ export const mockedTransfer2 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer3 : ITransfer = {
@@ -163,7 +169,10 @@ export const mockedTransfer3 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer4 : ITransfer = {
@@ -206,7 +215,10 @@ export const mockedTransfer4 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedHubParticipant:IParticipant = {

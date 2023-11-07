@@ -696,6 +696,9 @@ export class TransfersAggregate {
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
             errorInformation: null,
+            payerIdType: message.payload.payerIdType, 
+            payeeIdType: message.payload.payeeIdType,
+            transferType: message.payload.transferType
         };
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
@@ -1595,6 +1598,9 @@ export class TransfersAggregate {
                 expiration: message.payload.expiration,
                 condition: individualTransfer.condition,
                 extensionList: individualTransfer.extensionList,
+                payerIdType: individualTransfer.payerIdType, 
+                payeeIdType: individualTransfer.payeeIdType,
+                transferType: individualTransfer.transferType,
                 prepare: message.fspiopOpaqueState
             });
 
