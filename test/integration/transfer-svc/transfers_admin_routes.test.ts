@@ -66,7 +66,8 @@ describe("Transfers Admin Routes - Integration", () => {
 
     beforeAll(async () => {
         process.env = Object.assign(process.env, {
-            PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/"
+            PLATFORM_CONFIG_BASE_SVC_URL: "http://localhost:3100/",
+            AUDIT_KEY_FILE_PATH: "tmp_audit_key_file"
         });
         
         mongoClient = await MongoClient.connect(CONNECTION_STRING);
@@ -89,8 +90,8 @@ describe("Transfers Admin Routes - Integration", () => {
     });
 
     afterEach(async () => {
-        const transfers = await mongoTransfersRepo.getTransfers();
-        for await (const transfer of transfers) {
+        const transfers = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null);
+        for await (const transfer of transfers.items) {
             await mongoTransfersRepo.removeTransfer(transfer.transferId);
         }
     });
@@ -158,10 +159,10 @@ describe("Transfers Admin Routes - Integration", () => {
 
         // Assert
         expect(response.status).toBe(200);
-        expect(response.body[0]).toEqual(mockedTransfer1);
-        expect(response.body[1]).toEqual(mockedTransfer2);
-        expect(response.body[2]).toEqual(mockedTransfer3);
-        expect(response.body.length).toBe(3);
+        expect(response.body.items[0]).toEqual(mockedTransfer1);
+        expect(response.body.items[1]).toEqual(mockedTransfer2);
+        expect(response.body.items[2]).toEqual(mockedTransfer3);
+        expect(response.body.items.length).toBe(3);
     });
 
     test("GET - should get a list of transfers by filters", async () => {
@@ -182,8 +183,8 @@ describe("Transfers Admin Routes - Integration", () => {
 
         // Assert
         expect(response.status).toBe(200);
-        expect(response.body.length).toBe(1);
-        expect(response.body[0]).toEqual(mockedTransfer1);
+        expect(response.body.items.length).toBe(1);
+        expect(response.body.items[0]).toEqual(mockedTransfer1);
     });
 
     test("GET - should return 401 error when no access token for /transfers route", async () => {

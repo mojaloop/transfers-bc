@@ -98,18 +98,71 @@ export class HubNotFoundError extends Error {
     }
 }
 
+export class HubParticipantIdMismatchError extends Error {
+    constructor(message?: string) {
+        super(message || "Hub participant id mismatch");
+    }
+}
+
+export class HubParticipantNotApprovedError extends Error {
+    constructor(message?: string) {
+        super(message || "Hub participant not approved");
+    }
+}
+
+export class HubParticipantNotActiveError extends Error {
+    constructor(message?: string) {
+        super(message || "Hub participant not approved");
+    }
+}
+
 export class PayerParticipantNotFoundError extends Error {
     constructor(message?: string) {
         super(message || "Payer participant not found");
     }
 }
 
-export class PayeeParticipantNotFoundError extends Error {
+export class PayerParticipantIdMismatchError extends Error {
     constructor(message?: string) {
-        super(message || "Payee participant not found");
+        super(message || "Payer participant id mismatch");
     }
 }
 
+export class PayerParticipantNotApprovedError extends Error {
+    constructor(message?: string) {
+        super(message || "Payer participant not approved");
+    }
+}
+
+export class PayerParticipantNotActiveError extends Error {
+    constructor(message?: string) {
+        super(message || "Payer participant not approved");
+    }
+}
+
+export class PayeeParticipantNotFoundError extends Error {
+    constructor(message?: string) {
+        super(message || "Payer participant not found");
+    }
+}
+
+export class PayeeParticipantIdMismatchError extends Error {
+    constructor(message?: string) {
+        super(message || "Payee participant id mismatch");
+    }
+}
+
+export class PayeeParticipantNotApprovedError extends Error {
+    constructor(message?: string) {
+        super(message || "Payee participant not approved");
+    }
+}
+
+export class PayeeParticipantNotActiveError extends Error {
+    constructor(message?: string) {
+        super(message || "Payee participant not approved");
+    }
+}
 
 export class RequiredParticipantIsNotActive extends Error {
     constructor(message?: string) {
