@@ -39,13 +39,13 @@ import {
     ISchedulingServiceAdapter,
     IBulkTransfersRepository
 } from "@mojaloop/transfers-bc-domain-lib";
-import { 
+import {
     ParticipantAdapter,
     MongoTransfersRepo,
     MongoBulkTransfersRepo,
     GrpcAccountsAndBalancesAdapter,
     SettlementsAdapter,
-    SchedulingAdapter 
+    SchedulingAdapter
 } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
@@ -113,7 +113,7 @@ const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localh
 const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhost:1234/reminders";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
-const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 100;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 100;
@@ -302,7 +302,17 @@ export class Service {
 		this.schedulingAdapter = schedulingAdapter;
 
         if (!aggregate) {
-            aggregate = new TransfersAggregate(this.logger, this.transfersRepo, this.bulkTransfersRepo, this.participantService, this.messageProducer, this.accountAndBalancesAdapter, this.metrics, this.settlementsAdapter, this.schedulingAdapter);
+            aggregate = new TransfersAggregate(
+                this.logger,
+                this.transfersRepo,
+                this.bulkTransfersRepo,
+                this.participantService,
+                this.messageProducer,
+                this.accountAndBalancesAdapter,
+                this.metrics,
+                this.settlementsAdapter,
+                this.schedulingAdapter
+            );
         }
         this.aggregate = aggregate;
 
@@ -324,7 +334,7 @@ export class Service {
 
             // Add health and metrics http routes
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-return res.send({ status: "OK" }); 
+return res.send({ status: "OK" });
 });
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
@@ -355,32 +365,32 @@ return res.send({ status: "OK" });
                 });
             });
         }
-        if (this.handler) { 
+        if (this.handler) {
             this.logger.debug("Stoppping handler");
             await this.handler.stop();
         }
-        if (this.messageConsumer) { 
+        if (this.messageConsumer) {
             this.logger.debug("Tearing down message consumer");
             await this.messageConsumer.destroy(true);
         }
-        if (this.messageProducer) { 
+        if (this.messageProducer) {
             this.logger.debug("Tearing down message producer");
             await this.messageProducer.destroy();
         }
-        if (this.configClient) { 
+        if (this.configClient) {
             this.logger.debug("Tearing down config client");
             await this.configClient.destroy();
         }
-        if (this.auditClient) { 
+        if (this.auditClient) {
             this.logger.debug("Tearing down audit client");
             await this.auditClient.destroy();
         }
-        if (this.logger && this.logger instanceof KafkaLogger) { 
+        if (this.logger && this.logger instanceof KafkaLogger) {
             setTimeout(async ()=>{
                 await (this.logger as KafkaLogger).destroy();
             }, 500);
         }
-        
+
 	}
 }
 
