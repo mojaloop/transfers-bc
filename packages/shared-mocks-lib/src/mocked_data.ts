@@ -77,7 +77,10 @@ export const mockedTransfer1 : ITransfer = {
           }
         ]
       }
-    }
+    },
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer2 : ITransfer = {
@@ -120,7 +123,10 @@ export const mockedTransfer2 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer3 : ITransfer = {
@@ -163,7 +169,10 @@ export const mockedTransfer3 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedTransfer4 : ITransfer = {
@@ -206,7 +215,10 @@ export const mockedTransfer4 : ITransfer = {
 				}
 			]
 		}
-	}
+	},
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT"
 };
 
 export const mockedHubParticipant:IParticipant = {
@@ -343,7 +355,7 @@ export const mockedPayerParticipant:IParticipant = {
 	id: "bluebank",
 	name: "bluebank name",
 	type: ParticipantTypes.DFSP,
-	isActive: false,
+	isActive: true,
 	description: "bluebank description",
 	createdBy: "admin",
 	createdDate: 1694597731606,
@@ -450,7 +462,7 @@ export const mockedPayeeParticipant:IParticipant = {
 	id: "greenbank",
 	name: "greenbank name",
 	type: ParticipantTypes.DFSP,
-	isActive: false,
+	isActive: true,
 	description: "greenbank description",
 	createdBy: "admin",
 	createdDate: 1694597741775,

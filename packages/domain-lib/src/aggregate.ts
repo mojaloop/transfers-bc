@@ -71,12 +71,21 @@ import {
     CheckLiquidityAndReserveFailedError,
     HubAccountNotFoundError,
     HubNotFoundError,
+    HubParticipantIdMismatchError,
+    HubParticipantNotActiveError,
+    HubParticipantNotApprovedError,
     InvalidMessagePayloadError,
     InvalidMessageTypeError,
     PayeeLiquidityAccountNotFoundError,
+    PayeeParticipantIdMismatchError,
+    PayeeParticipantNotActiveError,
+    PayeeParticipantNotApprovedError,
     PayeeParticipantNotFoundError,
     PayeePositionAccountNotFoundError,
     PayerLiquidityAccountNotFoundError,
+    PayerParticipantIdMismatchError,
+    PayerParticipantNotActiveError,
+    PayerParticipantNotApprovedError,
     PayerParticipantNotFoundError,
     PayerPositionAccountNotFoundError,
     TransferNotFoundError,
@@ -97,8 +106,17 @@ import {
 	TransferUnableToGetTransferByIdEvt,
 	TransferNotFoundEvt,
 	TransferPayerNotFoundFailedEvt,
+    TransferPayerIdMismatchEvt,
+    TransferPayerNotApprovedEvt,
+    TransferPayerNotActiveEvt,
 	TransferPayeeNotFoundFailedEvt,
+    TransferPayeeIdMismatchEvt,
+    TransferPayeeNotApprovedEvt,
+    TransferPayeeNotActiveEvt,
 	TransferHubNotFoundFailedEvt,
+    TransferHubIdMismatchEvt,
+    TransferHubNotApprovedEvt,
+    TransferHubNotActiveEvt,
 	TransferHubAccountNotFoundFailedEvt,
 	TransferPayerPositionAccountNotFoundFailedEvt,
 	TransferPayerLiquidityAccountNotFoundFailedEvt,
@@ -696,6 +714,9 @@ export class TransfersAggregate {
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
             errorInformation: null,
+            payerIdType: message.payload.payerIdType, 
+            payeeIdType: message.payload.payeeIdType,
+            transferType: message.payload.transferType
         };
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
@@ -711,14 +732,68 @@ export class TransfersAggregate {
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof HubParticipantIdMismatchError) {
+                errorEvent = new TransferHubIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotApprovedError) {
+                errorEvent = new TransferHubNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotActiveError) {
+                errorEvent = new TransferHubNotActiveEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof PayerParticipantIdMismatchError) {
+                errorEvent = new TransferPayerIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotApprovedError) {
+                errorEvent = new TransferPayerNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotActiveError) {
+                errorEvent = new TransferPayerNotActiveEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantIdMismatchError) {
+                errorEvent = new TransferPayeeIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotApprovedError) {
+                errorEvent = new TransferPayeeNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotActiveError) {
+                errorEvent = new TransferPayeeNotActiveEvt({
                     transferId: transfer.transferId,
                     payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
@@ -981,8 +1056,44 @@ export class TransfersAggregate {
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof HubParticipantIdMismatchError) {
+                errorEvent = new TransferHubIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotApprovedError) {
+                errorEvent = new TransferHubNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotActiveError) {
+                errorEvent = new TransferHubNotActiveEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantIdMismatchError) {
+                errorEvent = new TransferPayerIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotApprovedError) {
+                errorEvent = new TransferPayerNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotActiveError) {
+                errorEvent = new TransferPayerNotActiveEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
@@ -990,7 +1101,25 @@ export class TransfersAggregate {
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantIdMismatchError) {
+                errorEvent = new TransferPayeeIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotApprovedError) {
+                errorEvent = new TransferPayeeNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotActiveError) {
+                errorEvent = new TransferPayeeNotActiveEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
                 });
             } else {
@@ -1244,8 +1373,44 @@ export class TransfersAggregate {
                     transferId: transfer.transferId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof HubParticipantIdMismatchError) {
+                errorEvent = new TransferHubIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotApprovedError) {
+                errorEvent = new TransferHubNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotActiveError) {
+                errorEvent = new TransferHubNotActiveEvt({
+                    transferId: transfer.transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantIdMismatchError) {
+                errorEvent = new TransferPayerIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotApprovedError) {
+                errorEvent = new TransferPayerNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payerFspId: transfer.payerFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotActiveError) {
+                errorEvent = new TransferPayerNotActiveEvt({
                     transferId: transfer.transferId,
                     payerFspId: transfer.payerFspId,
                     errorDescription: (err as Error).message
@@ -1253,7 +1418,25 @@ export class TransfersAggregate {
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
                     transferId: transfer.transferId,
-                    payeeFspId: transfer.payerFspId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantIdMismatchError) {
+                errorEvent = new TransferPayeeIdMismatchEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotApprovedError) {
+                errorEvent = new TransferPayeeNotApprovedEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotActiveError) {
+                errorEvent = new TransferPayeeNotActiveEvt({
+                    transferId: transfer.transferId,
+                    payeeFspId: transfer.payeeFspId,
                     errorDescription: (err as Error).message
                 });
             } else {
@@ -1338,14 +1521,68 @@ export class TransfersAggregate {
                     transferId: transferId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof HubParticipantIdMismatchError) {
+                errorEvent = new TransferHubIdMismatchEvt({
+                    transferId: transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotApprovedError) {
+                errorEvent = new TransferHubNotApprovedEvt({
+                    transferId: transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotActiveError) {
+                errorEvent = new TransferHubNotActiveEvt({
+                    transferId: transferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: transferId,
                     payerFspId: requesterFspId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof PayerParticipantIdMismatchError) {
+                errorEvent = new TransferPayerIdMismatchEvt({
+                    transferId: transferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotApprovedError) {
+                errorEvent = new TransferPayerNotApprovedEvt({
+                    transferId: transferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotActiveError) {
+                errorEvent = new TransferPayerNotActiveEvt({
+                    transferId: transferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: transferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantIdMismatchError) {
+                errorEvent = new TransferPayeeIdMismatchEvt({
+                    transferId: transferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotApprovedError) {
+                errorEvent = new TransferPayeeNotApprovedEvt({
+                    transferId: transferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotActiveError) {
+                errorEvent = new TransferPayeeNotActiveEvt({
                     transferId: transferId,
                     payeeFspId: destinationFspId,
                     errorDescription: (err as Error).message
@@ -1420,6 +1657,21 @@ export class TransfersAggregate {
             this._logger.error(errorMessage);
             throw new HubNotFoundError(errorMessage);
         }
+        if (foundHub.id !== HUB_ID) {
+            const errorMessage = "Hub participant id mismatch " + HUB_ID + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new HubParticipantIdMismatchError(errorMessage);
+		}
+        if (!foundHub.approved) {
+            const errorMessage = "Hub participant not approved " + HUB_ID + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new HubParticipantNotApprovedError(errorMessage);
+		}
+		if (!foundHub.isActive) {
+            const errorMessage = "Hub participant not active " + HUB_ID + " for transfer " + transferId;
+			this._logger.error(errorMessage);
+            throw new HubParticipantNotActiveError(errorMessage);
+		}
 
         const foundPayer = await this._participantAdapter.getParticipantInfo(payerFspId);
         if (!foundPayer) {
@@ -1427,6 +1679,21 @@ export class TransfersAggregate {
             this._logger.error(errorMessage);
             throw new PayerParticipantNotFoundError(errorMessage);
         }
+        if (foundPayer.id !== payerFspId) {
+            const errorMessage = "Payer participant id mismatch " + payerFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayerParticipantIdMismatchError(errorMessage);
+		}
+        if (!foundPayer.approved) {
+            const errorMessage = "Payer participant not approved " + payerFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayerParticipantNotApprovedError(errorMessage);
+		}
+		if (!foundPayer.isActive) {
+            const errorMessage = "Payer participant not active " + payerFspId + " for transfer " + transferId;
+			this._logger.error(errorMessage);
+            throw new PayerParticipantNotActiveError(errorMessage);
+		}
 
         const foundPayee = await this._participantAdapter.getParticipantInfo(payeeFspId);
         if (!foundPayee) {
@@ -1434,6 +1701,21 @@ export class TransfersAggregate {
             this._logger.error(errorMessage);
             throw new PayeeParticipantNotFoundError(errorMessage);
         }
+        if (foundPayee.id !== payeeFspId) {
+            const errorMessage = "Payee participant id mismatch " + payeeFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayeeParticipantIdMismatchError(errorMessage);
+		}
+        if (!foundPayee.approved) {
+            const errorMessage = "Payee participant not approved " + payeeFspId + " for transfer " + transferId;
+            this._logger.error(errorMessage);
+            throw new PayeeParticipantNotApprovedError(errorMessage);
+		}
+		if (!foundPayee.isActive) {
+            const errorMessage = "Payee participant not active " + payeeFspId + " for transfer " + transferId;
+			this._logger.error(errorMessage);
+            throw new PayeeParticipantNotActiveError(errorMessage);
+		}
 
         return {
             hub: foundHub,
@@ -1490,25 +1772,6 @@ export class TransfersAggregate {
             payeeLiqAccount: payeeLiqAccount
         };
     }
-
-    // private async validateParticipant(participantId: string | null): Promise<void> {
-        // TODO: use this when all flags are available
-        // if (participantId) {
-        //     const participant = await this._participantAdapter.getParticipantInfo(participantId);
-
-        //     if (!participant) {
-        //         this._logger.debug(`No participant found`);
-        //         throw new NoSuchParticipantError();
-        //     }
-
-        //     if (!participant.isActive) {
-        //         this._logger.debug(`${participant.id} is not active`);
-        //         throw new RequiredParticipantIsNotActive();
-        //     }
-        // }
-
-        // return;
-    // }
 
     private async _cancelTransfer(transferId: string) {
         try {
@@ -1595,6 +1858,9 @@ export class TransfersAggregate {
                 expiration: message.payload.expiration,
                 condition: individualTransfer.condition,
                 extensionList: individualTransfer.extensionList,
+                payerIdType: individualTransfer.payerIdType, 
+                payeeIdType: individualTransfer.payeeIdType,
+                transferType: individualTransfer.transferType,
                 prepare: message.fspiopOpaqueState
             });
 
@@ -1963,14 +2229,68 @@ export class TransfersAggregate {
                     transferId: bulkTransferId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof HubParticipantIdMismatchError) {
+                errorEvent = new TransferHubIdMismatchEvt({
+                    transferId: bulkTransferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotApprovedError) {
+                errorEvent = new TransferHubNotApprovedEvt({
+                    transferId: bulkTransferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof HubParticipantNotActiveError) {
+                errorEvent = new TransferHubNotActiveEvt({
+                    transferId: bulkTransferId,
+                    hubId: HUB_ID,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayerParticipantNotFoundError) {
                 errorEvent = new TransferPayerNotFoundFailedEvt({
                     transferId: bulkTransferId,
                     payerFspId: requesterFspId,
                     errorDescription: (err as Error).message
                 });
+            } else if (err instanceof PayerParticipantIdMismatchError) {
+                errorEvent = new TransferPayerIdMismatchEvt({
+                    transferId: bulkTransferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotApprovedError) {
+                errorEvent = new TransferPayerNotApprovedEvt({
+                    transferId: bulkTransferId,
+                    payerFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayerParticipantNotActiveError) {
+                errorEvent = new TransferPayerNotActiveEvt({
+                    transferId: bulkTransferId,
+                    payerFspId: requesterFspId,
+                    errorDescription: (err as Error).message
+                });
             } else if (err instanceof PayeeParticipantNotFoundError) {
                 errorEvent = new TransferPayeeNotFoundFailedEvt({
+                    transferId: bulkTransferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantIdMismatchError) {
+                errorEvent = new TransferPayeeIdMismatchEvt({
+                    transferId: bulkTransferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotApprovedError) {
+                errorEvent = new TransferPayeeNotApprovedEvt({
+                    transferId: bulkTransferId,
+                    payeeFspId: destinationFspId,
+                    errorDescription: (err as Error).message
+                });
+            } else if (err instanceof PayeeParticipantNotActiveError) {
+                errorEvent = new TransferPayeeNotActiveEvt({
                     transferId: bulkTransferId,
                     payeeFspId: destinationFspId,
                     errorDescription: (err as Error).message

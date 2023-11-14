@@ -79,7 +79,7 @@ const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhos
 const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-event-handler-svc";
-const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
 
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
@@ -222,7 +222,7 @@ export class Service {
 
             // Add health and metrics http routes
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-return res.send({ status: "OK" }); 
+return res.send({ status: "OK" });
 });
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
@@ -251,27 +251,27 @@ return res.send({ status: "OK" });
 					});
 				});
 			}
-			if (this.handler) { 
+			if (this.handler) {
 				this.logger.debug("Stoppping handler");
 				await this.handler.stop();
 			}
-			if (this.messageConsumer) { 
+			if (this.messageConsumer) {
 				this.logger.debug("Tearing down message consumer");
 				await this.messageConsumer.destroy(true);
 			}
-			if (this.messageProducer) { 
+			if (this.messageProducer) {
 				this.logger.debug("Tearing down message producer");
 				await this.messageProducer.destroy();
 			}
-			if (this.configClient) { 
+			if (this.configClient) {
 				this.logger.debug("Tearing down config client");
 				await this.configClient.destroy();
 			}
-			if (this.auditClient) { 
+			if (this.auditClient) {
 				this.logger.debug("Tearing down audit client");
 				await this.auditClient.destroy();
 			}
-			if (this.logger && this.logger instanceof KafkaLogger) { 
+			if (this.logger && this.logger instanceof KafkaLogger) {
 				setTimeout(async ()=>{
 					await (this.logger as KafkaLogger).destroy();
 				}, 500);

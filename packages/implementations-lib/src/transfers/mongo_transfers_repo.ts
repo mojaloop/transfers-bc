@@ -37,7 +37,6 @@ import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { ITransfersRepository, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
 import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from "../errors";
 import { randomUUID } from "crypto";
-import * as IlpPacket from "ilp-packet";
 
 const MAX_ENTRIES_PER_PAGE = 100;
 
@@ -183,6 +182,18 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			filter.$and.push({ payeeFspId: payeeIdValue });
 		}
 
+		if (transferType) {
+			filter.$and.push({ transferType: transferType });
+		}
+
+		if (payerIdType) {
+			filter.$and.push({ payerIdType: payerIdType });
+		}
+
+		if (payeeIdType) {
+			filter.$and.push({ payeeIdType: payeeIdType });
+		}
+
 		if (filter.$and.length === 0) {
 			filter = {};
 		}
@@ -202,29 +213,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				throw new UnableToGetTransferError();
 			});
 
-			if (transferType || payerIdType || payeeIdType) {//Perform deep search by decoding ILP packet if these search params included
-
-				const filteredResults = results.filter((result) => {
-					const decodedIlpPacketData = this._decodeIlpPacket(result.ilpPacket) as any;
-					if (
-						decodedIlpPacketData &&
-						(!transferType || decodedIlpPacketData.transactionType.scenario === transferType.toUpperCase()) &&
-						(!payerIdType || decodedIlpPacketData.payer.partyIdInfo.partyIdType === payerIdType.toUpperCase()) &&
-						(!payeeIdType || decodedIlpPacketData.payee.partyIdInfo.partyIdType === payeeIdType.toUpperCase())
-
-					) {
-						return true;
-					}
-					return false;
-				});
-
-				searchResults.items = filteredResults as any;
-				searchResults.totalPages = Math.ceil(filteredResults.length / pageSize);
-
-			}else {
-				searchResults.items = results as any;
-				searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
-			}
+			searchResults.items = results as any;
+			searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
 
 		} catch (err) {
 			this._logger.error(err);
@@ -325,7 +315,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			settlementModel: transfer.settlementModel ?? null,
 			hash: transfer.hash ?? null,
 			bulkTransferId: transfer.bulkTransferId ?? null,
-			errorInformation: transfer.errorInformation ?? null
+			errorInformation: transfer.errorInformation ?? null,
+			payerIdType: transfer.payerIdType ?? null, 
+			payeeIdType: transfer.payeeIdType ?? null,
+			transferType: transfer.transferType ?? null
 		};
 
 		return transferMapped;
@@ -371,7 +364,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 	
 
-	private _decodeIlpPacket(base64IlpPacket: any): any {
+	/* private _decodeIlpPacket(base64IlpPacket: any): any {
 		try {
 			const ilpPacketBuffer: any = Buffer.from(base64IlpPacket, "base64");
 			const decodedIlpPacket: any = IlpPacket.deserializeIlpPacket(ilpPacketBuffer);
@@ -384,5 +377,5 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			console.error("Unable to decode ILP Packet:", error);
 			return null;
 		}
-	}
+	} */
 }

@@ -206,11 +206,16 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should return a empty array when there are no transfers", async () => {
          // Act
-         const result = await mongoTransfersRepo.getTransfers();
+         const result = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null);
 
          // Assert
          expect(result).toBeDefined();
-         expect(result).toEqual([]);
+         expect(result).toEqual({
+            "items": [], 
+            "pageIndex": 0, 
+            "pageSize": 100,
+            "totalPages": 0
+        });
     });
 
     test("should return a list of transfers by filters", async () => {
@@ -219,18 +224,24 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
         const transferId = await mongoTransfersRepo.addTransfer(transfer1);
 
         // Act
-        const result = await mongoTransfersRepo.searchTransfers(
+        const result = await mongoTransfersRepo.getTransfers(
+            null,
             transfer1.transferState,
-            transfer1.currencyCode,
-            transfer1.createdAt,
-            transfer1.createdAt,
-            transferId,
+            null,
+            null,
+            null,null
+
         );
 
         // Assert
         expect(result).toBeDefined();
-        expect(result).toHaveLength(1);
-        expect(result).toEqual([transfer1]);
+        expect(result.items).toHaveLength(1);
+        expect(result).toEqual({
+            "items": [transfer1], 
+            "pageIndex": 0, 
+            "pageSize": 100,
+            "totalPages": 1
+        });
     });
 
     test("should be able to store and update transfers", async () => {

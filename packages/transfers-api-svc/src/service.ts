@@ -84,7 +84,7 @@ const AUTH_N_SVC_JWKS_URL = process.env["AUTH_N_SVC_JWKS_URL"] || `${AUTH_N_SVC_
 const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-api-svc";
-const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_ID"] || "superServiceSecret";
+const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
 
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
@@ -220,11 +220,30 @@ export class Service {
 
         // authorization client
         if (!authorizationClient) {
+            // create the instance of IAuthenticatedHttpRequester
+            const authRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
+            authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+
+            const messageConsumer = new MLKafkaJsonConsumer(
+                {
+                    kafkaBrokerList: KAFKA_URL,
+                    kafkaGroupId: `${BC_NAME}_${APP_NAME}_authz_client`
+                }, logger.createChild("authorizationClientConsumer")
+            );
+
             // setup privileges - bootstrap app privs and get priv/role associations
-            authorizationClient = new AuthorizationClient(BC_NAME, APP_NAME, APP_VERSION, AUTH_Z_SVC_BASEURL, logger);
+            authorizationClient = new AuthorizationClient(
+                BC_NAME, APP_NAME, APP_VERSION,
+                AUTH_Z_SVC_BASEURL, logger.createChild("AuthorizationClient"),
+                authRequester,
+                messageConsumer
+            );
+
             authorizationClient.addPrivilegesArray(TransfersPrivilegesDefinition);
             await (authorizationClient as AuthorizationClient).bootstrap(true);
             await (authorizationClient as AuthorizationClient).fetch();
+            // init message consumer to automatically update on role changed events
+            await (authorizationClient as AuthorizationClient).init();
        }
         this.authorizationClient = authorizationClient;
 
@@ -257,7 +276,7 @@ export class Service {
 
             // Add health and metrics http routes - before others (to avoid authZ middleware)
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-                return res.send({ status: "OK" }); 
+                return res.send({ status: "OK" });
             });
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
@@ -296,15 +315,15 @@ export class Service {
                 });
             });
         }
-        if (this.configClient) { 
+        if (this.configClient) {
             this.logger.debug("Tearing down config client");
             await this.configClient.destroy();
         }
-        if (this.auditClient) { 
+        if (this.auditClient) {
             this.logger.debug("Tearing down audit client");
             await this.auditClient.destroy();
         }
-        if (this.logger && this.logger instanceof KafkaLogger) { 
+        if (this.logger && this.logger instanceof KafkaLogger) {
             setTimeout(async ()=>{
                 await (this.logger as KafkaLogger).destroy();
             }, 500);
