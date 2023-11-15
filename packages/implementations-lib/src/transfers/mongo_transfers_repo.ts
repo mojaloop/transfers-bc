@@ -132,6 +132,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		id: string | null,
 		payerIdValue: string | null,
 		payeeIdValue: string | null,
+		bulkTransferId: string | null,
 		startDate: number,
 		endDate: number,
 		pageIndex = 0,
@@ -192,6 +193,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 		if (payeeIdType) {
 			filter.$and.push({ payeeIdType: payeeIdType });
+		}
+
+		if (bulkTransferId) {
+			filter.$and.push({ bulkTransferId: bulkTransferId });
 		}
 
 		if (filter.$and.length === 0) {

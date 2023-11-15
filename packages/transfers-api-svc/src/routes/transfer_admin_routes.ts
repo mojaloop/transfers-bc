@@ -98,6 +98,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
             const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
 
+            const bulkTransferId = req.query.bulkTransferId as string || null;
 
             this.logger.debug("Fetching all transfers");
 
@@ -112,6 +113,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
                 id,
                 payerIdValue,
                 payeeIdValue,
+                bulkTransferId,
                 startDate,
                 endDate,
                 pageIndex,

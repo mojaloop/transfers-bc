@@ -63,6 +63,7 @@ export interface ITransfersRepository {
         id: string | null,
         payerIdValue: string | null,
         payeeIdValue: string | null,
+        bulkTransferId:string | null,
         startDate?: number,
         endDate?: number,
         pageIndex?: number,
