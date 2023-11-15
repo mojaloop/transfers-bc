@@ -363,19 +363,4 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		return Promise.resolve(retObj);
 	}
 	
-
-	/* private _decodeIlpPacket(base64IlpPacket: any): any {
-		try {
-			const ilpPacketBuffer: any = Buffer.from(base64IlpPacket, "base64");
-			const decodedIlpPacket: any = IlpPacket.deserializeIlpPacket(ilpPacketBuffer);
-			const decodedIlpPacketDataJsonString = JSON.parse(
-				Buffer.from(decodedIlpPacket.data.data.toString("utf8"), "base64").toString("utf8")
-			);
-
-			return decodedIlpPacketDataJsonString ? decodedIlpPacketDataJsonString : null;
-		} catch (error: any) {
-			console.error("Unable to decode ILP Packet:", error);
-			return null;
-		}
-	} */
 }
