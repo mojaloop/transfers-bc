@@ -110,7 +110,7 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
 const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
 const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localhost:3600";
-const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhost:1234/reminders";
+const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhost:3150/reminders";
 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
@@ -334,8 +334,8 @@ export class Service {
 
             // Add health and metrics http routes
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-return res.send({ status: "OK" });
-});
+                return res.send({ status: "OK" });
+            });
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
                 return res.send(strMetrics);
