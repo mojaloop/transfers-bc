@@ -138,7 +138,7 @@ const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3501;
 const DB_NAME_TRANSFERS = "transfers";
 const PARTICIPANTS_CLIENT_CACHE_MS = 10_000;
 
-const SERVICE_START_TIMEOUT_MS = 60_000;
+const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
 
 export class Service {
 	static logger: ILogger;
