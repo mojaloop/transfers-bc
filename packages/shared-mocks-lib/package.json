@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@mojaloop/transfers-bc-domain-lib": "*",
-    "@mojaloop/logging-bc-public-types-lib": "~0.1.22",
+    "@mojaloop/logging-bc-public-types-lib": "~0.1.23",
     "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.103",
     "@mojaloop/security-bc-client-lib": "~0.3.9",
     "@mojaloop/participant-bc-public-types-lib": "~0.0.20",
