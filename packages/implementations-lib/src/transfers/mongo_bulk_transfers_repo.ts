@@ -207,6 +207,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
             transfersFulfiledProcessedIds: bulkTransfer.transfersFulfiledProcessedIds ?? [],
             status: bulkTransfer.status ?? null,
             completedTimestamp: bulkTransfer.completedTimestamp ?? null,
+            errorInformation: bulkTransfer.errorInformation ?? null
         };
         return bulkTransferMapped;
     }

@@ -42,7 +42,7 @@
 
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IBulkTransfersRepository, ITransfersRepository, TransfersPrivileges, TransfersSearchResults} from "@mojaloop/transfers-bc-domain-lib";
+import {IBulkTransfersRepository, ITransfersRepository, TransfersPrivileges} from "@mojaloop/transfers-bc-domain-lib";
 import {CallSecurityContext, IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
 import {BaseRoutes} from "./base/base_routes";
 

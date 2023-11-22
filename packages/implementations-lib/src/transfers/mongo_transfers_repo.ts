@@ -180,7 +180,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
                 throw new UnableToGetTransferError();
             });
 
-            const countResult = await this.transfers.countDocuments(filter).catch(reason => {
+            const countResult = await this.transfers.countDocuments(filter).catch(() => {
                 this._logger.error("Unable to get transfers count");
             }) || result.length;
 

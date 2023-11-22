@@ -145,7 +145,7 @@ export const mockedTransfer3 : ITransfer = {
 		}
 		]
 	},
-	transferState: TransferState.REJECTED,
+	transferState: TransferState.ABORTED,
 	ilpPacket: "omnis",
 	condition: "omnis",
 	fulfilment: "1",
@@ -628,6 +628,7 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
     transfersNotProcessedIds: [],
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.RECEIVED,
+	errorInformation: null,
     extensionList: null
 };
 
@@ -652,6 +653,7 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
     transfersNotProcessedIds: [],
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.PROCESSING,
+	errorInformation: null,
     extensionList: null
 };
 
