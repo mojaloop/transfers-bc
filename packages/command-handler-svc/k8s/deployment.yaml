@@ -16,12 +16,12 @@ spec:
     spec:
       containers:
         - name: app
-          image: mojaloop/transfers-bc-command-handler-svc:0.1.6_test_9
+          image: mojaloop/transfers-bc-command-handler-svc:0.3.2
           env:
             - name: LOG_LEVEL
               value: info
             - name: KAFKA_URL
-              value: 192.168.1.94:9094
+              value: 192.168.1.94:9092
             - name: KAFKA_LOGS_TOPIC
               value: logs
             - name: KAFKA_AUDITS_TOPIC
@@ -44,5 +44,7 @@ spec:
               value: "false"
             - name: CONSUMER_BATCH_SIZE
               value: "200"
+            - name: SCHEDULING_SVC_URL
+              value: http://192.168.1.94:1234
 
           imagePullPolicy: Always

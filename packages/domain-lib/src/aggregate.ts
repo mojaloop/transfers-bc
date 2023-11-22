@@ -948,6 +948,7 @@ export class TransfersAggregate {
                 this._logger.warn(`Payer failed liquidity check for transfer with id: ${request.transferId}`);
             }
 
+            // TODO: handle each case with a different error event 
             const errorEvent = new TransferPrepareLiquidityCheckFailedEvt({
 				transferId: transfer.transferId,
 				payerFspId: transfer.payerFspId,

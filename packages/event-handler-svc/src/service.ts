@@ -84,7 +84,7 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecre
 const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
 const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
 
-const SERVICE_START_TIMEOUT_MS = 60_000;
+const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
 
 const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
     kafkaBrokerList: KAFKA_URL,

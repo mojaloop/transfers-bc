@@ -89,8 +89,7 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecre
 // Express Server
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
 
-const SERVICE_START_TIMEOUT_MS = 30_000;
-
+const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL,
 };
