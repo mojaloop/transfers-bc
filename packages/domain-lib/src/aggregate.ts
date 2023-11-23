@@ -1259,7 +1259,7 @@ export class TransfersAggregate {
             // TODO shouldn't this be a UnableToCommitTransferError?
             const err = new CheckLiquidityAndReserveFailedError(`Unable to cancelReservationAndCommit for transferId: ${request.transferId} - error: ${abResponse.errorMessage}`);
             this._logger.error(err);
-            transfer.transferState = TransferState.REJECTED;
+            transfer.transferState = TransferState.ABORTED;
             this._transfersCache.set(transfer.transferId, transfer);
 
 			const errorMessage = `Unable to commit transfer for transferId: ${request.transferId}`;
@@ -1470,6 +1470,7 @@ export class TransfersAggregate {
 
 		try {
 			transfer.transferState = TransferState.ABORTED;
+            transfer.errorInformation = message.payload.errorInformation;
 			await this._transfersRepo.updateTransfer(transfer);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
@@ -1801,7 +1802,7 @@ export class TransfersAggregate {
                 payeePositionAccountId: null,
             });
 
-            transfer.transferState = TransferState.REJECTED;
+            transfer.transferState = TransferState.ABORTED;
 
             await this._transfersRepo.updateTransfer(transfer);
         } catch (err: unknown) {
@@ -1827,7 +1828,8 @@ export class TransfersAggregate {
             transfersPreparedProcessedIds: [],
 			transfersNotProcessedIds: [],
 			transfersFulfiledProcessedIds: [],
-			status: BulkTransferState.RECEIVED
+			status: BulkTransferState.RECEIVED,
+            errorInformation: null
 		};
 
         try{
@@ -2164,6 +2166,7 @@ export class TransfersAggregate {
         }
 
         bulkTransfer.status = BulkTransferState.REJECTED;
+        bulkTransfer.errorInformation = message.payload.errorInformation;
         this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
         
 		const payload: BulkTransferRejectRequestProcessedEvtPayload = {

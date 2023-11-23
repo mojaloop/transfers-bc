@@ -237,6 +237,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             transfersNotProcessedIds: [],
             transfersFulfiledProcessedIds: [],
             status: BulkTransferState.RECEIVED,
+            errorInformation: null
         }
     })
     afterEach(async () => {

@@ -39,10 +39,8 @@ import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-publ
 export declare const enum TransferState {
     RECEIVED = "RECEIVED", 		// initial state
 	RESERVED = "RESERVED", 		// after prepare
-	REJECTED = "REJECTED", 		// could not prepare (ex: no liquidity)
     COMMITTED = "COMMITTED", 	// after fulfil (final state of successful transfer)
-    ABORTED = "ABORTED", 		// this should not be called like this
-    EXPIRED = "EXPIRED"			// system changed it expired (need the timeout mechanism)
+    ABORTED = "ABORTED" 		// failed to perform the transfer or expired
 }
 
 export declare const enum BulkTransferState {
@@ -51,8 +49,7 @@ export declare const enum BulkTransferState {
 	ACCEPTED = "ACCEPTED", 		// when fulfil starts
     PROCESSING = "PROCESSING", 	// while fulfiling each individual transfer
     COMPLETED = "COMPLETED", 	// after fulfil (final state of processing all individual transfers)
-    EXPIRED = "EXPIRED",		// system changed it expired (need the timeout mechanism)
-    REJECTED = "REJECTED" 		// rejected bulk transfer for a reason (e.g. reject transfer directly from payee)
+    REJECTED = "REJECTED"		// payee reject to process the bulk transfer
 }
 
 export declare const enum AccountType {
@@ -62,13 +59,16 @@ export declare const enum AccountType {
 }
 
 export interface IExtensionList {
-    extension: { key: string; value: string;}[];
+    extension: {
+        key: string;
+        value: string;
+    }[];
 }
 
 export interface IErrorInformation {
     errorCode: string;
     errorDescription: string;
-    extensionList: IExtensionList
+    extensionList: IExtensionList | null;
 }
 
 export interface ITransfer {
@@ -143,6 +143,7 @@ export interface IBulkTransfer {
     transfersNotProcessedIds: string[];
     transfersFulfiledProcessedIds: string[];
     status: BulkTransferState;
+    errorInformation: IErrorInformation | null;
 }
 
 export declare type TransfersSearchResults = {

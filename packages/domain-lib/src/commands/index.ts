@@ -124,6 +124,12 @@ export type RejectTransferCmdPayload = {
 	errorInformation: {
 		errorCode: string;
 		errorDescription: string;
+		extensionList: {
+            extension: {
+                key: string;
+                value: string;
+            }[];
+        } | null;
 	};
 	prepare: {
 		headers: { [key: string]: string };

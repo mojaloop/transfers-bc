@@ -136,7 +136,9 @@ let globalLogger: ILogger;
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3501;
 
 const DB_NAME_TRANSFERS = "transfers";
-const PARTICIPANTS_CLIENT_CACHE_MS = 10_000;
+const PARTICIPANTS_CACHE_TIMEOUT_MS =
+    (process.env["PARTICIPANTS_CACHE_TIMEOUT_MS"] && parseInt(process.env["PARTICIPANTS_CACHE_TIMEOUT_MS"])) ||
+    30 * 1000;
 
 const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
 
@@ -263,7 +265,7 @@ export class Service {
         if (!participantAdapter) {
             const authRequester:IAuthenticatedHttpRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
             authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
-            participantAdapter = new ParticipantAdapter(this.logger, PARTICIPANTS_SVC_URL, authRequester, PARTICIPANTS_CLIENT_CACHE_MS);
+            participantAdapter = new ParticipantAdapter(this.logger, PARTICIPANTS_SVC_URL, authRequester, PARTICIPANTS_CACHE_TIMEOUT_MS);
         }
         this.participantService = participantAdapter;
 
