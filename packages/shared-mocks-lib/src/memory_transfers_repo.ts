@@ -110,22 +110,4 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve();
     }
 
-    searchTransfers(userId: string | null,
-        payeeDfspName: string | null,
-        payerDfspName: string | null,
-        state: string | null,
-        transferType: string | null,
-        payerIdType: string | null,
-        payeeIdType: string | null,
-        currency: string | null,
-        id: string | null,
-        payerIdValue: string | null,
-        payeeIdValue: string | null,
-        startDate?: number,
-        endDate?: number,
-        pageIndex?: number,
-        pageSize?: number): Promise<TransfersSearchResults> {
-        throw new Error("Method not implemented.");
-    }
-
 }
