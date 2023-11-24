@@ -85,8 +85,7 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers.find(q => q.transferId === id) || null);
     }
 
-    getTransfers(payeeDfspName: string | null,
-        payerDfspName: string | null,
+    getTransfers(
         state: string | null,
         transferType: string | null,
         payerIdType: string | null,

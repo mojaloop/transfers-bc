@@ -34,12 +34,12 @@
     "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.2.2",
     "@mojaloop/auditing-bc-public-types-lib": "~0.0.17",
     "@mojaloop/logging-bc-public-types-lib": "~0.1.23",
-    "@mojaloop/participant-bc-public-types-lib": "~0.0.20",
+    "@mojaloop/participant-bc-public-types-lib": "~0.0.21",
     "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.103",
     "@mojaloop/platform-shared-lib-observability-types-lib": "~0.1.9",
     "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.164",
     "@mojaloop/security-bc-public-types-lib": "~0.3.6",
-    "@mojaloop/scheduling-bc-public-types-lib": "~0.0.7",
+    "@mojaloop/scheduling-bc-public-types-lib": "~0.0.10",
     "@mojaloop/transfers-bc-config-lib": "~0.1.0"
   },
   "devDependencies": {

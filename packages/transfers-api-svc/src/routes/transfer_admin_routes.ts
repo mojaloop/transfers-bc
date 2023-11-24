@@ -76,8 +76,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         try {
             this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
 
-            const payeeDfspName = req.query.payeeDfspName as string || req.query.payeedfspname as string;
-            const payerDfspName = req.query.payerDfspName as string || req.query.payerdfspname as string;
             const state = req.query.state as string;
             const transferType = req.query.transferType as string || req.query.transfertype as string;
             const payerIdType = req.query.payerIdType as string || req.query.payeridtype as string;
@@ -103,8 +101,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             this.logger.debug("Fetching all transfers");
 
             const fetched= await this.transfersRepo.getTransfers(
-                payeeDfspName,
-                payerDfspName,
                 state,
                 transferType,
                 payerIdType,

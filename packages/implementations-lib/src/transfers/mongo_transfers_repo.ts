@@ -122,8 +122,6 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async getTransfers(
-		payeeDfspName: string | null,
-		payerDfspName: string | null,
 		state: string | null,
 		transferType: string | null,
 		payerIdType: string | null,
@@ -165,14 +163,6 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		}
 		if (endDate) {
 			filter.$and.push({ updatedAt: { $lte: endDate } });
-		}
-
-		if (payerDfspName) {
-			filter.$and.push({ payerFspId: payerDfspName });
-		}
-
-		if (payeeDfspName) {
-			filter.$and.push({ payeeFspId: payeeDfspName });
 		}
 
 		if (payerIdValue) {
@@ -336,7 +326,14 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		try {
 			const result = this.transfers
 				.aggregate([
-					{ $group: { "_id": { transferState: "$transferState", currencyCode: "$currencyCode" } } }
+					{
+						$group: {
+							"_id": {
+								transferState: "$transferState", currencyCode: "$currencyCode",
+								transferType: "$transferType", payerIdType: "$payerIdType", payeeIdType: "$payeeIdType"
+							}
+						}
+					}
 				]);
 
 			const state: { fieldName: string, distinctTerms: string[] } = {
@@ -346,6 +343,21 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 			const currency: { fieldName: string, distinctTerms: string[] } = {
 				fieldName: "currency",
+				distinctTerms: []
+			};
+
+			const transferType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "transferType",
+				distinctTerms: []
+			};
+
+			const payerIdType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "payerIdType",
+				distinctTerms: []
+			};
+
+			const payeeIdType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "payeeIdType",
 				distinctTerms: []
 			};
 
@@ -360,6 +372,22 @@ export class MongoTransfersRepo implements ITransfersRepository {
 					currency.distinctTerms.push(term._id.currencyCode);
 				}
 				retObj.push(currency);
+
+				if (!transferType.distinctTerms.includes(term._id.transferType)) {
+					transferType.distinctTerms.push(term._id.transferType);
+				}
+				retObj.push(transferType);
+
+				if (!payerIdType.distinctTerms.includes(term._id.payerIdType)) {
+					payerIdType.distinctTerms.push(term._id.payerIdType);
+				}
+				retObj.push(payerIdType);
+
+				if (!payeeIdType.distinctTerms.includes(term._id.payeeIdType)) {
+					payeeIdType.distinctTerms.push(term._id.payeeIdType);
+				}
+				retObj.push(payeeIdType);
+
 			}
 		} catch (err) {
 			this._logger.error(err);

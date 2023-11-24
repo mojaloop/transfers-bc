@@ -53,8 +53,6 @@ export interface ITransfersRepository {
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
 
     getTransfers(
-        payeeDfspName: string | null,
-        payerDfspName: string | null,
         state: string | null,
         transferType: string | null,
         payerIdType: string | null,
