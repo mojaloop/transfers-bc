@@ -186,7 +186,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		}
 
 		if (bulkTransferId) {
-			filter.$and.push({ bulkTransferId: bulkTransferId });
+			filter.$and.push({ "bulkTransferId": { "$regex": bulkTransferId, "$options": "i" } });
 		}
 
 		if (filter.$and.length === 0) {
