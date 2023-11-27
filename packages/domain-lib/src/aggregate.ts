@@ -608,10 +608,10 @@ export class TransfersAggregate {
 		});
 
         // Duplicate Transfer POST use cases
-        let getTransferRep:ITransfer | undefined;
+        let getTransferRep:ITransfer | null;
 		try {
             // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
-			getTransferRep = this._transfersCache.get(message.payload.transferId);
+			getTransferRep = await this._getTransfer(message.payload.transferId);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
@@ -639,6 +639,7 @@ export class TransfersAggregate {
             //     this._outputEvents.push(errorEvent);
             //     return;
 			// }
+			this._logger.warn(`Transfer ${getTransferRep.transferId} already exists.`);
 
 			switch(getTransferRep.transferState) {
 				case TransferState.RECEIVED:

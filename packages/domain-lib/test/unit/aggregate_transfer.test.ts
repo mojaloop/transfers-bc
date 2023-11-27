@@ -1016,6 +1016,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             }])
 
         jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValueOnce(null)
             .mockImplementationOnce(() => { throw Error(); })
 
         mockProperty(aggregate, "_transfersCache", jest.fn(() => {
