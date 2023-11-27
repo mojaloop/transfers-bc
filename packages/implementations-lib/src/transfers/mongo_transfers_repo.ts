@@ -50,11 +50,11 @@ export class MongoTransfersRepo implements ITransfersRepository {
 
 	constructor(
 		logger: ILogger,
-        connectionString: string,
+		connectionString: string,
 		dbName: string
 	) {
 		this._logger = logger.createChild(this.constructor.name);
-        this._connectionString = connectionString;
+		this._connectionString = connectionString;
 		this._dbName = dbName;
 	}
 
@@ -64,7 +64,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			await this.mongoClient.connect();
 			this.transfers = this.mongoClient.db(this._dbName).collection(this._collectionName);
 
-            await this.transfers.createIndex({"transferId": 1}, {unique: true});
+			await this.transfers.createIndex({ "transferId": 1 }, { unique: true });
 		} catch (e: unknown) {
 			this._logger.error(`Unable to connect to the database: ${(e as Error).message}`);
 			throw new UnableToInitTransferRegistryError();
@@ -72,17 +72,17 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async destroy(): Promise<void> {
-		try{
+		try {
 			await this.mongoClient.close();
-		} catch(e: unknown){
+		} catch (e: unknown) {
 			this._logger.error(`Unable to close the database connection: ${(e as Error).message}`);
 			throw new UnableToCloseDatabaseConnectionError();
 		}
 	}
 
 	async addTransfer(transfer: ITransfer): Promise<string> {
-		const transferToAdd = {...transfer};
-		if(transferToAdd.transferId){
+		const transferToAdd = { ...transfer };
+		if (transferToAdd.transferId) {
 			await this.checkIfTransferExists(transfer);
 		}
 
@@ -97,153 +97,175 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async removeTransfer(transferId: string): Promise<void> {
-		const deleteResult = await this.transfers.deleteOne({transferId}).catch((e: unknown) => {
+		const deleteResult = await this.transfers.deleteOne({ transferId }).catch((e: unknown) => {
 			this._logger.error(`Unable to delete transfer: ${(e as Error).message}`);
 			throw new UnableToDeleteTransferError();
 		});
 
-		if(deleteResult.deletedCount == 1){
+		if (deleteResult.deletedCount == 1) {
 			return;
-		}else{
+		} else {
 			throw new NoSuchTransferError();
 		}
 	}
 
-	async getTransferById(transferId:string):Promise<ITransfer|null>{
-		const transfer = await this.transfers.findOne({transferId: transferId }).catch((e: unknown) => {
+	async getTransferById(transferId: string): Promise<ITransfer | null> {
+		const transfer = await this.transfers.findOne({ transferId: transferId }).catch((e: unknown) => {
 			this._logger.error(`Unable to get transfer by id: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
 		});
 
-		if(!transfer){
+		if (!transfer) {
 			return null;
 		}
 		return this._mapToTransfer(transfer);
 	}
 
 	async getTransfers(
-        id:string|null,
-        state:string|null,
-        currency:string|null,
-        startDate:number|null,
-        endDate:number|null,
-        bulkTransferId:string|null,
-        pageIndex:number = 0,
-        pageSize: number = MAX_ENTRIES_PER_PAGE
-    ):Promise<TransfersSearchResults>{
-        // make sure we don't go over or below the limits
-        pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
-        pageIndex = Math.max(pageIndex, 0);
+		state: string | null,
+		transferType: string | null,
+		payerIdType: string | null,
+		payeeIdType: string | null,
+		currency: string | null,
+		id: string | null,
+		payerIdValue: string | null,
+		payeeIdValue: string | null,
+		bulkTransferId: string | null,
+		startDate: number,
+		endDate: number,
+		pageIndex = 0,
+		pageSize: number = MAX_ENTRIES_PER_PAGE
+	): Promise<TransfersSearchResults> {
+		// make sure we don't go over or below the limits
+		pageSize = Math.min(pageSize, MAX_ENTRIES_PER_PAGE);
+		pageIndex = Math.max(pageIndex, 0);
 
-        const searchResults: TransfersSearchResults = {
-            pageSize: pageSize,
-            pageIndex: pageIndex,
-            totalPages: 0,
-            items: []
-        };
+		const searchResults: TransfersSearchResults = {
+			pageSize: pageSize,
+			pageIndex: pageIndex,
+			totalPages: 0,
+			items: []
+		};
 
-        let filter:any = {$and:[]};
-        if(id){
-            filter.$and.push({"transferId": {"$regex": id, "$options": "i"}});
-        }
-        if(state){
-            filter.$and.push({transferState: state});
-        }
-        if(bulkTransferId){
-            filter.$and.push({"bulkTransferId": {"$regex": bulkTransferId, "$options": "i"}});
-        }
-        if(currency){
-            filter.$and.push({currencyCode: currency});
-        }
-        if(startDate){
-            filter.$and.push({updatedAt: {$gte:startDate}});
-        }
-        if(endDate){
-            filter.$and.push({updatedAt: {$lte:endDate}});
-        }
-        if(filter.$and.length === 0) {
-            filter = {};
-        }
+		let filter: any = { $and: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        try {
-            const skip = Math.floor(pageIndex * pageSize);
-            const result = await this.transfers.find(
-                filter,
-                {
-                    sort:["updatedAt", "desc"],
-                    projection: {_id: 0},
-                    skip: skip,
-                    limit: pageSize
-                }
-            ).toArray().catch((e: unknown) => {
-                this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
-                throw new UnableToGetTransferError();
-            });
+		if (id) {
+			filter.$and.push({ "transferId": { "$regex": id, "$options": "i" } });
+		}
+		if (state) {
+			filter.$and.push({ transferState: state });
+		}
+		if (currency) {
+			filter.$and.push({ currencyCode: currency });
+		}
+		if (startDate) {
+			filter.$and.push({ updatedAt: { $gte: startDate } });
+		}
+		if (endDate) {
+			filter.$and.push({ updatedAt: { $lte: endDate } });
+		}
 
-            const countResult = await this.transfers.countDocuments(filter).catch(() => {
-                this._logger.error("Unable to get transfers count");
-            }) || result.length;
+		if (payerIdValue) {
+			filter.$and.push({ payerFspId: payerIdValue });
+		}
 
-            searchResults.items = result.map(this._mapToTransfer);
+		if (payeeIdValue) {
+			filter.$and.push({ payeeFspId: payeeIdValue });
+		}
 
-            searchResults.totalPages = Math.ceil(countResult / pageSize);
-            searchResults.pageSize = Math.max(pageSize, result.length);
+		if (transferType) {
+			filter.$and.push({ transferType: transferType });
+		}
 
-        } catch (err) {
-            this._logger.error(err);
-        }
+		if (payerIdType) {
+			filter.$and.push({ payerIdType: payerIdType });
+		}
 
-        return Promise.resolve(searchResults);
+		if (payeeIdType) {
+			filter.$and.push({ payeeIdType: payeeIdType });
+		}
+
+		if (bulkTransferId) {
+			filter.$and.push({ "bulkTransferId": { "$regex": bulkTransferId, "$options": "i" } });
+		}
+
+		if (filter.$and.length === 0) {
+			filter = {};
+		}
+
+		try {
+			const totalRecordsCount = await this.transfers.countDocuments(filter);
+			const results = await this.transfers.find(
+				filter,
+				{
+					sort: ["updatedAt", "desc"],
+					projection: { _id: 0 },
+					skip: Math.floor(pageIndex * pageSize),
+					limit: pageSize
+				}
+			).toArray().catch((e: unknown) => {
+				this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
+				throw new UnableToGetTransferError();
+			});
+
+			searchResults.items = results as any;
+			searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
+
+		} catch (err) {
+			this._logger.error(err);
+		}
+
+		return Promise.resolve(searchResults);
 	}
 
 
-    async storeTransfers(transfers:ITransfer[]):Promise<void>{
-        const operations = transfers.map(value=>{
-            return {
-                replaceOne: {
-                    filter: {transferId: value.transferId},
-                    replacement: value,
-                    upsert: true
-                }
-            };
-        });
+	async storeTransfers(transfers: ITransfer[]): Promise<void> {
+		const operations = transfers.map(value => {
+			return {
+				replaceOne: {
+					filter: { transferId: value.transferId },
+					replacement: value,
+					upsert: true
+				}
+			};
+		});
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let updateResult: any;
-        try {
-            updateResult = await this.transfers.bulkWrite(operations);
+		let updateResult: any;
+		try {
+			updateResult = await this.transfers.bulkWrite(operations);
 
-            if ((updateResult.upsertedCount + updateResult.modifiedCount) !== transfers.length) {
-                const err = new Error("Could not storeTransfers - mismatch between requests length and MongoDb response length");
-                this._logger.error(err);
-                throw err;
-            }
-        } catch (error: unknown) {
-            this._logger.error(error);
-            throw error;
-        }
-    }
+			if ((updateResult.upsertedCount + updateResult.modifiedCount) !== transfers.length) {
+				const err = new Error("Could not storeTransfers - mismatch between requests length and MongoDb response length");
+				this._logger.error(err);
+				throw err;
+			}
+		} catch (error: unknown) {
+			this._logger.error(error);
+			throw error;
+		}
+	}
 
 	async updateTransfer(transfer: ITransfer): Promise<void> {
 		const existingTransfer = await this.getTransferById(transfer.transferId);
 
-		if(!existingTransfer || !existingTransfer.transferId) {
+		if (!existingTransfer || !existingTransfer.transferId) {
 			throw new NoSuchTransferError();
 		}
 
-		const updatedTransfer: ITransfer = {...existingTransfer, ...transfer};
+		const updatedTransfer: ITransfer = { ...existingTransfer, ...transfer };
 		updatedTransfer.transferId = existingTransfer.transferId;
 
-		await this.transfers.updateOne({transferId: transfer.transferId, }, { $set: updatedTransfer }).catch((e: unknown) => {
+		await this.transfers.updateOne({ transferId: transfer.transferId, }, { $set: updatedTransfer }).catch((e: unknown) => {
 			this._logger.error(`Unable to insert transfer: ${(e as Error).message}`);
 			throw new UnableToUpdateTransferError();
 		});
 	}
 
-	async getTransfersByBulkId(bulkTransferId:string):Promise<ITransfer[]>{
+	async getTransfersByBulkId(bulkTransferId: string): Promise<ITransfer[]> {
 		const transfers = await this.transfers.find(
 			{ bulkTransferId: bulkTransferId },
-			{sort:["updatedAt", "desc"], projection: {_id: 0}}
+			{ sort: ["updatedAt", "desc"], projection: { _id: 0 } }
 		).toArray().catch((e: unknown) => {
 			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
 			throw new UnableToGetTransferError();
@@ -298,41 +320,80 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 
-	async getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>{
-        const retObj:{fieldName:string, distinctTerms:string[]}[] = [];
+	async getSearchKeywords(): Promise<{ fieldName: string, distinctTerms: string[] }[]> {
+		const retObj: { fieldName: string, distinctTerms: string[] }[] = [];
 
-        try {
-            const result = this.transfers
-                .aggregate([
-					{$group: { "_id": { transferState: "$transferState", currencyCode: "$currencyCode" } } }
+		try {
+			const result = this.transfers
+				.aggregate([
+					{
+						$group: {
+							"_id": {
+								transferState: "$transferState", currencyCode: "$currencyCode",
+								transferType: "$transferType", payerIdType: "$payerIdType", payeeIdType: "$payeeIdType"
+							}
+						}
+					}
 				]);
 
-			const state:{fieldName:string, distinctTerms:string[]} = {
+			const state: { fieldName: string, distinctTerms: string[] } = {
 				fieldName: "state",
 				distinctTerms: []
 			};
 
-			const currency:{fieldName:string, distinctTerms:string[]} = {
+			const currency: { fieldName: string, distinctTerms: string[] } = {
 				fieldName: "currency",
+				distinctTerms: []
+			};
+
+			const transferType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "transferType",
+				distinctTerms: []
+			};
+
+			const payerIdType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "payerIdType",
+				distinctTerms: []
+			};
+
+			const payeeIdType: { fieldName: string, distinctTerms: string[] } = {
+				fieldName: "payeeIdType",
 				distinctTerms: []
 			};
 
 			for await (const term of result) {
 
-				if(!state.distinctTerms.includes(term._id.transferState)) {
+				if (!state.distinctTerms.includes(term._id.transferState)) {
 					state.distinctTerms.push(term._id.transferState);
 				}
 				retObj.push(state);
 
-				if(!currency.distinctTerms.includes(term._id.currencyCode)) {
+				if (!currency.distinctTerms.includes(term._id.currencyCode)) {
 					currency.distinctTerms.push(term._id.currencyCode);
 				}
 				retObj.push(currency);
-			}
-        } catch (err) {
-            this._logger.error(err);
-        }
 
-        return Promise.resolve(retObj);
-    }
+				if (!transferType.distinctTerms.includes(term._id.transferType)) {
+					transferType.distinctTerms.push(term._id.transferType);
+				}
+				retObj.push(transferType);
+
+				if (!payerIdType.distinctTerms.includes(term._id.payerIdType)) {
+					payerIdType.distinctTerms.push(term._id.payerIdType);
+				}
+				retObj.push(payerIdType);
+
+				if (!payeeIdType.distinctTerms.includes(term._id.payeeIdType)) {
+					payeeIdType.distinctTerms.push(term._id.payeeIdType);
+				}
+				retObj.push(payeeIdType);
+
+			}
+		} catch (err) {
+			this._logger.error(err);
+		}
+
+		return Promise.resolve(retObj);
+	}
+	
 }

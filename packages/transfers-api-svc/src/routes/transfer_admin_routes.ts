@@ -76,31 +76,42 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
         try {
             this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
 
-            const state = req.query.state as string || null;
-            const currency = req.query.currency as string || null;
-            const id = req.query.id as string || null;
-            const bulkTransferId = req.query.bulkTransferId as string || null;
-            const startDateStr = req.query.startDate as string || req.query.startdate as string;
-            const startDate = startDateStr ? parseInt(startDateStr) : null;
-            const endDateStr = req.query.endDate as string || req.query.enddate as string;
-            const endDate = endDateStr ? parseInt(endDateStr) : null;
+            const state = req.query.state as string;
+            const transferType = req.query.transferType as string || req.query.transfertype as string;
+            const payerIdType = req.query.payerIdType as string || req.query.payeridtype as string;
+            const payeeIdType = req.query.payeeIdType as string || req.query.payeeidtype as string;
+            const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+            const id = req.query.id as string;
+            const payerIdValue = req.query.payerIdValue as string || req.query.payeridvalue as string;
+            const payeeIdValue = req.query.payeeIdValue as string || req.query.payeeidvalue as string;
 
-            // optional pagination
+            const startDateStr = req.query.startDate as string || req.query.startdate as string;
+            const startDate = startDateStr ? parseInt(startDateStr) : undefined;
+            const endDateStr = req.query.endDate as string || req.query.enddate as string;
+            const endDate = endDateStr ? parseInt(endDateStr) : undefined;
+
             const pageIndexStr = req.query.pageIndex as string || req.query.pageindex as string;
             const pageIndex = pageIndexStr ? parseInt(pageIndexStr) : undefined;
 
             const pageSizeStr = req.query.pageSize as string || req.query.pagesize as string;
             const pageSize = pageSizeStr ? parseInt(pageSizeStr) : undefined;
 
+            const bulkTransferId = req.query.bulkTransferId as string || null;
+
             this.logger.debug("Fetching all transfers");
 
             const fetched= await this.transfersRepo.getTransfers(
-                id,
                 state,
-                currency,
+                transferType,
+                payerIdType,
+                payeeIdType,
+                currencyCode,
+                id,
+                payerIdValue,
+                payeeIdValue,
+                bulkTransferId,
                 startDate,
                 endDate,
-                bulkTransferId,
                 pageIndex,
                 pageSize
             );
@@ -207,5 +218,6 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             });
         }
     }
+
 
 }

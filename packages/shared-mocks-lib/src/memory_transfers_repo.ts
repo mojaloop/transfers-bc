@@ -85,7 +85,20 @@ export class MemoryTransferRepo implements ITransfersRepository {
         return Promise.resolve(this._transfers.find(q => q.transferId === id) || null);
     }
 
-    getTransfers(id: string | null, state: string | null, currency: string | null, startDate: number | null, endDate: number | null, bulkTransferId: string | null, pageIndex?: number, pageSize?: number): Promise<TransfersSearchResults> {
+    getTransfers(
+        state: string | null,
+        transferType: string | null,
+        payerIdType: string | null,
+        payeeIdType: string | null,
+        currency: string | null,
+        id: string | null,
+        payerIdValue: string | null,
+        payeeIdValue: string | null,
+        bulkTransferId: string | null,
+        startDate?: number,
+        endDate?: number,
+        pageIndex?: number,
+        pageSize?: number): Promise<TransfersSearchResults> {
         throw new Error("Method not implemented.");
     }
 

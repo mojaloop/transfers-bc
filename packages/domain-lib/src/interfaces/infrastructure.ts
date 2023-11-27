@@ -45,22 +45,27 @@ export interface ITransfersRepository {
     updateTransfer(transfer: ITransfer):Promise<void>;
 	removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
-    getTransfers(
-        id:string|null,
-        state:string|null,
-        currency:string|null,
-        startDate:number|null,
-        endDate:number|null,
-        bulkTransferId:string|null,
-        pageIndex?:number,
-        pageSize?: number
-    ):Promise<TransfersSearchResults>;
 	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 
     storeTransfers(transfers:ITransfer[]):Promise<void>;
 
 
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
+
+    getTransfers(
+        state: string | null,
+        transferType: string | null,
+        payerIdType: string | null,
+        payeeIdType: string | null,
+        currency: string | null,
+        id: string | null,
+        payerIdValue: string | null,
+        payeeIdValue: string | null,
+        bulkTransferId:string | null,
+        startDate?: number,
+        endDate?: number,
+        pageIndex?: number,
+        pageSize?: number): Promise<TransfersSearchResults>;
 }
 
 export interface IBulkTransfersRepository {
@@ -135,3 +140,6 @@ export interface ISchedulingServiceAdapter {
 	getReminder(reminderId: string): Promise<IReminder | null | void>;
 	deleteReminder(reminderId: string): Promise<void>;
 }
+
+
+
