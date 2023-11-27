@@ -77,13 +77,13 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             this._enforcePrivilege(req.securityContext!, TransfersPrivileges.VIEW_ALL_TRANSFERS);
 
             const state = req.query.state as string;
-            const transferType = req.query.transferType as string || req.query.transfertype as string;
-            const payerIdType = req.query.payerIdType as string || req.query.payeridtype as string;
-            const payeeIdType = req.query.payeeIdType as string || req.query.payeeidtype as string;
-            const currencyCode = req.query.currencyCode as string || req.query.currencycode as string;
+            const transferType = req.query.transferType as string || req.query.transferType as string;
+            const payerIdType = req.query.transferType as string || req.query.transferType as string;
+            const payeeIdType = req.query.payeeIdType as string || req.query.payeeIdType as string;
+            const currencyCode = req.query.currencyCode as string || req.query.currencyCode as string;
             const id = req.query.id as string;
-            const payerIdValue = req.query.payerIdValue as string || req.query.payeridvalue as string;
-            const payeeIdValue = req.query.payeeIdValue as string || req.query.payeeidvalue as string;
+            const payerId = req.query.payerId as string || req.query.payerId as string;
+            const payeeId = req.query.payerId as string || req.query.payerId as string;
 
             const startDateStr = req.query.startDate as string || req.query.startdate as string;
             const startDate = startDateStr ? parseInt(startDateStr) : undefined;
@@ -107,8 +107,8 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
                 payeeIdType,
                 currencyCode,
                 id,
-                payerIdValue,
-                payeeIdValue,
+                payerId,
+                payeeId,
                 bulkTransferId,
                 startDate,
                 endDate,

@@ -128,8 +128,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 		payeeIdType: string | null,
 		currency: string | null,
 		id: string | null,
-		payerIdValue: string | null,
-		payeeIdValue: string | null,
+		payerId: string | null,
+		payeeId: string | null,
 		bulkTransferId: string | null,
 		startDate: number,
 		endDate: number,
@@ -165,12 +165,12 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			filter.$and.push({ updatedAt: { $lte: endDate } });
 		}
 
-		if (payerIdValue) {
-			filter.$and.push({ payerFspId: payerIdValue });
+		if (payerId) {
+			filter.$and.push({ payerFspId: payerId });
 		}
 
-		if (payeeIdValue) {
-			filter.$and.push({ payeeFspId: payeeIdValue });
+		if (payeeId) {
+			filter.$and.push({ payeeFspId: payeeId });
 		}
 
 		if (transferType) {
@@ -366,29 +366,30 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				if (!state.distinctTerms.includes(term._id.transferState)) {
 					state.distinctTerms.push(term._id.transferState);
 				}
-				retObj.push(state);
-
+				
 				if (!currency.distinctTerms.includes(term._id.currencyCode)) {
 					currency.distinctTerms.push(term._id.currencyCode);
 				}
-				retObj.push(currency);
-
+				
 				if (!transferType.distinctTerms.includes(term._id.transferType)) {
 					transferType.distinctTerms.push(term._id.transferType);
 				}
-				retObj.push(transferType);
-
+				
 				if (!payerIdType.distinctTerms.includes(term._id.payerIdType)) {
 					payerIdType.distinctTerms.push(term._id.payerIdType);
 				}
-				retObj.push(payerIdType);
-
+				
 				if (!payeeIdType.distinctTerms.includes(term._id.payeeIdType)) {
 					payeeIdType.distinctTerms.push(term._id.payeeIdType);
 				}
-				retObj.push(payeeIdType);
-
 			}
+
+			retObj.push(state);
+			retObj.push(currency);
+			retObj.push(transferType);
+			retObj.push(payerIdType);
+			retObj.push(payeeIdType);
+			
 		} catch (err) {
 			this._logger.error(err);
 		}
