@@ -42,7 +42,7 @@
     "@mojaloop/security-bc-public-types-lib": "~0.3.6",
     "@mojaloop/settlements-bc-model-lib": "~0.3.4",
     "@mojaloop/settlements-bc-public-types-lib": "~0.3.3",
-    "@mojaloop/scheduling-bc-client-lib": "~0.0.12",
+    "@mojaloop/scheduling-bc-client-lib": "~0.0.13",
     "@mojaloop/transfers-bc-domain-lib": "*",
     "ioredis": "~5.3.2",
     "mongodb": "^6.3.0"
