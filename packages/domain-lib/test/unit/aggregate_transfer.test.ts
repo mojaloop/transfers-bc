@@ -78,11 +78,11 @@ import { mockedHubParticipant, mockedPayeeParticipant, mockedPayerParticipant } 
 import { createCommand } from "../utils/helpers";
 import { messageProducer, transfersRepo, bulkTransfersRepo, participantService, accountsAndBalancesService, settlementsService, schedulingService, logger } from "../utils/mocked_variables";
 import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
-import { AccountType, CommitTransferFulfilCmd, ITransfer, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd, PrepareBulkTransferCmd, TransferState, TransfersAggregate, CommitBulkTransferFulfilCmd, RejectBulkTransferCmd, QueryBulkTransferCmd } from '../../src';
+import { CommitTransferFulfilCmd, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd, PrepareBulkTransferCmd, TransfersAggregate, CommitBulkTransferFulfilCmd, RejectBulkTransferCmd, QueryBulkTransferCmd } from '../../src';
 import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
 import { waitForExpect, mockProperty, undoMockProperty } from '@mojaloop/transfers-bc-shared-mocks-lib';
-import { BulkTransferState, IBulkTransfer } from '../../dist';
+import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
 
 logger.setLogLevel(LogLevel.DEBUG);
 

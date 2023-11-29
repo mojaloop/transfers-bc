@@ -33,10 +33,20 @@
 "use strict";
 
 import { Collection, Document, MongoClient, WithId } from "mongodb";
-import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
-import { ITransfersRepository, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-domain-lib";
-import { TransferAlreadyExistsError, UnableToCloseDatabaseConnectionError, UnableToGetTransferError, UnableToInitTransferRegistryError, UnableToAddTransferError, NoSuchTransferError, UnableToUpdateTransferError, UnableToDeleteTransferError } from "../errors";
 import { randomUUID } from "crypto";
+import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
+import { ITransfersRepository,  } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-public-types-lib";
+import { 
+	TransferAlreadyExistsError,
+	UnableToCloseDatabaseConnectionError,
+	UnableToGetTransferError,
+	UnableToInitTransferRegistryError,
+	UnableToAddTransferError,
+	NoSuchTransferError,
+	UnableToUpdateTransferError,
+	UnableToDeleteTransferError
+} from "../errors";
 
 const MAX_ENTRIES_PER_PAGE = 100;
 

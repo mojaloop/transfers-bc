@@ -43,7 +43,8 @@ import {
     UnableToUpdateBulkTransferError,
     BulkTransferNotFoundError,
 } from "../errors";
-import { IBulkTransfer, IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
+import { IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
+import { IBulkTransfer } from "@mojaloop/transfers-bc-public-types-lib";
 
 export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
     private readonly _logger: ILogger;

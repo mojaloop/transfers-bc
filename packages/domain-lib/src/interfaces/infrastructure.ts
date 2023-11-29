@@ -31,7 +31,7 @@
 "use strict";
 
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
-import { IBulkTransfer, ITransfer, TransfersSearchResults } from "../types";
+import { IBulkTransfer, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-public-types-lib";
 import {
     AccountsAndBalancesAccount,
     AccountsAndBalancesJournalEntry,

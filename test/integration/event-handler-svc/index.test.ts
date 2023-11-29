@@ -31,6 +31,7 @@
 **/
 
 "use strict";
+
 import { KafkaConsumer, waitForExpect } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { Service } from "../../../packages/event-handler-svc/src/service";
@@ -160,7 +161,8 @@ describe("Transfers Event Handler - Integration", () => {
             transferId: "transferId",
             errorInformation: {
                 errorCode: "randomcode",
-                errorDescription: "random error description"
+                errorDescription: "random error description",
+                extensionList: null
             }
         });
                 

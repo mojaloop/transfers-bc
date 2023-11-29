@@ -31,6 +31,7 @@
 **/
 
 "use strict";
+
 import { KafkaConsumer, waitForExpect } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { Service } from "../../../packages/command-handler-svc/src/service";

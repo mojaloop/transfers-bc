@@ -90,7 +90,7 @@ describe("Transfers Admin Routes - Integration", () => {
     });
 
     afterEach(async () => {
-        const transfers = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null);
+        const transfers = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null,null,null,null,0,0);
         for await (const transfer of transfers.items) {
             await mongoTransfersRepo.removeTransfer(transfer.transferId);
         }

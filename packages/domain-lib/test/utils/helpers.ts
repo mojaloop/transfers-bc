@@ -34,7 +34,7 @@
 
 import { CommandMsg, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { TransferPreparedEvtPayload, TransferFulfiledEvtPayload } from "@mojaloop/platform-shared-lib-public-messages-lib";
-import { ITransfer } from '../../src/types';
+import { ITransfer } from "@mojaloop/transfers-bc-public-types-lib";
 
 export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): TransferPreparedEvtPayload {
     return {

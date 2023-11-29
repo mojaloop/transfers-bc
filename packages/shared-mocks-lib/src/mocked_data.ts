@@ -33,7 +33,7 @@
 "use strict";
 
 import { IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
-import { BulkTransferState, IBulkTransfer, ITransfer, TransferState } from "@mojaloop/transfers-bc-domain-lib";
+import { BulkTransferState, IBulkTransfer, ITransfer, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
 
 const now = Date.now();
 

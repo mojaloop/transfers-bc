@@ -206,7 +206,7 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should return a empty array when there are no transfers", async () => {
          // Act
-         const result = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null);
+         const result = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null, null, null, null, 0, 0);
 
          // Assert
          expect(result).toBeDefined();
@@ -221,7 +221,6 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
     test("should return a list of transfers by filters", async () => {
         // Arrange
         const transfer1 = mockedTransfer1;
-        const transferId = await mongoTransfersRepo.addTransfer(transfer1);
 
         // Act
         const result = await mongoTransfersRepo.getTransfers(
@@ -229,8 +228,13 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
             transfer1.transferState,
             null,
             null,
-            null,null
-
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            0
         );
 
         // Assert

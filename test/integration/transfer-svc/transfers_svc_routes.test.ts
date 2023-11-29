@@ -41,6 +41,8 @@ logger.setLogLevel(LogLevel.FATAL);
 
 const server = process.env["TRANSFERS_ADM_URL"] || "http://localhost:3500";
 
+jest.setTimeout(160000);
+
 describe("Transfers Admin Routes - Integration", () => {
 
     beforeAll(async () => {

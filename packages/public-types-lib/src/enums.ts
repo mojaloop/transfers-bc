@@ -28,11 +28,30 @@
  * Arg Software
  - José Antunes <jose.antunes@arg.software>
  - Rui Rocha <rui.rocha@arg.software>
- 
+
  --------------
  ******/
 
 "use strict";
 
-export * from "./transfers";
-export * from "./enums";
+export declare const enum TransferState {
+    RECEIVED = "RECEIVED", 		// initial state
+	RESERVED = "RESERVED", 		// after prepare
+    COMMITTED = "COMMITTED", 	// after fulfil (final state of successful transfer)
+    ABORTED = "ABORTED" 		// failed to perform the transfer or expired
+}
+
+export declare const enum BulkTransferState {
+    RECEIVED = "RECEIVED", 		// initial state
+	PENDING = "PENDING", 		// after prepare
+	ACCEPTED = "ACCEPTED", 		// when fulfil starts
+    PROCESSING = "PROCESSING", 	// while fulfiling each individual transfer
+    COMPLETED = "COMPLETED", 	// after fulfil (final state of processing all individual transfers)
+    REJECTED = "REJECTED"		// payee reject to process the bulk transfer
+}
+
+export declare const enum AccountType {
+	HUB = "HUB_RECONCILIATION",
+	POSITION = "POSITION",
+	SETTLEMENT = "SETTLEMENT"
+}

@@ -89,8 +89,9 @@ import {
     PayerParticipantNotFoundError,
     PayerPositionAccountNotFoundError,
     TransferNotFoundError,
-    UnableToCancelTransferError} from "./errors";
-import {AccountType, BulkTransferState, IBulkTransfer, IErrorInformation, ITransfer, ITransferAccounts, ITransferParticipants, TransferState} from "./types";
+    UnableToCancelTransferError
+} from "./errors";
+import {AccountType, TransferState, ITransfer, BulkTransferState, IBulkTransfer, ITransferParticipants, ITransferAccounts, IErrorInformation} from "@mojaloop/transfers-bc-public-types-lib";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
@@ -142,6 +143,7 @@ import {
     BulkTransferQueryResponseEvt,
     BulkTransferQueryResponseEvtPayload
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
+import { BulkTransfer, Transfer } from "./entities";
 
 const HUB_ID = "hub"; // move to shared lib
 
@@ -696,7 +698,7 @@ export class TransfersAggregate {
 
         const now = Date.now();
 
-        const transfer: ITransfer = {
+        const transfer: Transfer = {
             createdAt: now,
             updatedAt: now,
             transferId: message.payload.transferId,
@@ -1817,7 +1819,7 @@ export class TransfersAggregate {
         if(this._logger.isDebugEnabled()) this._logger.debug(`_prepareBulkTransferStart() - Got BulkTransferPrepareRequestedEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
 
         const bulkTransferId = message.payload.bulkTransferId;
-        const bulkTransfer: IBulkTransfer = {
+        const bulkTransfer: BulkTransfer = {
             bulkTransferId: message.payload.bulkTransferId,
 			bulkQuoteId: message.payload.bulkQuoteId,
             payeeFsp: message.payload.payeeFsp,

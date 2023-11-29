@@ -33,5 +33,5 @@
 export * from "./commands";
 export * from "./aggregate";
 export * from "./interfaces/infrastructure";
-export * from "./types";
+export * from "./entities";
 export * from "./privileges";
