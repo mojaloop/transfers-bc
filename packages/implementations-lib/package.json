@@ -40,7 +40,7 @@
     "@mojaloop/platform-shared-lib-public-messages-lib": "~0.1.164",
     "@mojaloop/security-bc-client-lib": "~0.3.9",
     "@mojaloop/security-bc-public-types-lib": "~0.3.6",
-    "@mojaloop/settlements-bc-model-lib": "~0.3.4",
+    "@mojaloop/settlements-bc-model-lib": "~0.3.5",
     "@mojaloop/settlements-bc-public-types-lib": "~0.3.3",
     "@mojaloop/scheduling-bc-client-lib": "~0.0.13",
     "@mojaloop/transfers-bc-domain-lib": "*",
