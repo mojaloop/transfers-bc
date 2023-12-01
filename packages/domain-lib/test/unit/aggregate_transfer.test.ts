@@ -215,7 +215,11 @@ describe("Domain - Unit Tests for Command Handler", () => {
             transferType: "DEPOSIT"
         }
 
+        const now = Date.now();
+
         validBulkTransfer = {
+            createdAt: now,
+            updatedAt: now,
             bulkTransferId: "1bdc3ae0-d8a9-4c2c-befb-810c1a5bd01c",
             bulkQuoteId: "3adc3be0-d8a9-4c2c-befb-810c1a5bd01c",
             payeeFsp: "greenbank",

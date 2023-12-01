@@ -63,6 +63,8 @@ export class Transfer implements ITransfer {
 
 /** BulkTransfer entity **/
 export class BulkTransfer implements IBulkTransfer {
+	createdAt: number;
+	updatedAt: number;
 	bulkTransferId: string;
 	bulkQuoteId: string;
 	payeeFsp: string;

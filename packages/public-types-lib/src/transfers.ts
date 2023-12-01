@@ -92,6 +92,8 @@ export interface ITransferAccounts {
 }
 
 export interface IBulkTransfer {
+	createdAt: number;
+	updatedAt: number;
 	bulkTransferId: string;
 	bulkQuoteId: string;
 	payeeFsp: string;

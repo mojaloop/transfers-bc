@@ -608,6 +608,8 @@ export const mockedParticipantTransferAccounts = {
 };
 
 export const mockedBulkTransfer1 : IBulkTransfer = {
+	createdAt: now,
+	updatedAt: now,
     bulkTransferId: "1",
     bulkQuoteId: "1",
     payeeFsp: "greenbank",
@@ -633,6 +635,8 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
 };
 
 export const mockedBulkTransfer2 : IBulkTransfer = {
+	createdAt: now,
+	updatedAt: now,
     bulkTransferId: "2",
     bulkQuoteId: "2",
     payeeFsp: "greenbank",

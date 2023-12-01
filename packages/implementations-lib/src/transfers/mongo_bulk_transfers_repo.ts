@@ -196,6 +196,8 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
 
     private mapToBulkTransfer(bulkTransfer: WithId<Document>): IBulkTransfer {
         const bulkTransferMapped: IBulkTransfer = {
+            createdAt: bulkTransfer.createdAt ?? null,
+			updatedAt: bulkTransfer.updatedAt ?? null,
             bulkTransferId: bulkTransfer.bulkTransferId ?? null,
             bulkQuoteId: bulkTransfer.bulkQuoteId ?? null,
             payerFsp: bulkTransfer.payerFsp ?? null,

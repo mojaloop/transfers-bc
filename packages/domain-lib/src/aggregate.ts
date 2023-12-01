@@ -497,6 +497,7 @@ export class TransfersAggregate {
 
                     if(now > expirationTime) {
                         try {
+                            transfer.updatedAt = Date.now();
                             transfer.transferState = TransferState.ABORTED;
                             // set transfer in cache
                             this._transfersCache.set(transfer.transferId, transfer);
@@ -554,6 +555,7 @@ export class TransfersAggregate {
                         }
 
                         try {
+                            transfer.updatedAt = Date.now();
                             transfer.transferState = TransferState.ABORTED;
                             // set transfer in cache
                             this._transfersCache.set(transfer.transferId, transfer);
@@ -962,6 +964,7 @@ export class TransfersAggregate {
 
             // update transfer and cache it
             // according to https://docs.mojaloop.io/api/fspiop/logical-data-model.html#transferstate-enum state is aborted
+            transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
             this._transfersCache.set(transfer.transferId, transfer);
 
@@ -974,6 +977,7 @@ export class TransfersAggregate {
         const message = originalCmdMsg;// as PrepareTransferCmd;
 
         // update transfer and cache it
+        transfer.updatedAt = Date.now();
         transfer.transferState = TransferState.RESERVED;
         this._transfersCache.set(transfer.transferId, transfer);
 
@@ -1262,6 +1266,7 @@ export class TransfersAggregate {
             // TODO shouldn't this be a UnableToCommitTransferError?
             const err = new CheckLiquidityAndReserveFailedError(`Unable to cancelReservationAndCommit for transferId: ${request.transferId} - error: ${abResponse.errorMessage}`);
             this._logger.error(err);
+            transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
             this._transfersCache.set(transfer.transferId, transfer);
 
@@ -1316,7 +1321,7 @@ export class TransfersAggregate {
                 amount: transfer.amount,
                 currencyCode: transfer.currencyCode,
                 settlementModel: transfer.settlementModel,
-                notifyPayee: message.payload.notifyPayee,
+                notifyPayee: true,
                 fulfiledAt: fulfiledAtTime
             });
 
@@ -1472,6 +1477,7 @@ export class TransfersAggregate {
         }
 
 		try {
+            transfer.updatedAt = Date.now();
 			transfer.transferState = TransferState.ABORTED;
             transfer.errorInformation = message.payload.errorInformation;
 			await this._transfersRepo.updateTransfer(transfer);
@@ -1804,7 +1810,8 @@ export class TransfersAggregate {
                 payerNetDebitCap: null,
                 payeePositionAccountId: null,
             });
-
+            
+            transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
 
             await this._transfersRepo.updateTransfer(transfer);
@@ -1818,8 +1825,12 @@ export class TransfersAggregate {
     private async _prepareBulkTransferStart(message: PrepareBulkTransferCmd): Promise<void> {
         if(this._logger.isDebugEnabled()) this._logger.debug(`_prepareBulkTransferStart() - Got BulkTransferPrepareRequestedEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
 
+        const now = Date.now();
+
         const bulkTransferId = message.payload.bulkTransferId;
         const bulkTransfer: BulkTransfer = {
+            createdAt: now,
+            updatedAt: now,
             bulkTransferId: message.payload.bulkTransferId,
 			bulkQuoteId: message.payload.bulkQuoteId,
             payeeFsp: message.payload.payeeFsp,
@@ -1921,6 +1932,7 @@ export class TransfersAggregate {
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
         if(bulkTransfer.transfersPreparedProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer.individualTransfers.length) {
+            bulkTransfer.updatedAt = Date.now();
             bulkTransfer.status = BulkTransferState.PENDING;
             this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
             
@@ -2009,6 +2021,7 @@ export class TransfersAggregate {
             return;
         }
         
+        bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.ACCEPTED;
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
@@ -2069,6 +2082,7 @@ export class TransfersAggregate {
             return;
         }
 
+        bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.PROCESSING;
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
@@ -2079,6 +2093,7 @@ export class TransfersAggregate {
 
 
         if(bulkTransfer?.transfersFulfiledProcessedIds.length + bulkTransfer?.transfersNotProcessedIds.length === bulkTransfer?.individualTransfers.length) {
+            bulkTransfer.updatedAt = Date.now();
             bulkTransfer.status = BulkTransferState.COMPLETED;
             this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
@@ -2168,6 +2183,7 @@ export class TransfersAggregate {
             await this._rejectTransfer(transferCmd);
         }
 
+        bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.REJECTED;
         bulkTransfer.errorInformation = message.payload.errorInformation;
         this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
