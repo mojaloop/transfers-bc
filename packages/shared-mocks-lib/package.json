@@ -30,16 +30,16 @@
   },
   "dependencies": {
     "@mojaloop/transfers-bc-domain-lib": "*",
-    "@mojaloop/logging-bc-public-types-lib": "~0.1.23",
-    "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.2.103",
-    "@mojaloop/security-bc-client-lib": "~0.3.9",
-    "@mojaloop/participant-bc-public-types-lib": "~0.0.21",
-    "@mojaloop/security-bc-public-types-lib": "~0.3.6"
+    "@mojaloop/logging-bc-public-types-lib": "~0.5.2",
+    "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.5.2",
+    "@mojaloop/security-bc-client-lib": "~0.5.7",
+    "@mojaloop/participant-bc-public-types-lib": "~0.5.1",
+    "@mojaloop/security-bc-public-types-lib": "~0.5.5"
 
   },
   "devDependencies": {
-    "eslint": "^8.54.0",
-    "npm-check-updates": "^16.14.11",
+    "eslint": "^8.55.0",
+    "npm-check-updates": "^16.14.12",
     "typescript": "^4.7.3"
   }
 }

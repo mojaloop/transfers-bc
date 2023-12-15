@@ -56,6 +56,7 @@ import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
 import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 import {existsSync} from "fs";
 import process from "process";
+import crypto from "crypto";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -90,6 +91,10 @@ const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecre
 const SVC_DEFAULT_HTTP_PORT = process.env["SVC_DEFAULT_HTTP_PORT"] || 3500;
 
 const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
+
+const INSTANCE_NAME = `${BC_NAME}_${APP_NAME}`;
+const INSTANCE_ID = `${INSTANCE_NAME}__${crypto.randomUUID()}`;
+
 const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
 	kafkaBrokerList: KAFKA_URL,
 };
@@ -246,8 +251,15 @@ export class Service {
        }
         this.authorizationClient = authorizationClient;
 
+        
         // token helper
-        this.tokenHelper = new TokenHelper(AUTH_N_SVC_JWKS_URL, logger, AUTH_N_TOKEN_ISSUER_NAME, AUTH_N_TOKEN_AUDIENCE);
+        this.tokenHelper = new TokenHelper(
+            AUTH_N_SVC_JWKS_URL,
+            logger,
+            AUTH_N_TOKEN_ISSUER_NAME,
+            AUTH_N_TOKEN_AUDIENCE,
+            new MLKafkaJsonConsumer({kafkaBrokerList: KAFKA_URL, autoOffsetReset: "earliest", kafkaGroupId: INSTANCE_ID}, logger) // for jwt list - no groupId
+        );
         await this.tokenHelper.init();
 
         // metrics client

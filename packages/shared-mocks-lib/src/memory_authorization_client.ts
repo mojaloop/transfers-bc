@@ -42,6 +42,10 @@ export class MemoryAuthorizationClient implements IAuthorizationClient {
 	) {
 		this.logger = logger;
 	}
+	
+	rolesHavePrivilege(roleIds: string[], privilegeId: string): boolean {
+		throw new Error("Method not implemented.");
+	}
 
 	init(): Promise<void> {
 		return Promise.resolve();
