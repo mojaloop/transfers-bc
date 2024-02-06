@@ -73,8 +73,6 @@ See the README.md file on each services for more Environment Variable Configurat
 
 For endpoint documentation, see the [API documentation](https://docs.mojaloop.io/api/fspiop/v1.1/api-definition.html#api-resource-transfers).
 
-For help preparing and executing transfers, see the [Transfer Guide](TransferGuide.md)
-
 ## Documentation
 The following documentation provides insight into the Transfers Bounded Context.
 
