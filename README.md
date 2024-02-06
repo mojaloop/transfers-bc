@@ -1,48 +1,108 @@
 # transfers-bc
 **EXPERIMENTAL** vNext Transfers Bounded Context
 
-# Install
-1. Install `npm`
 
-# Build
+[![Git Commit](https://img.shields.io/github/last-commit/mojaloop/transfers-bc.svg?style=flat)](https://github.com/mojaloop/transfers-bc/commits/master)
+[![Git Releases](https://img.shields.io/github/release/mojaloop/transfers-bc.svg?style=flat)](https://github.com/mojaloop/transfers-bc/releases)
+[![Docker pulls](https://img.shields.io/docker/pulls/mojaloop/transfers-bc.svg?style=flat)](https://hub.docker.com/r/mojaloop/transfers-bc)
+[![CircleCI](https://circleci.com/gh/mojaloop/transfers-bc.svg?style=svg)](https://circleci.com/gh/mojaloop/transfers-bc)
 
-Run:
-```shell
-npm install
-```
-Then:
-```shell
-npm run build
-```
+The Transfers BC is responsible for orchestrating transfer requests. 
 
-# Run Unit Tests
+It works in concert with a number of other BCs, notably Settlements, Scheduling, Participant Lifecycle Management, Accounts & Balances, and the FSPIOP.
 
-```shell
+## Contents
+- [transfers-bc](#transfers-bc)
+  - [Contents](#contents)
+  - [Packages](#packages)
+  - [Running Locally](#running-locally)
+  - [Configuration](#configuration)
+  - [API](#api)
+  - [Logging](#logging)
+  - [Tests](#tests)
+  - [Auditing Dependencies](#auditing-dependencies)
+  - [Container Scans](#container-scans)
+  - [Automated Releases](#automated-releases)
+    - [Potential problems](#potential-problems)
+  - [Documentation](#documentation)
+
+## Packages
+The Transfers BC consists of the following packages;
+
+`public-types-lib`
+Public shared types.
+[README](./packages/public-types-lib/README.md)
+
+`domain-lib`
+Domain library types.
+[README](./packages/domain-lib/README.md)
+
+`infrastructure-lib`
+Infrastructure library.
+[README](./packages/infrastructure-lib/README.md)
+
+`transfers-api-svc`
+HTTP service for transfers BC.
+[README](packages/tranfers-api-svc/README.md)
+
+`event-handler-svc`
+Event handler service for transfers BC.
+[README](packages/event-handler-svc/README.md)
+
+`command-handler-svc`
+Command handler service for transfers BC.
+[README](packages/command-handler-svc/README.md)
+
+`transfers-model-lib`
+Transfer configuration library for Transfers BC.
+[README](./packages/transfers-config-lib/README.md)
+
+`shared-mocks-lib`
+Mock implementation used for testing.
+[README](./packages/shared-mocks-lib/README.md)
+
+## Running Locally
+
+Please follow the instruction in [Onboarding Document](Onboarding.md) to setup and run the service locally.
+
+## Configuration
+
+See the README.md file on each services for more Environment Variable Configuration options.
+
+## API
+
+For endpoint documentation, see the [API documentation](https://docs.mojaloop.io/api/fspiop/v1.1/api-definition.html#api-resource-transfers).
+
+## Documentation
+The following documentation provides insight into the Transfers Bounded Context.
+
+- **Reference Architecture** - https://mojaloop.github.io/reference-architecture-doc/boundedContexts/transfers/
+- **MIRO Board** - https://miro.com/app/board/o9J_lJyA1TA=/
+- **Work Sessions** - https://docs.google.com/document/d/1Nm6B_tSR1mOM0LEzxZ9uQnGwXkruBeYB2slgYK1Kflo/edit#heading=h.6w64vxvw6er4
+
+## Logging
+
+Logs are sent to standard output by default.
+
+## Tests
+
+### Unit Tests
+
+```bash
 npm run test:unit
 ```
 
-# Run Integration Tests
+### Run Integration Tests
 
-Make sure you have the following services up and running (available in platform-shared-tools docker-compose files):
+```shell
+npm run test:integration
+```
 
-- infra
-    - mongo
-    - kafka
-    - zoo
-	
-- cross-cutting
-	- auditing-svc
-	- authentication-svc
-	- authorization-svc
-	- identity-svc
-	- platform-configuration-svc
-- apps
-    - accounts_and_balances_builtin-ledger-grpc-svc
-    - accounts_and_balances_coa-grpc-svc
-	- participants-svc
-    - scheduling-command-handler-svc
-    - settlements-command-handler-svc
-    - settlements-event-handler-svc
+### Run all tests at once
+Requires integration tests pre-requisites
+```shell
+npm run test
+```
 
 # Collect coverage (from both unit and integration test types)
 
