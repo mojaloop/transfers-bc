@@ -31,14 +31,14 @@
     "dependencies": {
         "@mojaloop/transfers-bc-domain-lib": "*",
         "@mojaloop/logging-bc-public-types-lib": "~0.5.2",
-        "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.5.2",
+        "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.5.4",
         "@mojaloop/security-bc-client-lib": "~0.5.7",
-        "@mojaloop/participant-bc-public-types-lib": "~0.5.1",
+        "@mojaloop/participant-bc-public-types-lib": "~0.5.4",
         "@mojaloop/security-bc-public-types-lib": "~0.5.5"
     },
     "devDependencies": {
         "eslint": "^8.56.0",
-        "npm-check-updates": "^16.14.12",
+        "npm-check-updates": "^16.14.14",
         "typescript": "^4.7.3"
     },
     "engines": {
