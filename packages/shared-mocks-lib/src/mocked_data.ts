@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
+import { ApprovalRequestState, IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
 import { BulkTransferState, IBulkTransfer, ITransfer, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
 
 const now = Date.now();
@@ -405,9 +405,11 @@ export const mockedPayerParticipant:IParticipant = {
 			currencyCode: "USD",
 			note: "",
 			extReference: "",
-			approved: true,
+			requestState: ApprovalRequestState.APPROVED,
 			approvedBy: "admin",
 			approvedDate: 1694597852070,
+			rejectedBy : "",
+			rejectedDate : null,
 			transferId: "75586b26-99e6-4ff2-bfd6-4fd18a1954e9",
 		}
 	],
@@ -511,9 +513,11 @@ export const mockedPayeeParticipant:IParticipant = {
 			currencyCode: "USD",
 			note: "",
 			extReference: "",
-			approved: true,
+			requestState: ApprovalRequestState.APPROVED,
 			approvedBy: "admin",
 			approvedDate: 1694597855364,
+			rejectedBy : "",
+			rejectedDate : null,
 			transferId: "ff1f6303-5fd6-43bb-9272-90354f453d43",
 		}
 	],
