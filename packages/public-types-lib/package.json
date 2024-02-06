@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/transfers-bc-public-types-lib",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "Mojaloop vNext Transfers BC - Public Types library",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/transfers-bc/public-types-lib",
