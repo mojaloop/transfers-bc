@@ -21,9 +21,7 @@ It works in concert with a number of other BCs, notably Settlements, Scheduling,
   - [Logging](#logging)
   - [Tests](#tests)
   - [Auditing Dependencies](#auditing-dependencies)
-  - [Container Scans](#container-scans)
-  - [Automated Releases](#automated-releases)
-    - [Potential problems](#potential-problems)
+  - [CI/CD](#cicd-pipelines)
   - [Documentation](#documentation)
 
 ## Packages
@@ -37,13 +35,13 @@ Public shared types.
 Domain library types.
 [README](./packages/domain-lib/README.md)
 
-`infrastructure-lib`
-Infrastructure library.
-[README](./packages/infrastructure-lib/README.md)
+`implementations-lib`
+Implementations library.
+[README](./packages/implementations-lib/README.md)
 
 `transfers-api-svc`
 HTTP service for transfers BC.
-[README](packages/tranfers-api-svc/README.md)
+[README](packages/transfers-api-svc/README.md)
 
 `event-handler-svc`
 Event handler service for transfers BC.
@@ -72,13 +70,6 @@ See the README.md file on each services for more Environment Variable Configurat
 ## API
 
 For endpoint documentation, see the [API documentation](https://docs.mojaloop.io/api/fspiop/v1.1/api-definition.html#api-resource-transfers).
-
-## Documentation
-The following documentation provides insight into the Transfers Bounded Context.
-
-- **Reference Architecture** - https://mojaloop.github.io/reference-architecture-doc/boundedContexts/transfers/
-- **MIRO Board** - https://miro.com/app/board/o9J_lJyA1TA=/
-- **Work Sessions** - https://docs.google.com/document/d/1Nm6B_tSR1mOM0LEzxZ9uQnGwXkruBeYB2slgYK1Kflo/edit#heading=h.6w64vxvw6er4
 
 ## Logging
 
@@ -117,3 +108,50 @@ You can then consult the html report in:
 ```shell
 coverage/lcov-report/index.html
 ```
+
+## Auditing Dependencies
+We use npm audit to check dependencies for node vulnerabilities. 
+
+To start a new resolution process, run:
+```
+npm run audit:fix
+``` 
+
+You can check to see if the CI will pass based on the current dependencies with:
+
+```
+npm run audit:check
+```
+
+## CI/CD Pipelines
+
+### Execute locally the pre-commit checks - these will be executed with every commit and in the default CI/CD pipeline 
+
+Make sure these pass before committing any code
+```
+npm run pre_commit_check
+```
+
+### Work Flow 
+
+ As part of our CI/CD process, we use CircleCI. The CircleCI workflow automates the process of publishing changed packages to the npm registry and building Docker images for select packages before publishing them to DockerHub. It also handles versioning, tagging commits, and pushing changes back to the repository.
+
+The process includes five phases. 
+1. Setup : This phase initializes the environment, loads common functions, and retrieves commits and git change history since the last successful CI build.
+
+2. Detecting Changed Package.
+
+3. Publishing Changed Packages to NPM.
+
+4. Building Docker Images and Publishing to DockerHub.
+
+5. Pushing Commits to Git.
+
+ All code is automatically linted, built, and unit tested by CircleCI pipelines, where unit test results are kept for all runs. All libraries are automatically published to npm.js, and all Docker images are published to Docker Hub.
+
+ ## Documentation
+The following documentation provides insight into the Transfers Bounded Context.
+
+- **Reference Architecture** - https://mojaloop.github.io/reference-architecture-doc/boundedContexts/transfers/
+- **MIRO Board** - https://miro.com/app/board/o9J_lJyA1TA=/
+- **Work Sessions** - https://docs.google.com/document/d/1Nm6B_tSR1mOM0LEzxZ9uQnGwXkruBeYB2slgYK1Kflo/edit#heading=h.6w64vxvw6er4

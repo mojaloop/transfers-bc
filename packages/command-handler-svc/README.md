@@ -56,11 +56,10 @@ npm run test:integration
 | KAFKA_LOGS_TOPIC      | Kafka topic for logs          | logs    |
 | KAFKA_AUDITS_TOPIC        | Kafka topic for audits              | audits                 |
 | AUDIT_KEY_FILE_PATH  | File path for audit key           | /app/data/audit_private_key.pem         |
-| SVC_CLIENT_ID        | Service client ID                 | transfers-bc-api-svc                 |
+| SVC_CLIENT_ID        | Service client ID                 | transfers-bc-command-handler-svc          |
 | SVC_CLIENT_SECRET    | Service client secret             | superServiceSecret     |
-| SVC_DEFAULT_HTTP_PORT                 | Default HTTP port for the service                  | 3600  |
+| SVC_DEFAULT_HTTP_PORT                 | Default HTTP port for the service                  | 3501  |
 | SERVICE_START_TIMEOUT_MS               | Timeout for service startup in milliseconds        | 60_000                 |
-| SVC_HTTP_PORT        | HTTP port for the service         |    3600   |
 | PARTICIPANTS_CACHE_TIMEOUT_MS        | Timeout for participants cache in milliseconds   |    30000    |
 | CONSUMER_BATCH_TIMEOUT_MS        | Timeout for consumer batch in milliseconds   |    100   |
 | CONSUMER_BATCH_SIZE        | Consumer Batch Size   |    100   |

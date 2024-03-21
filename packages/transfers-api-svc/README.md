@@ -66,6 +66,6 @@ docker build -f packages/transfers-api-svc/Dockerfile -t mojaloop/transfers-bc-t
 | AUDIT_KEY_FILE_PATH  | File path for audit key           | /app/data/audit_private_key.pem         |
 | SVC_CLIENT_ID        | Service client ID                 | transfers-bc-api-svc                 |
 | SVC_CLIENT_SECRET    | Service client secret             | superServiceSecret     |
-| SVC_DEFAULT_HTTP_PORT                 | Default HTTP port for the service                  | 3600  |
+| SVC_DEFAULT_HTTP_PORT                 | Default HTTP port for the service                  | 3500  |
 | SERVICE_START_TIMEOUT_MS               | Timeout for service startup in milliseconds        | 60_000                 |
-| SVC_HTTP_PORT        | HTTP port for the service         |    3600   |
+| SVC_HTTP_PORT        | HTTP port for the service         |    3500   |
