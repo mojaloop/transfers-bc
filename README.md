@@ -11,6 +11,8 @@ The Transfers BC is responsible for orchestrating transfer requests.
 
 It works in concert with a number of other BCs, notably Settlements, Scheduling, Participant Lifecycle Management, Accounts & Balances, and the FSPIOP.
 
+See the Reference Architecture documentation [transfers section](https://mojaloop.github.io/reference-architecture-doc/boundedContexts/transfers/) for context on this vNext implementation guidelines. 
+
 ## Contents
 - [transfers-bc](#transfers-bc)
   - [Contents](#contents)
