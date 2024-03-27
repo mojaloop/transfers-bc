@@ -218,6 +218,7 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				throw new UnableToGetTransferError();
 			});
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			searchResults.items = results as any;
 			searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
 
@@ -320,10 +321,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			settlementModel: transfer.settlementModel ?? null,
 			hash: transfer.hash ?? null,
 			bulkTransferId: transfer.bulkTransferId ?? null,
-			errorInformation: transfer.errorInformation ?? null,
 			payerIdType: transfer.payerIdType ?? null, 
 			payeeIdType: transfer.payeeIdType ?? null,
-			transferType: transfer.transferType ?? null
+			transferType: transfer.transferType ?? null,
+			errorCode: transfer.errorInformation ?? null,
 		};
 
 		return transferMapped;
