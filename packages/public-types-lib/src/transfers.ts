@@ -66,7 +66,7 @@ export interface ITransfer {
 	transferState: TransferState;
 	completedTimestamp: number | null;
 	extensionList: IExtensionList | null;
-	errorInformation: IErrorInformation | null;
+	errorCode: string | null;
 
 	// populated from the settlements lib during prepare
 	settlementModel: string;
@@ -125,7 +125,7 @@ export interface IBulkTransfer {
 	transfersNotProcessedIds: string[];
 	transfersFulfiledProcessedIds: string[];
 	status: BulkTransferState;
-	errorInformation: IErrorInformation | null;
+	errorCode: string | null;
 }
 
 export declare type TransfersSearchResults = {

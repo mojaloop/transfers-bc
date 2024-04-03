@@ -33,7 +33,7 @@
 "use strict";
 
 import { ApprovalRequestState, IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
-import { BulkTransferState, IBulkTransfer, ITransfer, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
+import { BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodes, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
 
 const now = Date.now();
 
@@ -62,25 +62,10 @@ export const mockedTransfer1 : ITransfer = {
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	errorInformation: {
-      errorCode: "8562",
-      errorDescription: "aliquip",
-      extensionList: {
-        extension: [
-          {
-            key: "ad aliqua dolor reprehende",
-            value: "ipsum aliq"
-          },
-          {
-            key: "la",
-            value: "commodo dolore et"
-          }
-        ]
-      }
-    },
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
-	transferType: "DEPOSIT"
+	transferType: "DEPOSIT",
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
 };
 
 export const mockedTransfer2 : ITransfer = {
@@ -108,25 +93,10 @@ export const mockedTransfer2 : ITransfer = {
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	errorInformation: {
-		errorCode: "8562",
-		errorDescription: "aliquip",
-		extensionList: {
-			extension: [
-				{
-					key: "ad aliqua dolor reprehende",
-					value: "ipsum aliq"
-				},
-				{
-					key: "la",
-					value: "commodo dolore et"
-				}
-			]
-		}
-	},
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
-	transferType: "DEPOSIT"
+	transferType: "DEPOSIT",
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
 };
 
 export const mockedTransfer3 : ITransfer = {
@@ -154,25 +124,10 @@ export const mockedTransfer3 : ITransfer = {
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	errorInformation: {
-		errorCode: "8562",
-		errorDescription: "aliquip",
-		extensionList: {
-		extension: [
-				{
-					key: "ad aliqua dolor reprehende",
-					value: "ipsum aliq"
-				},
-				{
-					key: "la",
-					value: "commodo dolore et"
-				}
-			]
-		}
-	},
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
-	transferType: "DEPOSIT"
+	transferType: "DEPOSIT",
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
 };
 
 export const mockedTransfer4 : ITransfer = {
@@ -200,25 +155,10 @@ export const mockedTransfer4 : ITransfer = {
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	errorInformation: {
-		errorCode: "8562",
-		errorDescription: "aliquip",
-		extensionList: {
-		extension: [
-				{
-					key: "ad aliqua dolor reprehende",
-					value: "ipsum aliq"
-				},
-				{
-					key: "la",
-					value: "commodo dolore et"
-				}
-			]
-		}
-	},
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
-	transferType: "DEPOSIT"
+	transferType: "DEPOSIT",
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
 };
 
 export const mockedHubParticipant:IParticipant = {
@@ -634,7 +574,7 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
     transfersNotProcessedIds: [],
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.RECEIVED,
-	errorInformation: null,
+	errorCode: null,
     extensionList: null
 };
 
@@ -661,7 +601,7 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
     transfersNotProcessedIds: [],
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.PROCESSING,
-	errorInformation: null,
+	errorCode: null,
     extensionList: null
 };
 
