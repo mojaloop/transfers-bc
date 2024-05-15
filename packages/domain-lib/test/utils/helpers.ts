@@ -82,6 +82,7 @@ export function createCommand(payload: object|null, messageName: string|null, fs
         payload,
         aggregateId: "1",
         boundedContextName: "transfers",
+        tracingInfo: "123",
         validatePayload: () => { return; }
     };
 }
