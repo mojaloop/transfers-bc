@@ -37,15 +37,19 @@ import {
 	IAccountsBalancesAdapter,
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
-    IBulkTransfersRepository
+    IBulkTransfersRepository,
+    ICache,
 } from "@mojaloop/transfers-bc-domain-lib";
+import { ITransfer, IBulkTransfer } from "@mojaloop/transfers-bc-public-types-lib";
 import {
     ParticipantAdapter,
     MongoTransfersRepo,
     MongoBulkTransfersRepo,
     GrpcAccountsAndBalancesAdapter,
     SettlementsAdapter,
-    SchedulingAdapter
+    SchedulingAdapter,
+    TransfersCache,
+    BulkTransfersCache
 } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
@@ -160,6 +164,8 @@ export class Service {
 	static schedulingAdapter: ISchedulingServiceAdapter;
     static configClient: IConfigurationClient;
     static startupTimer: NodeJS.Timeout;
+	static transfersCache: ICache<ITransfer>;
+	static bulkTransfersCache : ICache<IBulkTransfer>; 
 
     static async start(
         logger?: ILogger,
@@ -174,7 +180,9 @@ export class Service {
         settlementsAdapter?: ISettlementsServiceAdapter,
         schedulingAdapter?: ISchedulingServiceAdapter,
         configProvider?: IConfigProvider,
-        aggregate?: TransfersAggregate
+        aggregate?: TransfersAggregate,
+        transfersCache?: ICache<ITransfer>,
+        bulkTransfersCache?: ICache<IBulkTransfer>,
     ): Promise<void> {
         console.log(`Service starting with PID: ${process.pid}`);
 
@@ -303,6 +311,16 @@ export class Service {
 		}
 		this.schedulingAdapter = schedulingAdapter;
 
+        if (!transfersCache) {
+            transfersCache = new TransfersCache<ITransfer>();
+        }
+        this.transfersCache = transfersCache;
+
+        if (!bulkTransfersCache) {
+            bulkTransfersCache = new BulkTransfersCache<IBulkTransfer>();
+        }
+        this.bulkTransfersCache = bulkTransfersCache;
+
         if (!aggregate) {
             aggregate = new TransfersAggregate(
                 this.logger,
@@ -313,7 +331,9 @@ export class Service {
                 this.accountAndBalancesAdapter,
                 this.metrics,
                 this.settlementsAdapter,
-                this.schedulingAdapter
+                this.schedulingAdapter,
+                this.transfersCache,
+                this.bulkTransfersCache
             );
         }
         this.aggregate = aggregate;
@@ -388,9 +408,7 @@ export class Service {
             await this.auditClient.destroy();
         }
         if (this.logger && this.logger instanceof KafkaLogger) {
-            setTimeout(async ()=>{
-                await (this.logger as KafkaLogger).destroy();
-            }, 500);
+            await (this.logger as KafkaLogger).destroy();
         }
 
 	}

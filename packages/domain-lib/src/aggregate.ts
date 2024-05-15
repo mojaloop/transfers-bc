@@ -65,7 +65,8 @@ import {
     ITransfersRepository,
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
-    IBulkTransfersRepository
+    IBulkTransfersRepository,
+    ICache
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -167,14 +168,14 @@ export class TransfersAggregate {
     private _settlementsAdapter: ISettlementsServiceAdapter;
     private _schedulingAdapter: ISchedulingServiceAdapter;
 
-    private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
-    private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
     private _abBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abBatchResponses: IAccountsBalancesHighLevelResponse[] = [];
     private _outputEvents: DomainEventMsg[] = [];
-
+    private _transfersCache: ICache<ITransfer>;
+    private _bulkTransfersCache: ICache<IBulkTransfer>;
+    
     constructor(
         logger: ILogger,
         transfersRepo: ITransfersRepository,
@@ -184,7 +185,9 @@ export class TransfersAggregate {
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
-        schedulingAdapter: ISchedulingServiceAdapter
+        schedulingAdapter: ISchedulingServiceAdapter,
+        transfersCache: ICache<ITransfer>, 
+        bulkTransfersCache: ICache<IBulkTransfer>,
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -195,6 +198,8 @@ export class TransfersAggregate {
         this._metrics = metrics;
         this._settlementsAdapter = settlementsAdapter;
         this._schedulingAdapter = schedulingAdapter;
+        this._transfersCache = transfersCache;
+        this._bulkTransfersCache = bulkTransfersCache;
 
         this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
@@ -332,8 +337,8 @@ export class TransfersAggregate {
         } else if (cmd.msgName === QueryBulkTransferCmd.name) {
             return this._queryBulkTransfer(cmd as QueryBulkTransferCmd);
         } else {
-            const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
-            const transferId = cmd.payload?.transferId;
+            const requesterFspId = cmd.payload.requesterFspId;
+            const transferId = cmd.payload.transferId;
 			const errorMessage = `Command type is unknown: ${cmd.msgName}`;
             this._logger.error(errorMessage);
 
@@ -2280,7 +2285,7 @@ export class TransfersAggregate {
 
             this._outputEvents.push(event);
 
-            this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+            await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
             this._bulkTransfersCache.clear();
             if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
         }
@@ -2356,7 +2361,7 @@ export class TransfersAggregate {
         bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.REJECTED;
         // bulkTransfer.errorCode = message.payload.errorInformation; TODO
-        this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+        await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
         
 		const payload: BulkTransferRejectRequestProcessedEvtPayload = {
 			bulkTransferId: message.payload.bulkTransferId,

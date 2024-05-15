@@ -34,7 +34,7 @@
 
 
 import { HUB_PARTICIPANT_ID, IParticipantAccount } from '@mojaloop/participant-bc-public-types-lib';
-import { CommandMsg, IDomainMessage, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import { CommandMsg, MessageTypes } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import { 
     TransferFulfiledEvt,
     TransferUnableToGetTransferByIdEvt,
@@ -54,7 +54,6 @@ import {
     TransferCancelReservationFailedEvt,
     TransferNotFoundEvt,
     TransferUnableToUpdateEvt,
-    TransferPrepareRequestTimedoutEvt,
     TransferRejectRequestProcessedEvt,
     TransferCancelReservationAndCommitFailedEvt,
     TransferBCUnableToAddBulkTransferToDatabaseEvt,
@@ -76,13 +75,34 @@ import {
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { mockedHubParticipant, mockedPayeeParticipant, mockedPayerParticipant } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { createCommand } from "../utils/helpers";
-import { messageProducer, transfersRepo, bulkTransfersRepo, participantService, accountsAndBalancesService, settlementsService, schedulingService, logger } from "../utils/mocked_variables";
+import { 
+    messageProducer,
+    transfersRepo,
+    bulkTransfersRepo,
+    participantService,
+    accountsAndBalancesService,
+    settlementsService,
+    schedulingService,
+    logger 
+} from "../utils/mocked_variables";
 import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
-import { CommitTransferFulfilCmd, PrepareTransferCmd, QueryTransferCmd, RejectTransferCmd, TimeoutTransferCmd, PrepareBulkTransferCmd, TransfersAggregate, CommitBulkTransferFulfilCmd, RejectBulkTransferCmd, QueryBulkTransferCmd } from '../../src';
+import { 
+    CommitTransferFulfilCmd,
+    PrepareTransferCmd,
+    QueryTransferCmd,
+    RejectTransferCmd,
+    TimeoutTransferCmd,
+    PrepareBulkTransferCmd,
+    TransfersAggregate,
+    CommitBulkTransferFulfilCmd,
+    RejectBulkTransferCmd,
+    QueryBulkTransferCmd 
+} from '../../src';
 import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
-import { waitForExpect, mockProperty, undoMockProperty } from '@mojaloop/transfers-bc-shared-mocks-lib';
-import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodeNames, TransferErrorCodes, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
+import { waitForExpect } from '@mojaloop/transfers-bc-shared-mocks-lib';
+import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodeNames, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
+import { TransfersCache, BulkTransfersCache } from "@mojaloop/transfers-bc-implementations-lib";
 
 logger.setLogLevel(LogLevel.DEBUG);
 
@@ -91,19 +111,7 @@ jest.mock('crypto', () => ({
     randomUUID: jest.fn(() => '123'),
 }));
 
-function mockTransfersCache() {
-    mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-        let userProfile = {} as Map<string, IBulkTransfer>;
-        userProfile.set = () => { return undefined as any };
-        userProfile.get = () => {
-            validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
-            validBulkTransfer.transfersPreparedProcessedIds = [];
-            return validBulkTransfer;
-        };
-        userProfile.clear = () => { return undefined };
-        return userProfile;
-    }));
-}
+
 
 let aggregate: TransfersAggregate;
 
@@ -189,10 +197,14 @@ const validRejectBulkTransferPostPayload = {
 let validTransfer: ITransfer;
 let validBulkTransfer: IBulkTransfer;
  
+const metricsMock: IMetrics = new MetricsMock();
+const transfersCache = new TransfersCache<ITransfer>();
+const bulkTransfersCache = new BulkTransfersCache<IBulkTransfer>();
+
 describe("Domain - Unit Tests for Command Handler", () => {
 
     beforeEach(async () => {
-        const metricsMock: IMetrics = new MetricsMock();
+
         aggregate = new TransfersAggregate(
             logger,
             transfersRepo as any,
@@ -202,7 +214,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             accountsAndBalancesService,
             metricsMock,
             settlementsService,
-            schedulingService
+            schedulingService,
+            transfersCache,
+            bulkTransfersCache
         );
 
         validTransfer = {
@@ -283,16 +297,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     });
 
-    // test("should throw error when trying to process command", async () => {
-    //     // Arrange
-    //     const command: CommandMsg = createCommand(null, null, null, MessageTypes.COMMAND);
-
-    //     jest.spyOn(messageProducer, "send")
-
-    //     // Act & Assert
-    //     await expect(aggregate.processCommandBatch([command])).rejects.toThrowError();
-    // });
-
     test("should now process command if not of type command", async () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, "fake msg name", null);
@@ -319,11 +323,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => { throw Error(); };
-            return userProfile;
-        }))
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { throw Error(); });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -337,8 +337,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "transferId": command.payload.transferId
             }
         })]);
-
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
     
     test("should throw TransferUnableToGetTransferByIdEvt error processing PrepareTransferCmd command", async () => {
@@ -347,11 +345,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => { throw Error(); };
-            return userProfile;
-        }))
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { throw Error(); });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -366,7 +360,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             }
         })]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
     test("should ignore when transfer with RECEIVED state is found processing PrepareTransferCmd command", async () => {
@@ -375,22 +368,17 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => {
-                validTransfer.transferState = TransferState.RECEIVED;
-                return validTransfer;
-            };
-            return userProfile;
-        }))
-          
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => {
+            validTransfer.transferState = TransferState.RECEIVED;
+            return validTransfer;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
         expect(messageProducer.send).toHaveBeenCalledWith([]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
     test("should ignore when transfer with RESERVED state is found processing PrepareTransferCmd command", async () => {
@@ -399,13 +387,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => { 
-                return validTransfer; 
-            };
-            return userProfile;
-        }))
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
+            return validTransfer; 
+        });
           
         // Act
         await aggregate.processCommandBatch([command]);
@@ -413,7 +397,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Assert
         expect(messageProducer.send).toHaveBeenCalledWith([]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
     test("should return transfer when transfer with COMMITTED state is found processing PrepareTransferCmd command", async () => {
@@ -422,14 +405,10 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => {
-                validTransfer.transferState = TransferState.COMMITTED;
-                return validTransfer; 
-            };
-            return userProfile;
-        }));
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
+            validTransfer.transferState = TransferState.COMMITTED;
+            return validTransfer; 
+        });
           
         // Act
         await aggregate.processCommandBatch([command]);
@@ -446,7 +425,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             }
         })]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
     
@@ -456,14 +434,10 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, ITransfer>;
-            userProfile.get = () => {
-                validTransfer.transferState = TransferState.ABORTED;
-                return validTransfer; 
-            };
-            return userProfile;
-        }));
+        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
+            validTransfer.transferState = TransferState.ABORTED;
+            return validTransfer; 
+        });
           
         // Act
         await aggregate.processCommandBatch([command]);
@@ -480,7 +454,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             }
         })]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
     test("should return error getting settlement model id processing PrepareTransferCmd command", async () => {
@@ -535,7 +508,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
         
         // Act
         await aggregate.processCommandBatch([command]);
@@ -560,7 +535,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, id: "mismatched_id" });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -585,7 +562,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, approved: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
         
         // Act
         await aggregate.processCommandBatch([command]);
@@ -610,7 +589,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, isActive: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -635,7 +616,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant);
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -661,7 +644,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, id: "mismatched_id" });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -687,7 +672,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, approved: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -713,7 +700,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, isActive: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -739,7 +728,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce(mockedPayerParticipant);
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
         
         // Act
         await aggregate.processCommandBatch([command]);
@@ -766,7 +757,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, id: "mismatched_id" });
         
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -793,7 +786,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, approved: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -820,7 +815,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, isActive: false });
 
-        mockTransfersCache();
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -1001,44 +998,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         })]);
     });
 
-    // test("should throw when not finding a the originalCmdMsg in batchCommand list processing PrepareTransferCmd command", async () => {
-    //     // Arrange
-    //     const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(participantService, "getParticipantInfo")
-    //         .mockResolvedValueOnce(mockedHubParticipant)
-    //         .mockResolvedValueOnce(mockedPayerParticipant)
-    //         .mockResolvedValueOnce(mockedPayeeParticipant);
-
-    //     jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
-    //         .mockResolvedValueOnce([{
-    //             requestType: 0, 
-    //             requestId: '123', 
-    //             success: true, errorMessage: null
-    //         }]);
-
-    //     Object.defineProperty(aggregate, "_batchCommands", {
-    //         get: jest.fn(() => {
-    //           let userProfile = {} as Map<string, IDomainMessage>;
-    //           userProfile.set = () => { return undefined as any };
-    //           userProfile.get = () => { return undefined; };
-    //           userProfile.clear = () => { return undefined };
-    //           return userProfile;
-    //         }),
-    //         configurable: true,
-    //       });
-
-    //     // Act & Assert
-    //     try {
-    //         await expect(aggregate.processCommandBatch([command])).rejects.toBeTruthy();
-    //     } catch(e: unknown) {
-    //         expect(e).toContainEqual("UnhandledPromiseRejection")
-    //     }
-
-    // });
-
     test("should throw transfer not found error processing PrepareTransferCmd command continue when processHighLevelBatch", async () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
@@ -1062,13 +1021,9 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(null)
             .mockImplementationOnce(() => { throw Error(); })
 
-        mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, IDomainMessage>;
-            userProfile.set = () => { return undefined as any };
-            userProfile.get = () => { return undefined; };
-            userProfile.clear = () => { return undefined };
-            return userProfile;
-        }))
+        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
         
         // Act
         await aggregate.processCommandBatch([command]);
@@ -1092,7 +1047,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             })
         ]);
 
-        undoMockProperty(aggregate, "_transfersCache" as any)
     });
 
 
@@ -2455,17 +2409,19 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 errorMessage: null
             }]);
 
-        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, IBulkTransfer>;
-            userProfile.set = () => { return undefined as any };
-            userProfile.get = () => {
-                validBulkTransfer.bulkTransferId = validBulkTransferPostPayload.bulkTransferId;
-                validBulkTransfer.transfersPreparedProcessedIds = [];
-                return validBulkTransfer;
-            };
-            userProfile.clear = () => { return undefined };
-            return userProfile;
-        }))
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
+            validBulkTransfer.transfersPreparedProcessedIds = [];
+            return validBulkTransfer as any;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
+        
+        
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -2489,7 +2445,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             })]);
         });
         
-        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
     });
     // #region
 
@@ -2502,6 +2457,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); })
+
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -2526,6 +2491,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValue(null);
 
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -2542,63 +2517,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
     // #region
     
     // #region _fulfilBulkTransferContinue
-    // test("should throw when trying to retrieve a bulk transfer from the repo processing continue CommitBulkTransferFulfilCmd command", async () => {
-    //     // Arrange
-    //     const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(participantService, "getParticipantInfo")
-    //     .mockResolvedValueOnce(mockedHubParticipant)
-    //     .mockResolvedValueOnce(mockedPayerParticipant)
-    //     .mockResolvedValueOnce(mockedPayeeParticipant);
-
-    //     jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
-    //         .mockResolvedValueOnce([{
-    //             requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
-    //             requestId: '123',
-    //             success: true,
-    //             errorMessage: null
-    //         }]);
-            
-    //     jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
-    //         .mockImplementationOnce(async () => validBulkTransfer)
-    //         .mockImplementationOnce(() => { throw Error(); });
-            
-    //     jest.spyOn(transfersRepo, "getTransferById")
-    //         .mockResolvedValue({ 
-    //             ...validBulkTransfer.individualTransfers[0], 
-    //             bulkTransferId: validBulkTransferPutPayload.bulkTransferId, 
-    //             currencyCode: "USD",
-    //             payerFspId: "bluebank",
-    //             payeeFspId: "greenbank"
-    //         } as any);
-
-    //     jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
-
-    //     mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
-    //         let userProfile = {} as Map<string, IBulkTransfer>;
-    //         userProfile.set = () => { return undefined as any };
-    //         userProfile.get = () => { return undefined; };
-    //         return userProfile;
-    //     }))
-    //     // Act
-    //     await aggregate.processCommandBatch([command]);
-
-    //     // Assert
-    //     await waitForExpect(async () => {
-    //         expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-    //             "msgName": TransferUnableToGetBulkTransferByIdEvt.name,
-    //             "payload": {
-    //                 "errorDescription": `Unable to get transfer record for bulk transferId: ${command.payload.bulkTransferId} from repository`,
-    //                 "bulkTransferId": command.payload.bulkTransferId
-    //             }
-    //         })]);
-    //     });
-        
-    //     undoMockProperty(aggregate, "_bulkTransfersCache" as any)
-    // });
-
     test("should throw when retrieving a null bulk transfer processing continue CommitBulkTransferFulfilCmd command", async () => {
         // Arrange
         const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
@@ -2627,12 +2545,14 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
 
-        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, IBulkTransfer>;
-            userProfile.set = () => { return undefined as any };
-            userProfile.get = () => { return undefined; };
-            return userProfile;
-        }))
+        jest.spyOn(bulkTransfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
+        
+        jest.spyOn(bulkTransfersCache, "get").mockImplementationOnce(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -2647,7 +2567,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             })]);
         });
         
-        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
     });
     
     test("should successfully process CommitBulkTransferFulfilCmd command", async () => {
@@ -2696,17 +2615,18 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
 
-        mockProperty(aggregate, "_bulkTransfersCache", jest.fn(() => {
-            let userProfile = {} as Map<string, IBulkTransfer>;
-            userProfile.set = () => { return undefined as any };
-            userProfile.get = () => {
-                validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
-                validBulkTransfer.transfersPreparedProcessedIds = [];
-                return validBulkTransfer;
-            };
-            userProfile.clear = () => { return undefined };
-            return userProfile;
-        }))
+        jest.spyOn(bulkTransfersCache, "set").mockImplementationOnce(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementationOnce(() => { 
+            validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
+            validBulkTransfer.transfersPreparedProcessedIds = [];
+            return validBulkTransfer;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementationOnce(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -2723,7 +2643,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             })]);
         });
         
-        undoMockProperty(aggregate, "_bulkTransfersCache" as any)
     });
     // #region
 
@@ -3241,6 +3160,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); });
 
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -3263,6 +3192,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValueOnce(null);
+
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3751,6 +3690,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); });
 
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -3773,6 +3722,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValue(null);
+
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3948,6 +3907,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(transfersRepo, "getTransfersByBulkId")
             .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as any]);
 
+        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
+            return undefined;
+        });
+        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
+            return undefined;
+        });
+
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -4054,74 +4023,5 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Assert
         expect(messageProducer.send).toHaveBeenCalledTimes(0);
     });
-
-    
-    // test("should throw error while updating transfer for RECEIVED transfer processing TimeoutTransferCmd command", async () => {
-    //     // Arrange
-    //     const command: CommandMsg = createCommand(validTransferPostPayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transfersRepo, "getTransferById")
-    //         .mockResolvedValue({ ...validTransfer, transferState: TransferState.RECEIVED } as any);
-
-    //     // Act
-    //     await aggregate.processCommandBatch([command]);
-
-    //     // Assert
-    //     await waitForExpect(async () => {
-    //         expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-    //             "msgName": TransferUnableToUpdateEvt.name,
-    //             "payload": {
-    //                 "errorDescription": `Error deleting reminder for transferId: ${command.payload.transferId}.`,
-    //                 "payerFspId": command.payload.payerFsp,
-    //                 "transferId": command.payload.transferId
-    //             }
-    //         })]);
-    //     });
-    // });
-
-    // test("should timeout transfer with RECEIVED state processing TimeoutTransferCmd command", async () => {
-    //     // Arrange
-    //     const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
-
-    //     const cmd = new TimeoutTransferCmd({
-    //         transferId: validTransferPostContinuePayload.transferId,
-    //         timeout: {
-    //             headers: {},
-    //             payload: ''
-    //         }
-    //     });
-
-    //     jest.spyOn(messageProducer, "send");
-
-    //     jest.spyOn(transfersRepo, "getTransferById")
-    //         .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId, transferState: TransferState.RECEIVED } as any);
-
-    //     jest.spyOn(transfersRepo, "updateTransfer").mockResolvedValue();
-
-    //     mockProperty(aggregate, "_transfersCache", jest.fn(() => {
-    //         let userProfile = {} as Map<string, IDomainMessage>;
-    //         userProfile.set = () => { return undefined as any };
-    //         userProfile.get = () => { return undefined; };
-    //         userProfile.clear = () => { return undefined };
-    //         return userProfile;
-    //     }));
-        
-    //     // Act
-    //     await aggregate.processCommandBatch([command]);
-
-    //     // Assert
-    //     await waitForExpect(async () => {
-    //         expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-    //             "msgName": TransferPrepareRequestTimedoutEvt.name,
-    //             "payload": expect.objectContaining({
-    //                 "transferId": cmd.payload.transferId,
-    //             })
-    //         })]);
-    //     });
-
-    //     undoMockProperty(aggregate, "_transfersCache" as any)
-    // });
 
 });

@@ -334,10 +334,16 @@ export class Service {
             this.logger.debug("Tearing down audit client");
             await this.auditClient.destroy();
         }
+        if (this.transfersRepo) {
+            this.logger.debug("Tearing down transfers repository");
+            await this.transfersRepo.destroy();
+        }
+        if (this.bulkTransfersRepo) {
+            this.logger.debug("Tearing down bulk transfers repository");
+            await this.bulkTransfersRepo.destroy();
+        }
         if (this.logger && this.logger instanceof KafkaLogger) {
-            setTimeout(async ()=>{
-                await (this.logger as KafkaLogger).destroy();
-            }, 500);
+            await (this.logger as KafkaLogger).destroy();
         }
 	}
 }
@@ -346,6 +352,7 @@ export class Service {
  * process termination and cleanup
  */
 
+/* istanbul ignore next */
 async function _handle_int_and_term_signals(signal: NodeJS.Signals): Promise<void> {
     console.info(`Service - ${signal} received - cleaning up...`);
     let clean_exit = false;
@@ -361,14 +368,18 @@ async function _handle_int_and_term_signals(signal: NodeJS.Signals): Promise<voi
 }
 
 //catches ctrl+c event
+/* istanbul ignore next */
 process.on("SIGINT", _handle_int_and_term_signals);
 //catches program termination event
+/* istanbul ignore next */
 process.on("SIGTERM", _handle_int_and_term_signals);
 
 //do something when app is closing
+/* istanbul ignore next */
 process.on("exit", async () => {
     globalLogger.info("Microservice - exiting...");
 });
+/* istanbul ignore next */
 process.on("uncaughtException", (err: Error) => {
     globalLogger.error(err);
     console.log("UncaughtException - EXITING...");

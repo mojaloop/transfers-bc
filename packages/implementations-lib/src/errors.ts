@@ -33,11 +33,6 @@
  "use strict";
 
 // Transfers
-export class TransferTypeNotSupportedError extends Error {
-  constructor(message?: string) {
-    super(message || "Transfer type not supported");
-  }
-}
 export class UnableToAddTransferError extends Error {
     constructor(message?: string) {
         super(message || "Unable to add transfer");
@@ -61,11 +56,6 @@ export class UnableToUpdateTransferError extends Error {
 export class NoSuchTransferError extends Error {
     constructor(message?: string) {
         super(message||"No such transfer");
-    }
-}
-export class UnableToAddManyTransfersError extends Error {
-    constructor(message?: string) {
-        super(message || "Unable to add many transfers");
     }
 }
 export class UnableToDeleteTransferError extends Error {
@@ -94,12 +84,19 @@ export class UnableToInitBulkTransferRegistryError extends Error {
     }
 }
 
-// Bulk Transfers
-export class BulkTransferTypeNotSupportedError extends Error {
+export class UnableToSearchTransfers extends Error{
     constructor(message: string) {
         super(message);
     }
+}
+
+export class UnableToBulkInsertTransfersError extends Error{
+    constructor(message: string) {
+        super(message);
     }
+}
+
+// Bulk Transfers
 export class UnableToAddBulkTransferError extends Error {
     constructor(message: string) {
         super(message);

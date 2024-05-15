@@ -45,7 +45,9 @@ import {
 	UnableToAddTransferError,
 	NoSuchTransferError,
 	UnableToUpdateTransferError,
-	UnableToDeleteTransferError
+	UnableToDeleteTransferError,
+	UnableToSearchTransfers,
+	UnableToBulkInsertTransfersError
 } from "../errors";
 
 const MAX_ENTRIES_PER_PAGE = 100;
@@ -223,8 +225,10 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			searchResults.totalPages = Math.ceil(totalRecordsCount / pageSize);
 
 		} catch (err) {
-			this._logger.error(err);
-		}
+            this._logger.error(err);
+            throw new UnableToSearchTransfers("Unable to return transfers search");
+        }
+
 
 		return Promise.resolve(searchResults);
 	}
@@ -252,8 +256,12 @@ export class MongoTransfersRepo implements ITransfersRepository {
 				throw err;
 			}
 		} catch (error: unknown) {
-			this._logger.error(error);
-			throw error;
+            this._logger.error(
+                `Unable to bulk insert transfers: ${(error as Error).message}`
+            );
+            throw new UnableToBulkInsertTransfersError(
+                "Unable to bulk insert transfers"
+            );
 		}
 	}
 
@@ -274,17 +282,26 @@ export class MongoTransfersRepo implements ITransfersRepository {
 	}
 
 	async getTransfersByBulkId(bulkTransferId: string): Promise<ITransfer[]> {
-		const transfers = await this.transfers.find(
-			{ bulkTransferId: bulkTransferId },
-			{ sort: ["updatedAt", "desc"], projection: { _id: 0 } }
-		).toArray().catch((e: unknown) => {
-			this._logger.error(`Unable to get transfers: ${(e as Error).message}`);
-			throw new UnableToGetTransferError();
-		});
+        const transfers = await this.transfers
+            .find({
+               bulkTransferId:bulkTransferId,
+            })
+            .toArray()
+            .catch((e: unknown) => {
+                this._logger.error(
+                    `Unable to get transfers by bulk transfer id: ${(e as Error).message
+                    }`
+                );
+                throw new UnableToGetTransferError("Unable to get transfers");
+            });
 
-		const mappedTransfers = transfers.map(this._mapToTransfer);
+        const mappedTransfers = [];
 
-		return mappedTransfers;
+        for (const transfer of transfers) {
+            mappedTransfers.push(this._mapToTransfer(transfer));
+        }
+
+        return mappedTransfers;
 	}
 
 	private async checkIfTransferExists(transfer: ITransfer) {
