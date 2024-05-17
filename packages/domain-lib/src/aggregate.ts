@@ -65,7 +65,7 @@ import {
     ITransfersRepository,
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
-    IBulkTransfersRepository
+    IBulkTransfersRepository,
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -174,7 +174,7 @@ export class TransfersAggregate {
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abBatchResponses: IAccountsBalancesHighLevelResponse[] = [];
     private _outputEvents: DomainEventMsg[] = [];
-
+    
     constructor(
         logger: ILogger,
         transfersRepo: ITransfersRepository,
@@ -184,7 +184,7 @@ export class TransfersAggregate {
         accountAndBalancesAdapter: IAccountsBalancesAdapter,
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
-        schedulingAdapter: ISchedulingServiceAdapter
+        schedulingAdapter: ISchedulingServiceAdapter,
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -332,8 +332,8 @@ export class TransfersAggregate {
         } else if (cmd.msgName === QueryBulkTransferCmd.name) {
             return this._queryBulkTransfer(cmd as QueryBulkTransferCmd);
         } else {
-            const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
-            const transferId = cmd.payload?.transferId;
+            const requesterFspId = cmd.payload.requesterFspId;
+            const transferId = cmd.payload.transferId;
 			const errorMessage = `Command type is unknown: ${cmd.msgName}`;
             this._logger.error(errorMessage);
 
@@ -2280,7 +2280,7 @@ export class TransfersAggregate {
 
             this._outputEvents.push(event);
 
-            this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+            await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
             this._bulkTransfersCache.clear();
             if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
         }
@@ -2356,7 +2356,7 @@ export class TransfersAggregate {
         bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.REJECTED;
         // bulkTransfer.errorCode = message.payload.errorInformation; TODO
-        this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+        await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
         
 		const payload: BulkTransferRejectRequestProcessedEvtPayload = {
 			bulkTransferId: message.payload.bulkTransferId,

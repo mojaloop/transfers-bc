@@ -31,8 +31,8 @@
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { SettlementsAdapter } from "../../../src/external_adapters/settlements_adapter";
 
-import { IAuthenticatedHttpRequester, ILoginHelper } from "@mojaloop/security-bc-public-types-lib";
-import { MemoryAuthenticatedHttpRequesterMock, MemoryLoginHelper } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { IAuthenticatedHttpRequester } from "@mojaloop/security-bc-public-types-lib";
+import { MemoryAuthenticatedHttpRequesterMock } from "@mojaloop/transfers-bc-shared-mocks-lib";
 
 const BASE_URL_SCHEDULING_CLIENT: string = "http://localhost:1234";
 const AUTH_TOKEN_ENPOINT = "http://localhost:3101/authTokenEndpoint";

@@ -28,7 +28,7 @@
  --------------
  ******/
 
-"use strict";
+ "use strict";
 
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
 import { IBulkTransfer, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-public-types-lib";
@@ -40,12 +40,12 @@ import {
 import { IReminder } from "@mojaloop/scheduling-bc-public-types-lib";
 export interface ITransfersRepository {
     init(): Promise<void>;
-	destroy(): Promise<void>;
+    destroy(): Promise<void>;
     addTransfer(transfer: ITransfer):Promise<string>;
     updateTransfer(transfer: ITransfer):Promise<void>;
-	removeTransfer(id: string):Promise<void>;
+    removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
-	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
+    getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 
     storeTransfers(transfers:ITransfer[]):Promise<void>;
 
@@ -69,13 +69,13 @@ export interface ITransfersRepository {
 }
 
 export interface IBulkTransfersRepository {
-	init(): Promise<void>;
-	destroy(): Promise<void>;
-	addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string>;
-	updateBulkTransfer(bulkTransfer: IBulkTransfer): Promise<void>;
-	getBulkTransferById(id: string): Promise<IBulkTransfer | null>;
-	getBulkTransfers(): Promise<IBulkTransfer[]>;
-  }
+    init(): Promise<void>;
+    destroy(): Promise<void>;
+    addBulkTransfer(bulkTransfer: IBulkTransfer): Promise<string>;
+    updateBulkTransfer(bulkTransfer: IBulkTransfer): Promise<void>;
+    getBulkTransferById(id: string): Promise<IBulkTransfer | null>;
+    getBulkTransfers(): Promise<IBulkTransfer[]>;
+}
 
 export interface IParticipantsServiceAdapter {
     getParticipantInfo(fspId: string): Promise<IParticipant| null>;
@@ -83,29 +83,29 @@ export interface IParticipantsServiceAdapter {
 }
 
 export interface IAccountsBalancesAdapter {
-	init(): Promise<void>;
-	destroy(): Promise<void>;
+    init(): Promise<void>;
+    destroy(): Promise<void>;
 
-	setToken(accessToken: string): void;
-	setUserCredentials(client_id: string, username: string, password: string): void;
-	setAppCredentials(client_id: string, client_secret: string): void;
+    setToken(accessToken: string): void;
+    setUserCredentials(client_id: string, username: string, password: string): void;
+    setAppCredentials(client_id: string, client_secret: string): void;
 
-	createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string>;
-	getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
-	getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
-	getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
+    createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string>;
+    getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
+    getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
+    getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
 
-	createJournalEntry(
-		requestedId: string,
-		ownerId: string,
-		currencyCode: string,
-		amount: string,
-		pending: boolean,
-		debitedAccountId: string,
-		creditedAccountId: string
-	): Promise<string>;
+    createJournalEntry(
+        requestedId: string,
+        ownerId: string,
+        currencyCode: string,
+        amount: string,
+        pending: boolean,
+        debitedAccountId: string,
+        creditedAccountId: string
+    ): Promise<string>;
 
-	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
+    getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
 
     processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]):Promise<IAccountsBalancesHighLevelResponse[]>;
 
@@ -137,9 +137,6 @@ export interface ISettlementsServiceAdapter {
 export interface ISchedulingServiceAdapter {
     createReminder(id: string, time: string, payload: any): Promise<string | void>; // eslint-disable-line @typescript-eslint/no-explicit-any
     createSingleReminder(id: string, time: string | number, payload: any): Promise<string | void>; // eslint-disable-line @typescript-eslint/no-explicit-any
-	getReminder(reminderId: string): Promise<IReminder | null | void>;
-	deleteReminder(reminderId: string): Promise<void>;
+    getReminder(reminderId: string): Promise<IReminder | null | void>;
+    deleteReminder(reminderId: string): Promise<void>;
 }
-
-
-

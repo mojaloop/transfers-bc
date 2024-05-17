@@ -94,41 +94,6 @@ export class TransfersCommandHandler{
         });
     }
 
-/*    private async _msgHandler_OLD(message: IMessage): Promise<void>{
-		// eslint-disable-next-line no-async-promise-executor
-		return await new Promise<void>(async (resolve) => {
-            if(message.msgType!=MessageTypes.COMMAND){
-                return resolve();
-            }
-
-            this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
-            const timerEndFn = this._histo.startTimer();
-			try {
-
-				switch (message.msgName) {
-					case PrepareTransferCmd.name:
-						// send to aggregate handler
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
-					case CommitTransferFulfilCmd.name:
-						// send to aggregate handler
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
-					default: {
-						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
-					}
-				}
-
-                timerEndFn({ commandName: message.msgName, success: "true" });
-			}catch(err: unknown){
-				this._logger.error(err, `TransfersCommandHandler - processing command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
-                timerEndFn({ commandName: message.msgName, success: "false" });
-			}finally {
-				resolve();
-			}
-		});
-	}*/
-
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();
 	}

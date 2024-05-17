@@ -32,29 +32,6 @@
 
 import {Service} from "./service";
 
-/*
- NOTE:  Use the ExampleTypes notation below when possible instead of enums
-        Typescript enums generate js code that is not just types, which
-        is what "declare type" does.
-
-        By using only types and interfaces, we can register this dependency
-        as a pure types lib and "put" it in the devDependencies section of
-        the consuming package.json
- */
-
-export declare type ExampleTypes = "TYPE_A" | "TYPE_B";
-
-export declare type Example = {
-    name: string;
-    type: ExampleTypes;
-}
-
-export declare interface IExampleInterface {
-    name: string;
-    type: ExampleTypes;
-}
-
-
 Service.start().then(() => {
     console.log("Service start complete");
 });

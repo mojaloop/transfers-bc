@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { ApprovalRequestState, IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
+import { ApprovalRequestState, IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantFundsMovementTypes, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
 import { BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodes, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
 
 const now = Date.now();
@@ -160,6 +160,38 @@ export const mockedTransfer4 : ITransfer = {
 	transferType: "DEPOSIT",
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
 };
+
+export const mockedTransfer5 : ITransfer = {
+	createdAt: now,
+	updatedAt: now,
+	payerFspId: "4",
+	payeeFspId: "13",
+	transferId: "4",
+	amount: "1000",
+	currencyCode: "EUR",
+	extensionList: {
+		extension: [
+		{
+			key: "key",
+			value: "value"
+		}
+		]
+	},
+	transferState: TransferState.COMMITTED,
+	ilpPacket: "omnis",
+	condition: "omnis",
+	fulfilment: "1",
+	expirationTimestamp: now,
+	completedTimestamp: now,
+	settlementModel: "DEFAULT",
+	hash: "randomhash",
+	bulkTransferId: null,
+	payerIdType: "MSISDN", 
+	payeeIdType: "IBAN",
+	transferType: "DEPOSIT",
+	errorCode: null
+};
+
 
 export const mockedHubParticipant:IParticipant = {
 	id: "hub",
@@ -340,7 +372,7 @@ export const mockedPayerParticipant:IParticipant = {
 			id: "dcacfb6b-87a2-456f-a723-141cf0af21ff",
 			createdBy: "user",
 			createdDate: 1694597823737,
-			direction: ParticipantFundsMovementDirections.FUNDS_DEPOSIT,
+			type: ParticipantFundsMovementTypes.OPERATOR_FUNDS_DEPOSIT,
 			amount: "99999999999",
 			currencyCode: "USD",
 			note: "",
@@ -355,7 +387,7 @@ export const mockedPayerParticipant:IParticipant = {
 	],
 	changeLog: [
 		{
-			changeType: ParticipantChangeTypes.FUNDS_DEPOSIT,
+			changeType: ParticipantChangeTypes.OPERATOR_FUNDS_DEPOSIT,
 			user: "admin",
 			timestamp: 1694597852070,
 			notes: null,
@@ -448,7 +480,7 @@ export const mockedPayeeParticipant:IParticipant = {
 			id: "2e1a6462-0fdd-4cdd-95cb-e8534274ebeb",
 			createdBy: "user",
 			createdDate: 1694597841878,
-			direction: ParticipantFundsMovementDirections.FUNDS_DEPOSIT,
+			type: ParticipantFundsMovementTypes.OPERATOR_FUNDS_DEPOSIT,
 			amount: "99999999999",
 			currencyCode: "USD",
 			note: "",
@@ -463,7 +495,7 @@ export const mockedPayeeParticipant:IParticipant = {
 	],
 	changeLog: [
 		{
-			changeType: ParticipantChangeTypes.FUNDS_DEPOSIT,
+			changeType: ParticipantChangeTypes.OPERATOR_FUNDS_DEPOSIT,
 			user: "admin",
 			timestamp: 1694597855364,
 			notes: null,
@@ -604,6 +636,154 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
 	errorCode: null,
     extensionList: null
 };
+
+export const mockedTransferPreparePayload = {
+    transferId: "1234567890",
+    payeeFsp: "examplePayeeFSP",
+    payerFsp: "examplePayerFSP",
+    amount: "100.00",
+    currencyCode: "USD",
+    ilpPacket: "exampleILPPacket",
+    condition: "exampleCondition",
+    expiration: 1621080000,
+    extensionList: {
+        extension: [
+            { key: "exampleKey1", value: "exampleValue1" },
+            { key: "exampleKey2", value: "exampleValue2" }
+        ]
+    },
+    payerIdType: "MSISDN",
+    payeeIdType: "MSISDN",
+    transferType: "exampleTransferType"
+};
+
+export const mockedTransferFulfilPayload = {
+    transferId: "9876543210",
+    transferState: "PROCESSING",
+    fulfilment: null,
+    completedTimestamp: 1621080000,
+    extensionList: {
+        extension: [
+            { key: "exampleKey1", value: "exampleValue1" },
+            { key: "exampleKey2", value: "exampleValue2" }
+        ]
+    },
+    notifyPayee: true
+};
+
+export const mockedTransferQueryPayload = {
+    transferId: "1357924680"
+};
+
+
+export const mockedTransferRejectPayload = {
+    transferId: "6543210987",
+    errorInformation: {
+        errorCode: "ERR001",
+        errorDescription: "Example error description",
+        extensionList: {
+            extension: [
+                { key: "exampleKey1", value: "exampleValue1" },
+                { key: "exampleKey2", value: "exampleValue2" }
+            ]
+        }
+    }
+};
+
+export const mockedBulkTransferPreparePayload = {
+	bulkTransferId: "987654321",
+	bulkQuoteId: "123456789",
+	payeeFsp: "examplePayeeFSP",
+	payerFsp: "examplePayerFSP",
+	individualTransfers: [
+		{
+			transferId: "111111",
+			transferAmount: {
+				currency: "USD",
+				amount: "50.00"
+			},
+			ilpPacket: "exampleILPPacket1",
+			condition: "exampleCondition1",
+			extensionList: null,
+			payerIdType: "MSISDN",
+			payeeIdType: "MSISDN",
+			transferType: "exampleTransferType1"
+		},
+		{
+			transferId: "222222",
+			transferAmount: {
+				currency: "USD",
+				amount: "100.00"
+			},
+			ilpPacket: "exampleILPPacket2",
+			condition: "exampleCondition2",
+			extensionList: {
+				extension: [
+					{ key: "exampleKey3", value: "exampleValue3" },
+					{ key: "exampleKey4", value: "exampleValue4" }
+				]
+			},
+			payerIdType: "MSISDN",
+			payeeIdType: "MSISDN",
+			transferType: "exampleTransferType2"
+		}
+	],
+	expiration: 1621080000,
+	extensionList: null
+};
+
+export const mockedBulkTransferFulfilPayload = {
+    bulkTransferId: "1234567890",
+    completedTimestamp: 1621080000,
+    bulkTransferState: "COMPLETED",
+    individualTransferResults: [
+        {
+            transferId: "111111",
+            fulfilment: "exampleFulfilment1",
+            errorInformation: null,
+            extensionList: null
+        },
+        {
+            transferId: "222222",
+            fulfilment: null,
+            errorInformation: {
+                errorCode: "ERR002",
+                errorDescription: "Example error description",
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            },
+            extensionList: null
+        }
+    ],
+    extensionList: null
+};
+
+export const mockedBulkTransferRejectedPayload = {
+    bulkTransferId: "9876543210",
+    errorInformation: {
+        errorCode: "ERR003",
+        errorDescription: "Example bulk transfer rejection",
+        extensionList: {
+            extension: [
+                { key: "exampleKey1", value: "exampleValue1" },
+                { key: "exampleKey2", value: "exampleValue2" }
+            ]
+        }
+    }
+};
+
+export const mockedBulkTransferQueryPayload = {
+    bulkTransferId: "1357924680"
+};
+
+export const mockedTransferTimeoutPayload = {
+    transferId: "1357924680"
+};
+
 
 export const mockedTransfers : ITransfer[] = [
 	mockedTransfer1,

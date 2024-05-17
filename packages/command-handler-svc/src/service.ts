@@ -37,7 +37,7 @@ import {
 	IAccountsBalancesAdapter,
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
-    IBulkTransfersRepository
+    IBulkTransfersRepository,
 } from "@mojaloop/transfers-bc-domain-lib";
 import {
     ParticipantAdapter,
@@ -45,7 +45,7 @@ import {
     MongoBulkTransfersRepo,
     GrpcAccountsAndBalancesAdapter,
     SettlementsAdapter,
-    SchedulingAdapter
+    SchedulingAdapter,
 } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
@@ -174,7 +174,7 @@ export class Service {
         settlementsAdapter?: ISettlementsServiceAdapter,
         schedulingAdapter?: ISchedulingServiceAdapter,
         configProvider?: IConfigProvider,
-        aggregate?: TransfersAggregate
+        aggregate?: TransfersAggregate,
     ): Promise<void> {
         console.log(`Service starting with PID: ${process.pid}`);
 
@@ -313,7 +313,7 @@ export class Service {
                 this.accountAndBalancesAdapter,
                 this.metrics,
                 this.settlementsAdapter,
-                this.schedulingAdapter
+                this.schedulingAdapter,
             );
         }
         this.aggregate = aggregate;
@@ -388,9 +388,7 @@ export class Service {
             await this.auditClient.destroy();
         }
         if (this.logger && this.logger instanceof KafkaLogger) {
-            setTimeout(async ()=>{
-                await (this.logger as KafkaLogger).destroy();
-            }, 500);
+            await (this.logger as KafkaLogger).destroy();
         }
 
 	}
