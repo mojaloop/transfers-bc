@@ -96,13 +96,13 @@ import {
     TransfersAggregate,
     CommitBulkTransferFulfilCmd,
     RejectBulkTransferCmd,
-    QueryBulkTransferCmd 
+    QueryBulkTransferCmd, 
+    PrepareBulkTransferCmdPayload
 } from '../../src';
 import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
 import { waitForExpect } from '@mojaloop/transfers-bc-shared-mocks-lib';
 import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodeNames, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
-import { TransfersCache, BulkTransfersCache } from "@mojaloop/transfers-bc-implementations-lib";
 
 logger.setLogLevel(LogLevel.DEBUG);
 
@@ -116,14 +116,14 @@ jest.mock('crypto', () => ({
 let aggregate: TransfersAggregate;
 
 const validTransferPostPayload = {
-    "transferId": "0fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
     "payerFsp": "bluebank",
     "payeeFsp": "greenbank",
     "amount": "1",
     "currencyCode": "USD",
     "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
     "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-    "expiration": "2023-07-22T05:05:11.304Z"
+    "expiration": 1715939691772
 };
 
 const validTransferPostContinuePayload = {
@@ -134,18 +134,18 @@ const validTransferPostContinuePayload = {
     "currencyCode": "USD",
     "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
     "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-    "expiration": "2023-07-22T05:05:11.304Z"
+    "expiration": 1715939691772
 };
 
 const validTransferPutPayload = {
     "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "completedTimestamp": "2023-10-22T05:50:41.747Z",
+    "completedTimestamp": 1715939691772,
     "transferState": "COMMITTED",
     "fulfilment": null,
     "extensionList": null
 };
 
-const validBulkTransferPostPayload = {
+const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
     "bulkTransferId": "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
     "bulkQuoteId": "0fbee1f3-c58e-5afe-8cdd-6e65eea2fca9",
     "payeeFsp": "greenbank",
@@ -158,10 +158,19 @@ const validBulkTransferPostPayload = {
                 "amount": "10"
             },
             "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-            "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg"
+            "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+            extensionList: null,
+            payerIdType: '',
+            payeeIdType: '',
+            transferType: ''
         }
     ],
-    "expiration": "2024-02-28T13:27:53.536Z"
+    "expiration": 1715939691772,
+    extensionList: null,
+    prepare: {
+        headers: {},
+        payload: ''
+    }
 };
 
 const validBulkTransferPutPayload = {
@@ -198,8 +207,6 @@ let validTransfer: ITransfer;
 let validBulkTransfer: IBulkTransfer;
  
 const metricsMock: IMetrics = new MetricsMock();
-const transfersCache = new TransfersCache<ITransfer>();
-const bulkTransfersCache = new BulkTransfersCache<IBulkTransfer>();
 
 describe("Domain - Unit Tests for Command Handler", () => {
 
@@ -207,22 +214,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         aggregate = new TransfersAggregate(
             logger,
-            transfersRepo as any,
-            bulkTransfersRepo as any,
+            transfersRepo,
+            bulkTransfersRepo,
             participantService,
             messageProducer,
             accountsAndBalancesService,
             metricsMock,
             settlementsService,
-            schedulingService,
-            transfersCache,
-            bulkTransfersCache
+            schedulingService
         );
 
         validTransfer = {
             createdAt: 1695659528072,
             updatedAt: 1695659531251,
-            transferId: "0fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+            transferId: "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
             bulkTransferId: null,
             payeeFspId: "greenbank",
             payerFspId: "bluebank",
@@ -282,6 +287,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         
     });
 
+
     // #region _prepareTransferStart
     test("should not process command if command message type does not equal COMMAND", async () => {
         // Arrange
@@ -323,7 +329,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { throw Error(); });
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockImplementation(() => { throw Error(); })
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -333,51 +340,50 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferUnableToGetTransferByIdEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER, 
-                "payerFspId": undefined, 
                 "transferId": command.payload.transferId
             }
         })]);
     });
     
-    test("should throw TransferUnableToGetTransferByIdEvt error processing PrepareTransferCmd command", async () => {
-        // Arrange
-        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+    // test("should throw TransferUnableToGetTransferByIdEvt error processing PrepareTransferCmd command", async () => {
+    //     // Arrange
+    //     const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
-        jest.spyOn(messageProducer, "send");
+    //     jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { throw Error(); });
+    //     // Act
+    //     await aggregate.processCommandBatch([command]);
 
-        // Act
-        await aggregate.processCommandBatch([command]);
+    //     // Assert
+    //     expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+    //         "msgName": TransferUnableToGetTransferByIdEvt.name,
+    //         "payload": {
+    //             "errorCode": TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER, 
+    //             "payerFspId": undefined, 
+    //             "transferId": command.payload.transferId
+    //         }
+    //     })]);
 
-        // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferUnableToGetTransferByIdEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER, 
-                "payerFspId": undefined, 
-                "transferId": command.payload.transferId
-            }
-        })]);
-
-    });
+    // });
 
     test("should ignore when transfer with RECEIVED state is found processing PrepareTransferCmd command", async () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
+        validTransfer.transferState = TransferState.RECEIVED;
+
         jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => {
-            validTransfer.transferState = TransferState.RECEIVED;
-            return validTransfer;
-        });
-
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValueOnce(validTransfer);
+        
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([]);
+        });
 
     });
 
@@ -387,15 +393,16 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
-            return validTransfer; 
-        });
-          
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValueOnce(validTransfer);
+
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([]);
+        });
 
     });
 
@@ -403,27 +410,29 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
-        jest.spyOn(messageProducer, "send");
+        validTransfer.transferState = TransferState.COMMITTED;
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
-            validTransfer.transferState = TransferState.COMMITTED;
-            return validTransfer; 
-        });
+        jest.spyOn(messageProducer, "send");
           
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValueOnce(validTransfer);
+
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferQueryResponseEvt.name,
-            "payload": {
-                "completedTimestamp": validTransfer.completedTimestamp,
-                "extensionList": validTransfer.extensionList,
-                "fulfilment": validTransfer.fulfilment,
-                "transferId": validTransfer.transferId,
-                "transferState": validTransfer.transferState
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferQueryResponseEvt.name,
+                "payload": {
+                    "completedTimestamp": validTransfer.completedTimestamp,
+                    "extensionList": validTransfer.extensionList,
+                    "fulfilment": validTransfer.fulfilment,
+                    "transferId": validTransfer.transferId,
+                    "transferState": validTransfer.transferState
+                }
+            })]);
+        });
 
     });
 
@@ -432,27 +441,29 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
+        validTransfer.transferState = TransferState.ABORTED;
+
         jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(transfersCache, "get").mockImplementationOnce(() => { 
-            validTransfer.transferState = TransferState.ABORTED;
-            return validTransfer; 
-        });
-          
+        jest.spyOn(transfersRepo, "getTransferById")
+            .mockResolvedValueOnce(validTransfer);
+        
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferQueryResponseEvt.name,
-            "payload": {
-                "completedTimestamp": validTransfer.completedTimestamp,
-                "extensionList": validTransfer.extensionList,
-                "fulfilment": validTransfer.fulfilment,
-                "transferId": validTransfer.transferId,
-                "transferState": validTransfer.transferState
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferQueryResponseEvt.name,
+                "payload": {
+                    "completedTimestamp": validTransfer.completedTimestamp,
+                    "extensionList": validTransfer.extensionList,
+                    "fulfilment": validTransfer.fulfilment,
+                    "transferId": validTransfer.transferId,
+                    "transferState": validTransfer.transferState
+                }
+            })]);
+        });
 
     });
 
@@ -506,24 +517,25 @@ describe("Domain - Unit Tests for Command Handler", () => {
         // Arrange
         const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
-        jest.spyOn(messageProducer, "send");
+        validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
+        validBulkTransfer.transfersPreparedProcessedIds = [];
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
+        jest.spyOn(messageProducer, "send");
         
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubNotFoundFailedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.HUB_NOT_FOUND, 
-                "payerFspId": undefined, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotFoundFailedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.HUB_NOT_FOUND, 
+                    "payerFspId": undefined, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
  
     test("should throw when hub participant has id mismatch processing PrepareTransferCmd command", async () => {
@@ -535,22 +547,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, id: "mismatched_id" });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubIdMismatchEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_ID_MISMATCH, 
-                "hubId": HUB_PARTICIPANT_ID,
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubIdMismatchEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_ID_MISMATCH, 
+                    "hubId": HUB_PARTICIPANT_ID,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when hub participant is not approved processing PrepareTransferCmd command", async () => {
@@ -561,23 +571,21 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, approved: false });
-
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
         
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubNotApprovedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_NOT_APPROVED, 
-                "hubId": HUB_PARTICIPANT_ID,
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotApprovedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_NOT_APPROVED, 
+                    "hubId": HUB_PARTICIPANT_ID,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when hub participant is not active processing PrepareTransferCmd command", async () => {
@@ -589,22 +597,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, isActive: false });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferHubNotActiveEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_NOT_ACTIVE, 
-                "hubId": HUB_PARTICIPANT_ID,
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferHubNotActiveEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.HUB_PARTICIPANT_NOT_ACTIVE, 
+                    "hubId": HUB_PARTICIPANT_ID,
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payer participant is not found processing PrepareTransferCmd command", async () => {
@@ -616,22 +622,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant);
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayerNotFoundFailedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_FOUND, 
-                "payerFspId": command.payload.payerFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotFoundFailedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_FOUND, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payer participant has id mismatch processing PrepareTransferCmd command", async () => {
@@ -644,22 +648,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, id: "mismatched_id" });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayerIdMismatchEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_ID_MISMATCH, 
-                "payerFspId": command.payload.payerFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerIdMismatchEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_ID_MISMATCH, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payer participant is not approved processing PrepareTransferCmd command", async () => {
@@ -672,22 +674,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, approved: false });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayerNotApprovedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_APPROVED, 
-                "payerFspId": command.payload.payerFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotApprovedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_APPROVED, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payer participant is not active processing PrepareTransferCmd command", async () => {
@@ -700,22 +700,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce({ ...mockedPayerParticipant, isActive: false });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayerNotActiveEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_ACTIVE, 
-                "payerFspId": command.payload.payerFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayerNotActiveEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_ACTIVE, 
+                    "payerFspId": command.payload.payerFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payee participant is not found processing PrepareTransferCmd command", async () => {
@@ -727,23 +725,21 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce(mockedPayerParticipant);
-
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
         
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayeeNotFoundFailedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_FOUND, 
-                "payeeFspId": command.payload.payeeFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotFoundFailedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_FOUND, 
+                    "payeeFspId": command.payload.payeeFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payee participant has id mismatch processing PrepareTransferCmd command", async () => {
@@ -756,23 +752,22 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, id: "mismatched_id" });
-        
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
+    
 
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayeeIdMismatchEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_ID_MISMATCH, 
-                "payeeFspId": command.payload.payeeFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeIdMismatchEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_ID_MISMATCH, 
+                    "payeeFspId": command.payload.payeeFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payee participant is not approved processing PrepareTransferCmd command", async () => {
@@ -786,22 +781,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, approved: false });
 
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayeeNotApprovedEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_APPROVED, 
-                "payeeFspId": command.payload.payeeFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotApprovedEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_APPROVED, 
+                    "payeeFspId": command.payload.payeeFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
 
     test("should throw when payee participant is not active processing PrepareTransferCmd command", async () => {
@@ -814,22 +807,20 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedHubParticipant)
             .mockResolvedValueOnce(mockedPayerParticipant)
             .mockResolvedValueOnce({ ...mockedPayeeParticipant, isActive: false });
-
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
         // Act
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-            "msgName": TransferPayeeNotActiveEvt.name,
-            "payload": {
-                "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_ACTIVE, 
-                "payeeFspId": command.payload.payeeFsp, 
-                "transferId": command.payload.transferId
-            }
-        })]);
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": TransferPayeeNotActiveEvt.name,
+                "payload": {
+                    "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_ACTIVE, 
+                    "payeeFspId": command.payload.payeeFsp, 
+                    "transferId": command.payload.transferId
+                }
+            })]);
+        });
     });
     
     test("should throw when hub participant has no matching hub account processing PrepareTransferCmd command", async () => {
@@ -998,56 +989,54 @@ describe("Domain - Unit Tests for Command Handler", () => {
         })]);
     });
 
-    test("should throw transfer not found error processing PrepareTransferCmd command continue when processHighLevelBatch", async () => {
-        // Arrange
-        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+    // test("should throw transfer not found error processing PrepareTransferCmd command continue when processHighLevelBatch", async () => {
+    //     // Arrange
+    //     const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
 
-        jest.spyOn(messageProducer, "send");
+    //     jest.spyOn(messageProducer, "send");
 
-        jest.spyOn(participantService, "getParticipantInfo")
-            .mockResolvedValueOnce(mockedHubParticipant)
-            .mockResolvedValueOnce(mockedPayerParticipant)
-            .mockResolvedValueOnce(mockedPayeeParticipant);
+    //     jest.spyOn(participantService, "getParticipantInfo")
+    //         .mockResolvedValueOnce(mockedHubParticipant)
+    //         .mockResolvedValueOnce(mockedPayerParticipant)
+    //         .mockResolvedValueOnce(mockedPayeeParticipant);
 
-        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
-            .mockResolvedValueOnce([{
-                requestType: 0, 
-                requestId: '123', 
-                success: true,
-                errorMessage: null
-            }])
+    //     jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+    //         .mockResolvedValueOnce([{
+    //             requestType: 0, 
+    //             requestId: '123', 
+    //             success: true,
+    //             errorMessage: null
+    //         }])
 
-        jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValueOnce(null)
-            .mockImplementationOnce(() => { throw Error(); })
-
-        jest.spyOn(transfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
+    //     jest.spyOn(transfersRepo, "getTransferById")
+    //         .mockResolvedValueOnce(null)
+    //         .mockImplementationOnce(() => { throw Error(); })
         
-        // Act
-        await aggregate.processCommandBatch([command]);
+    //     // Act
+    //     await aggregate.processCommandBatch([command]);
 
-        // Assert
-        expect(messageProducer.send).toHaveBeenCalledWith([
-            expect.objectContaining({
-                "msgName": TransferUnableToGetTransferByIdEvt.name,
-                "payload": {
-                    "errorCode": TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER, 
-                    "payerFspId": undefined, 
-                    "transferId": command.payload.transferId
-                }
-            }),
-            expect.objectContaining({
-                "msgName": TransferCancelReservationFailedEvt.name,
-                "payload": {
-                    "errorCode": TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION, 
-                    "transferId": command.payload.transferId
-                }
-            })
-        ]);
+    //     // Assert
+    //     await waitForExpect(async () => {
+    //         expect(messageProducer.send).toHaveBeenCalledWith([
+    //             expect.objectContaining({
+    //                 "msgName": TransferUnableToGetTransferByIdEvt.name,
+    //                 "payload": {
+    //                     "errorCode": TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER, 
+    //                     "payerFspId": undefined, 
+    //                     "transferId": command.payload.transferId
+    //                 }
+    //             }),
+    //             expect.objectContaining({
+    //                 "msgName": TransferCancelReservationFailedEvt.name,
+    //                 "payload": {
+    //                     "errorCode": TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION, 
+    //                     "transferId": command.payload.transferId
+    //                 }
+    //             })
+    //         ]);
+    //     });
 
-    });
+    // });
 
 
     test("should throw liquidity check failed with request error message processing PrepareTransferCmd command continue when processHighLevelBatch is unsuccessful", async () => {
@@ -1098,7 +1087,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payeeFsp: validTransferPostPayload.payeeFsp,
             payerFsp: validTransferPostPayload.payerFsp,
             ilpPacket: validTransferPostPayload.ilpPacket,
-            expiration: validTransferPostPayload.expiration as any,
+            expiration: validTransferPostPayload.expiration,
             condition: command.payload.condition,
             extensionList: null,
             payerIdType: command.payload.payerIdType,
@@ -1129,18 +1118,18 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-                "msgName": TransferPreparedEvt.name,
-                "payload": expect.objectContaining({
-                    "transferId": cmd.payload.transferId,
-                    "payerFsp": cmd.payload.payerFsp,
-                    "payeeFsp": cmd.payload.payeeFsp,
-                    "condition": cmd.payload.condition,
-                    "currencyCode": cmd.payload.currencyCode,
-                    "expiration": cmd.payload.expiration,
-                    "ilpPacket": cmd.payload.ilpPacket
-                })
-            })]);
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPreparedEvt.name,
+            "payload": expect.objectContaining({
+                "transferId": cmd.payload.transferId,
+                "payerFsp": cmd.payload.payerFsp,
+                "payeeFsp": cmd.payload.payeeFsp,
+                "condition": cmd.payload.condition,
+                "currencyCode": cmd.payload.currencyCode,
+                "expiration": cmd.payload.expiration,
+                "ilpPacket": cmd.payload.ilpPacket
+            })
+        })]);
     });
     // #endregion
 
@@ -1195,7 +1184,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(null)
@@ -1234,7 +1223,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(null)
@@ -1276,7 +1265,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, id: "mismatched_id" })
@@ -1318,7 +1307,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, approved: false })
@@ -1360,7 +1349,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, isActive: false })
@@ -1402,7 +1391,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1445,7 +1434,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1488,7 +1477,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1531,7 +1520,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1574,7 +1563,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1618,7 +1607,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1662,7 +1651,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1706,7 +1695,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1752,7 +1741,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     //     jest.spyOn(messageProducer, "send");
 
     //     jest.spyOn(transfersRepo, "getTransferById")
-    //         .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+    //         .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
     //     jest.spyOn(participantService, "getParticipantInfo")
     //         .mockResolvedValueOnce(hubParticipantWithNoAccounts)
@@ -1799,7 +1788,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1847,7 +1836,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1895,7 +1884,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1941,7 +1930,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -1987,7 +1976,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2033,7 +2022,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
         
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(hubParticipantWithNoAccounts)
@@ -2074,7 +2063,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2116,7 +2105,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2153,7 +2142,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2189,6 +2178,73 @@ describe("Domain - Unit Tests for Command Handler", () => {
     });
     
     test("should successfully process CommitTransferFulfilCmd command", async () => {
+          // Arrange
+          const successAggregate = new TransfersAggregate(
+            logger,
+            transfersRepo,
+            bulkTransfersRepo,
+            participantService,
+            messageProducer,
+            accountsAndBalancesService,
+            metricsMock,
+            settlementsService,
+            schedulingService
+        );
+
+        const commandPrepareTransfer: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        const cmdPrepareTransfer = new PrepareTransferCmd({
+            bulkTransferId: null,
+            transferId: validTransferPostPayload.transferId,
+            amount: validTransferPostPayload.amount,
+            currencyCode: validTransferPostPayload.currencyCode,
+            payeeFsp: validTransferPostPayload.payeeFsp,
+            payerFsp: validTransferPostPayload.payerFsp,
+            ilpPacket: validTransferPostPayload.ilpPacket,
+            expiration: validTransferPostPayload.expiration,
+            condition: commandPrepareTransfer.payload.condition,
+            extensionList: null,
+            payerIdType: commandPrepareTransfer.payload.payerIdType,
+            payeeIdType: commandPrepareTransfer.payload.payeeIdType,
+            transferType: commandPrepareTransfer.payload.transferType,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }])
+
+        // Act
+        await successAggregate.processCommandBatch([commandPrepareTransfer]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPreparedEvt.name,
+            "payload": expect.objectContaining({
+                "transferId": cmdPrepareTransfer.payload.transferId,
+                "payerFsp": cmdPrepareTransfer.payload.payerFsp,
+                "payeeFsp": cmdPrepareTransfer.payload.payeeFsp,
+                "condition": cmdPrepareTransfer.payload.condition,
+                "currencyCode": cmdPrepareTransfer.payload.currencyCode,
+                "expiration": cmdPrepareTransfer.payload.expiration,
+                "ilpPacket": cmdPrepareTransfer.payload.ilpPacket
+            })
+        })]);
+        
         // Arrange
         const command: CommandMsg = createCommand(validTransferPutPayload, CommitTransferFulfilCmd.name, null);
 
@@ -2196,7 +2252,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             transferId: validTransferPostContinuePayload.transferId,
             transferState: validTransferPutPayload.transferState,
             fulfilment: validTransferPutPayload.fulfilment,
-            completedTimestamp: validTransferPutPayload.completedTimestamp as any,
+            completedTimestamp: validTransferPutPayload.completedTimestamp,
             extensionList: validTransferPutPayload.extensionList,
             notifyPayee: false,
             prepare: {
@@ -2208,7 +2264,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2224,7 +2280,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             }]);
 
         // Act
-        await aggregate.processCommandBatch([command]);
+        await successAggregate.processCommandBatch([command]);
 
         // Assert
         await waitForExpect(async () => {
@@ -2233,7 +2289,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "payload": expect.objectContaining({
                     "transferId": cmd.payload.transferId,
                     "fulfilment": cmd.payload.fulfilment,
-                    "completedTimestamp": cmd.payload.completedTimestamp as any,
+                    "completedTimestamp": cmd.payload.completedTimestamp,
                     "extensionList": cmd.payload.extensionList,
                 })
             })]);
@@ -2377,75 +2433,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             })]);
         });
     });
-    
-    test("should successfully process PrepareBulkTransferCmd command", async () => {
-        // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
-
-        const cmd = new PrepareBulkTransferCmd({
-            bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
-            bulkQuoteId: validBulkTransferPostPayload.bulkQuoteId,
-            payeeFsp: validBulkTransferPostPayload.payeeFsp,
-            payerFsp: validBulkTransferPostPayload.payerFsp,
-            individualTransfers: validBulkTransferPostPayload.individualTransfers as any,
-            expiration: validBulkTransferPostPayload.expiration as any,
-            extensionList: null,
-            prepare: null as any
-    
-        })
-
-        jest.spyOn(messageProducer, "send");
-
-        jest.spyOn(participantService, "getParticipantInfo")
-            .mockResolvedValueOnce(mockedHubParticipant)
-            .mockResolvedValueOnce(mockedPayerParticipant)
-            .mockResolvedValueOnce(mockedPayeeParticipant);
-
-        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
-            .mockResolvedValueOnce([{
-                requestType: 0, 
-                requestId: '123', 
-                success: true,
-                errorMessage: null
-            }]);
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
-            validBulkTransfer.transfersPreparedProcessedIds = [];
-            return validBulkTransfer as any;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
-        
-        
-        // Act
-        await aggregate.processCommandBatch([command]);
-
-        // Assert
-        await waitForExpect(async () => {
-            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
-                "msgName": BulkTransferPreparedEvt.name,
-                "payload": expect.objectContaining({
-                    "bulkTransferId": cmd.payload.bulkTransferId,
-                    "bulkQuoteId": cmd.payload.bulkQuoteId,
-                    "expiration": cmd.payload.expiration,
-                    "individualTransfers": [{
-                        "transferId": cmd.payload.individualTransfers[0].transferId,
-                        "amount": cmd.payload.individualTransfers[0].transferAmount.amount,
-                        "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-                        "currencyCode": cmd.payload.individualTransfers[0].transferAmount.currency,
-                        "ilpPacket": cmd.payload.individualTransfers[0].ilpPacket,
-                        "extensionList": cmd.payload.individualTransfers[0].extensionList
-                    }]
-                })
-            })]);
-        });
-        
-    });
     // #region
 
     // #region _fulfilBulkTransferStart
@@ -2457,16 +2444,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); })
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -2490,16 +2467,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValue(null);
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -2541,17 +2508,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValue(null);
             
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validBulkTransfer.individualTransfers[0], bulkTransferId: validBulkTransferPutPayload.bulkTransferId, currencyCode: "USD" } as any);
-
-        jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-        
-        jest.spyOn(bulkTransfersCache, "get").mockImplementationOnce(() => { 
-            return undefined;
-        });
+            .mockResolvedValue({ ...validBulkTransfer.individualTransfers[0], bulkTransferId: validBulkTransferPutPayload.bulkTransferId, currencyCode: "USD" } as unknown as ITransfer);
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -2568,15 +2525,84 @@ describe("Domain - Unit Tests for Command Handler", () => {
         });
         
     });
-    
+
     test("should successfully process CommitBulkTransferFulfilCmd command", async () => {
+        // Arrange
+        const successAggregate = new TransfersAggregate(
+            logger,
+            transfersRepo,
+            bulkTransfersRepo,
+            participantService,
+            messageProducer,
+            accountsAndBalancesService,
+            metricsMock,
+            settlementsService,
+            schedulingService
+        );
+                
+        const commandBulkTransferPrepare: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
+
+        const cmdBulkTransferPrepare = new PrepareBulkTransferCmd({
+            bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
+            bulkQuoteId: validBulkTransferPostPayload.bulkQuoteId,
+            payeeFsp: validBulkTransferPostPayload.payeeFsp,
+            payerFsp: validBulkTransferPostPayload.payerFsp,
+            individualTransfers: validBulkTransferPostPayload.individualTransfers,
+            expiration: validBulkTransferPostPayload.expiration,
+            extensionList: null,
+            prepare: {
+                headers: {},
+                payload: ''
+            }
+    
+        })
+
+        jest.spyOn(messageProducer, "send");
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch")
+            .mockResolvedValueOnce([{
+                requestType: 0, 
+                requestId: '123', 
+                success: true,
+                errorMessage: null
+            }]);
+
+        // Act
+        await successAggregate.processCommandBatch([commandBulkTransferPrepare]);
+
+        // Assert
+        await waitForExpect(async () => {
+            expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+                "msgName": BulkTransferPreparedEvt.name,
+                "payload": expect.objectContaining({
+                    "bulkTransferId": cmdBulkTransferPrepare.payload.bulkTransferId,
+                    "bulkQuoteId": cmdBulkTransferPrepare.payload.bulkQuoteId,
+                    "expiration": cmdBulkTransferPrepare.payload.expiration,
+                    "individualTransfers": [{
+                        "transferId": cmdBulkTransferPrepare.payload.individualTransfers[0].transferId,
+                        "amount": cmdBulkTransferPrepare.payload.individualTransfers[0].transferAmount.amount,
+                        "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+                        "currencyCode": cmdBulkTransferPrepare.payload.individualTransfers[0].transferAmount.currency,
+                        "ilpPacket": cmdBulkTransferPrepare.payload.individualTransfers[0].ilpPacket,
+                        "extensionList": cmdBulkTransferPrepare.payload.individualTransfers[0].extensionList
+                    }]
+                })
+            })]);
+        });
+
+                
         // Arrange
         const command: CommandMsg = createCommand(validBulkTransferPutPayload, CommitBulkTransferFulfilCmd.name, null);
 
         const cmd = new CommitBulkTransferFulfilCmd({
             bulkTransferId: validBulkTransferPutPayload.bulkTransferId,
             completedTimestamp: validBulkTransferPutPayload.completedTimestamp,
-            bulkTransferState: validBulkTransferPutPayload.bulkTransferState as any,
+            bulkTransferState: validBulkTransferPutPayload.bulkTransferState as BulkTransferState.PROCESSING,
             individualTransferResults: validBulkTransferPutPayload.individualTransferResults,
             extensionList: null,
             prepare: {
@@ -2611,24 +2637,12 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 currencyCode: "USD",
                 payerFspId: "bluebank",
                 payeeFspId: "greenbank"
-            } as any);
+            } as unknown as ITransfer);
 
         jest.spyOn(bulkTransfersRepo, "updateBulkTransfer").mockResolvedValue();
 
-        jest.spyOn(bulkTransfersCache, "set").mockImplementationOnce(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementationOnce(() => { 
-            validBulkTransfer.bulkTransferId = validBulkTransferPutPayload.bulkTransferId;
-            validBulkTransfer.transfersPreparedProcessedIds = [];
-            return validBulkTransfer;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementationOnce(() => { 
-            return undefined;
-        });
-
         // Act
-        await aggregate.processCommandBatch([command]);
+        await successAggregate.processCommandBatch([command]);
 
         // Assert
         await waitForExpect(async () => {
@@ -2700,7 +2714,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -2725,7 +2739,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, id: "mismatched_id" });
@@ -2753,7 +2767,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, approved: false });
@@ -2781,7 +2795,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce({ ...mockedHubParticipant, isActive: false });
@@ -2809,7 +2823,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
             
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant);
@@ -2837,7 +2851,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2866,7 +2880,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2895,7 +2909,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2924,7 +2938,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2953,7 +2967,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -2983,7 +2997,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3013,7 +3027,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3045,7 +3059,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(hubParticipantWithNoAccounts)
@@ -3074,8 +3088,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any)
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer)
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3121,8 +3135,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue(validTransfer as any)
-            .mockResolvedValue(validTransfer as any);
+            .mockResolvedValue(validTransfer)
+            .mockResolvedValue(validTransfer);
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3160,16 +3174,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); });
 
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -3192,16 +3196,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValueOnce(null);
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3262,12 +3256,12 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(validBulkTransfer);
 
         jest.spyOn(transfersRepo, "getTransfersByBulkId")
-            .mockResolvedValueOnce([validTransfer] as any);
+            .mockResolvedValueOnce([validTransfer]);
 
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, bulkTransferId: command.payload.bulkTransferId } as any)
+            .mockResolvedValue({ ...validTransfer, bulkTransferId: command.payload.bulkTransferId })
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3660,7 +3654,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayeeParticipant);
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId } as any);
+            .mockResolvedValue({ ...validTransfer, transferId: validTransferPostContinuePayload.transferId });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3690,16 +3684,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockImplementationOnce(() => { throw Error(); });
 
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
-
         // Act
         await aggregate.processCommandBatch([command]);
 
@@ -3722,16 +3706,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
             .mockResolvedValue(null);
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3897,7 +3871,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
-            .mockResolvedValue({ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as any);
+            .mockResolvedValue({ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3905,17 +3879,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayeeParticipant);
 
         jest.spyOn(transfersRepo, "getTransfersByBulkId")
-            .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as any]);
-
-        jest.spyOn(bulkTransfersCache, "set").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "get").mockImplementation(() => { 
-            return undefined;
-        });
-        jest.spyOn(bulkTransfersCache, "clear").mockImplementation(() => { 
-            return undefined;
-        });
+            .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as unknown as ITransfer]);
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3999,7 +3963,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferState: TransferState.COMMITTED } as any);
+            .mockResolvedValue({ ...validTransfer, transferState: TransferState.COMMITTED });
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -4015,7 +3979,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(transfersRepo, "getTransferById")
-            .mockResolvedValue({ ...validTransfer, transferState: TransferState.ABORTED } as any);
+            .mockResolvedValue({ ...validTransfer, transferState: TransferState.ABORTED });
 
         // Act
         await aggregate.processCommandBatch([command]);

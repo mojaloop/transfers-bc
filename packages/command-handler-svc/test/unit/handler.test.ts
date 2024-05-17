@@ -57,9 +57,6 @@ import {
     ITransfersRepository,
     TransfersAggregate 
 } from "@mojaloop/transfers-bc-domain-lib";
-import { BulkTransfersCache, TransfersCache } from "@mojaloop/transfers-bc-implementations-lib";
-import { IBulkTransfer, ITransfer } from "@mojaloop/transfers-bc-public-types-lib";
-
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
@@ -89,12 +86,7 @@ const mockedTransferRepository: ITransfersRepository = new MemoryTransferRepo(lo
 
 const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
 
-
 const metricsMock: IMetrics = new MetricsMock();
-
-const mockedTransfersCache = new TransfersCache<ITransfer>();
-const mockedBulkTransfersCache = new BulkTransfersCache<IBulkTransfer>();
-
 
 const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     logger,
@@ -106,8 +98,6 @@ const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     metricsMock,
     mockedSettlementsService,
     mockedSchedulingService,
-    mockedTransfersCache,
-    mockedBulkTransfersCache
 );
 
 describe('Command Handler - Unit Tests for TransfersBC Command Handler', () => {

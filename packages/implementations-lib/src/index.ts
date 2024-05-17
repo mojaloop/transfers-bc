@@ -47,7 +47,5 @@ export * from "./external_adapters/participant_adapter";
 export * from "./external_adapters/grpc_acc_bal_adapter";
 export * from "./external_adapters/settlements_adapter";
 export * from "./external_adapters/scheduling_adapter";
-export * from "./transfers/transfers_cache";
-export * from "./transfers/bulk_transfers_cache";
 export * from "./errors";
 

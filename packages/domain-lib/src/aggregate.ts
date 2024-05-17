@@ -66,7 +66,6 @@ import {
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
     IBulkTransfersRepository,
-    ICache
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -168,13 +167,13 @@ export class TransfersAggregate {
     private _settlementsAdapter: ISettlementsServiceAdapter;
     private _schedulingAdapter: ISchedulingServiceAdapter;
 
+    private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
+    private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
     private _abBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
     private _abBatchResponses: IAccountsBalancesHighLevelResponse[] = [];
     private _outputEvents: DomainEventMsg[] = [];
-    private _transfersCache: ICache<ITransfer>;
-    private _bulkTransfersCache: ICache<IBulkTransfer>;
     
     constructor(
         logger: ILogger,
@@ -186,8 +185,6 @@ export class TransfersAggregate {
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
         schedulingAdapter: ISchedulingServiceAdapter,
-        transfersCache: ICache<ITransfer>, 
-        bulkTransfersCache: ICache<IBulkTransfer>,
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -198,8 +195,6 @@ export class TransfersAggregate {
         this._metrics = metrics;
         this._settlementsAdapter = settlementsAdapter;
         this._schedulingAdapter = schedulingAdapter;
-        this._transfersCache = transfersCache;
-        this._bulkTransfersCache = bulkTransfersCache;
 
         this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);

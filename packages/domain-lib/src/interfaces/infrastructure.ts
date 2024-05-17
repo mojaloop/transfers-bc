@@ -140,12 +140,3 @@ export interface ISchedulingServiceAdapter {
     getReminder(reminderId: string): Promise<IReminder | null | void>;
     deleteReminder(reminderId: string): Promise<void>;
 }
-
-export interface ICache<T> extends Iterable<[string, T]> {
-    get(key: string): T | undefined;
-    set(key: string, value: T): void;
-    delete(key: string): boolean;
-    clear(): void;
-    values(): Iterable<T>;
-    size: number;
-}

@@ -33,7 +33,6 @@
 "use strict";
 
 import { 
-    TransfersAggregate,
     IParticipantsServiceAdapter,
     ITransfersRepository,
     IBulkTransfersRepository,
@@ -60,11 +59,6 @@ import { IConfigProvider } from "@mojaloop/platform-configuration-bc-client-lib"
 import { Service } from "../../src/service";
 import { KafkaLogger } from "@mojaloop/logging-bc-client-lib";
 import { LocalAuditClientCryptoProvider } from "@mojaloop/auditing-bc-client-lib";
-import { IBulkTransfer, ITransfer } from "@mojaloop/transfers-bc-public-types-lib";
-import {
-    TransfersCache,
-    BulkTransfersCache
-} from "@mojaloop/transfers-bc-implementations-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
@@ -90,25 +84,6 @@ const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTra
 const mockedConfigProvider: IConfigProvider = new MemoryConfigProvider(logger);
 
 const metricsMock: IMetrics = new MetricsMock();
-
-const mockedTransfersCache = new TransfersCache<ITransfer>();
-const mockedBulkTransfersCache = new BulkTransfersCache<IBulkTransfer>();
-
-
-const mockedAggregate: TransfersAggregate = new TransfersAggregate(
-    logger,
-    mockedTransferRepository,
-    mockedBulkTransferRepository,
-    mockedParticipantService,
-    mockedMessageProducer,
-    mockedAccountsAndBalancesService,
-    metricsMock,
-    mockedSettlementsService,
-    mockedSchedulingService,
-    mockedTransfersCache,
-    mockedBulkTransfersCache
-);
-
 
 
 jest.mock('@mojaloop/platform-configuration-bc-client-lib', () => {
