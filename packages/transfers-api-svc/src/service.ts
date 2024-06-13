@@ -37,15 +37,12 @@ import {
 	LocalAuditClientCryptoProvider,
 } from "@mojaloop/auditing-bc-client-lib";
 import {AuthenticatedHttpRequester, AuthorizationClient, TokenHelper} from "@mojaloop/security-bc-client-lib";
-import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {IAuthorizationClient, ITokenHelper} from "@mojaloop/security-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
 import {MLKafkaJsonConsumer, MLKafkaJsonProducerOptions} from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import express, {Express} from "express";
 
-import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
-import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {IBulkTransfersRepository, ITransfersRepository} from "@mojaloop/transfers-bc-domain-lib";
 import {KafkaLogger} from "@mojaloop/logging-bc-client-lib";
@@ -53,7 +50,6 @@ import {MongoBulkTransfersRepo, MongoTransfersRepo} from "@mojaloop/transfers-bc
 import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 import {Server} from "net";
 import {TransferAdminExpressRoutes} from "./routes/transfer_admin_routes";
-import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
 import {existsSync} from "fs";
 import process from "process";
 import crypto from "crypto";
@@ -108,7 +104,6 @@ export class Service {
 	static auditClient: IAuditClient;
 	static transfersRepo: ITransfersRepository;
 	static bulkTransfersRepo: IBulkTransfersRepository;
-    static configClient: IConfigurationClient;
     static tokenHelper: ITokenHelper;
     static metrics:IMetrics;
     static authorizationClient: IAuthorizationClient;
@@ -119,7 +114,6 @@ export class Service {
 		auditClient?: IAuditClient,
 		transfersRepo?: ITransfersRepository,
 		bulkTransfersRepo?: IBulkTransfersRepository,
-        configProvider?: IConfigProvider,
         metrics?:IMetrics,
         authorizationClient?: IAuthorizationClient
 	): Promise<void> {
@@ -142,24 +136,6 @@ export class Service {
 			await (logger as KafkaLogger).init();
 		}
 		globalLogger = this.logger = logger;
-
-        /// start config client - this is not mockable (can use STANDALONE MODE if desired)
-        if(!configProvider) {
-            // create the instance of IAuthenticatedHttpRequester
-            const authRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
-            authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
-
-            const messageConsumer = new MLKafkaJsonConsumer({
-                kafkaBrokerList: KAFKA_URL,
-                kafkaGroupId: `${APP_NAME}_${Date.now()}` // unique consumer group - use instance id when possible
-            }, this.logger.createChild("configClient.consumer"));
-            configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
-        }
-
-        this.configClient = GetTransfersConfigSet(configProvider, BC_NAME, APP_NAME, APP_VERSION);
-        await this.configClient.init();
-        await this.configClient.bootstrap(true);
-        await this.configClient.fetch();
 
 		/// start auditClient
 		if (!auditClient) {
@@ -237,14 +213,14 @@ export class Service {
 
             // setup privileges - bootstrap app privs and get priv/role associations
             authorizationClient = new AuthorizationClient(
-                BC_NAME, APP_NAME, APP_VERSION,
-                AUTH_Z_SVC_BASEURL, logger.createChild("AuthorizationClient"),
+                BC_NAME, 
+                APP_VERSION,
+                AUTH_Z_SVC_BASEURL, 
+                logger.createChild("AuthorizationClient"),
                 authRequester,
                 messageConsumer
             );
 
-            authorizationClient.addPrivilegesArray(TransfersPrivilegesDefinition);
-            await (authorizationClient as AuthorizationClient).bootstrap(true);
             await (authorizationClient as AuthorizationClient).fetch();
             // init message consumer to automatically update on role changed events
             await (authorizationClient as AuthorizationClient).init();
@@ -325,10 +301,6 @@ export class Service {
                     resolve(true);
                 });
             });
-        }
-        if (this.configClient) {
-            this.logger.debug("Tearing down config client");
-            await this.configClient.destroy();
         }
         if (this.auditClient) {
             this.logger.debug("Tearing down audit client");
