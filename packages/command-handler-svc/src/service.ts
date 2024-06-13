@@ -84,7 +84,7 @@ const packageJSON = require("../package.json");
 
 const BC_NAME = "transfers-bc";
 const APP_NAME = "command-handler-svc";
-const BC_VERSION = packageJSON.version;
+const APP_VERSION = packageJSON.version;
 const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
 
@@ -186,7 +186,7 @@ export class Service {
             logger = new KafkaLogger(
                 BC_NAME,
                 APP_NAME,
-                BC_VERSION,
+                APP_VERSION,
                 kafkaProducerOptions,
                 KAFKA_LOGS_TOPIC,
                 LOG_LEVEL
@@ -226,7 +226,7 @@ export class Service {
             const cryptoProvider = new LocalAuditClientCryptoProvider(AUDIT_KEY_FILE_PATH);
             const auditDispatcher = new KafkaAuditClientDispatcher(kafkaProducerOptions, KAFKA_AUDITS_TOPIC, auditLogger);
             // NOTE: to pass the same kafka logger to the audit client, make sure the logger is started/initialised already
-            auditClient = new AuditClient(BC_NAME, APP_NAME, BC_VERSION, cryptoProvider, auditDispatcher);
+            auditClient = new AuditClient(BC_NAME, APP_NAME, APP_VERSION, cryptoProvider, auditDispatcher);
             await auditClient.init();
         }
         this.auditClient = auditClient;
@@ -283,7 +283,7 @@ export class Service {
             const labels: Map<string, string> = new Map<string, string>();
             labels.set("bc", BC_NAME);
             labels.set("app", APP_NAME);
-            labels.set("version", BC_VERSION);
+            labels.set("version", APP_VERSION);
             PrometheusMetrics.Setup({prefix:"", defaultLabels: labels}, this.logger);
             metrics = PrometheusMetrics.getInstance();
         }
@@ -350,7 +350,7 @@ export class Service {
 
             this.expressServer = this.app.listen(SVC_DEFAULT_HTTP_PORT, () => {
                 globalLogger.info(`🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`);
-                globalLogger.info(`Transfer Command Handler Service started, version: ${BC_VERSION}`);
+                globalLogger.info(`Transfer Command Handler Service started, version: ${APP_VERSION}`);
                 resolve();
             });
 
