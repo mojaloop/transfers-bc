@@ -78,6 +78,10 @@ const tokenHelperDestroySpy = jest.fn();
 jest.mock('@mojaloop/security-bc-client-lib', () => {
     return {
         ...jest.requireActual('@mojaloop/security-bc-client-lib'),
+        AuthorizationClient: jest.fn().mockImplementation(() => ({
+            fetch: jest.fn(), 
+            init: jest.fn(), 
+        })),
         TokenHelper: jest.fn().mockImplementation(() => ({
             init: tokenHelperInitSpy, 
             destroy: tokenHelperDestroySpy, 
@@ -170,7 +174,8 @@ describe('API Service - Unit Tests for TransfersBC API Service', () => {
     test("should teardown instances when server stopped", async()=>{
         // Arrange
         jest.spyOn(mockedAuditService,'destroy')
-        //Act
+       
+        // Act
         await Service.start(logger, mockedAuditService, mockedTransfersRepository, mockedBulkTransfersRepository, metricsMock);
 
         await Service.stop();
