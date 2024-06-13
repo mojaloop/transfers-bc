@@ -72,6 +72,23 @@ jest.mock('@mojaloop/platform-configuration-bc-client-lib', () => {
     };
 });
 
+const tokenHelperInitSpy = jest.fn();
+const tokenHelperDestroySpy = jest.fn();
+
+jest.mock('@mojaloop/security-bc-client-lib', () => {
+    return {
+        ...jest.requireActual('@mojaloop/security-bc-client-lib'),
+        AuthorizationClient: jest.fn().mockImplementation(() => ({
+            fetch: jest.fn(), 
+            init: jest.fn(), 
+        })),
+        TokenHelper: jest.fn().mockImplementation(() => ({
+            init: tokenHelperInitSpy, 
+            destroy: tokenHelperDestroySpy, 
+        }))
+    };
+});
+
 const expressListenSpy = jest.fn();
 
 const expressAppMock = {
@@ -79,12 +96,6 @@ const expressAppMock = {
     use: jest.fn(),
     get: jest.fn()
 }
-jest.doMock('express', () => {
-    return () => {
-      return expressAppMock
-    }
-})
-
 jest.doMock('express', () => {
     return () => {
       return expressAppMock
@@ -138,10 +149,9 @@ jest.mock('mongodb', () => {
 });
 
 
-jest.mock('@mojaloop/auditing-bc-client-lib');
-jest.mock('@mojaloop/auditing-bc-client-lib');
 jest.mock('@mojaloop/platform-shared-lib-nodejs-kafka-client-lib');
 jest.mock('@mojaloop/security-bc-client-lib');
+jest.mock('@mojaloop/auditing-bc-client-lib');
 
 describe('API Service - Unit Tests for TransfersBC API Service', () => {
 
@@ -151,12 +161,10 @@ describe('API Service - Unit Tests for TransfersBC API Service', () => {
 
     test("should be able to run start and init all variables", async()=>{
         // Arrange & Act
-        await Service.start(logger, mockedAuditService, mockedTransfersRepository, mockedBulkTransfersRepository, mockedConfigProvider, metricsMock);
+        await Service.start(logger, mockedAuditService, mockedTransfersRepository, mockedBulkTransfersRepository, metricsMock);
 
         // Assert
-        expect(configurationClientInitSpy).toHaveBeenCalledTimes(1);
-        expect(configurationClientBootstrapSpy).toHaveBeenCalledTimes(1);
-        expect(configurationClientFetchSpy).toHaveBeenCalledTimes(1);
+        expect(tokenHelperInitSpy).toHaveBeenCalledTimes(1);
 
         // Cleanup
         await Service.stop();
@@ -164,13 +172,16 @@ describe('API Service - Unit Tests for TransfersBC API Service', () => {
     });
 
     test("should teardown instances when server stopped", async()=>{
-        // Arrange & Act
-        await Service.start(logger, mockedAuditService, mockedTransfersRepository, mockedBulkTransfersRepository, mockedConfigProvider, metricsMock);
+        // Arrange
+        jest.spyOn(mockedAuditService,'destroy')
+       
+        // Act
+        await Service.start(logger, mockedAuditService, mockedTransfersRepository, mockedBulkTransfersRepository, metricsMock);
 
         await Service.stop();
 
         // Assert
-        expect(configurationClientDestroySpy).toHaveBeenCalledTimes(1);
+        expect(mockedAuditService.destroy).toHaveBeenCalledTimes(1);
 
     });
 

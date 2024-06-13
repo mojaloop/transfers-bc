@@ -208,7 +208,7 @@ export class Service {
             configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
         }
 
-        this.configClient = GetTransfersConfigSet(configProvider, BC_NAME, APP_NAME, APP_VERSION);
+        this.configClient = GetTransfersConfigSet(BC_NAME, configProvider);
         await this.configClient.init();
         await this.configClient.bootstrap(true);
         await this.configClient.fetch();
@@ -350,7 +350,7 @@ export class Service {
 
             this.expressServer = this.app.listen(SVC_DEFAULT_HTTP_PORT, () => {
                 globalLogger.info(`🚀Server ready at: http://localhost:${SVC_DEFAULT_HTTP_PORT}`);
-                globalLogger.info(`Transfer Command Handler Service started, version: ${this.configClient.applicationVersion}`);
+                globalLogger.info(`Transfer Command Handler Service started, version: ${APP_VERSION}`);
                 resolve();
             });
 
