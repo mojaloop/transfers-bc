@@ -211,7 +211,7 @@ export class Service {
                 }, logger.createChild("authorizationClientConsumer")
             );
 
-            // setup privileges - bootstrap app privs and get priv/role associations
+            // setup privileges - get priv/role associations
             authorizationClient = new AuthorizationClient(
                 BC_NAME, 
                 APP_VERSION,

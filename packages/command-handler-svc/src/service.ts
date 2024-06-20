@@ -69,15 +69,18 @@ import process from "process";
 import {TransfersCommandHandler} from "./handler";
 import {
 	AuthenticatedHttpRequester,
+    AuthorizationClient,
     LoginHelper
 } from "@mojaloop/security-bc-client-lib";
-import {IAuthenticatedHttpRequester} from "@mojaloop/security-bc-public-types-lib";
+import {IAuthenticatedHttpRequester,IAuthorizationClient} from "@mojaloop/security-bc-public-types-lib";
 import {IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-client-lib";
 
 import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import {TransfersPrivilegesDefinition} from "@mojaloop/transfers-bc-domain-lib";
+import crypto from "crypto";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -104,8 +107,8 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 // const AUTH_N_TOKEN_ISSUER_NAME = process.env["AUTH_N_TOKEN_ISSUER_NAME"] || "http://localhost:3201/";
 // const AUTH_N_TOKEN_AUDIENCE = process.env["AUTH_N_TOKEN_AUDIENCE"] || "mojaloop.vnext.default_audience";
 // const AUTH_N_SVC_JWKS_URL = process.env["AUTH_N_SVC_JWKS_URL"] || `${AUTH_N_SVC_BASEURL}/.well-known/jwks.json`;
-//
-// const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
+
+const AUTH_Z_SVC_BASEURL = process.env["AUTH_Z_SVC_BASEURL"] || "http://localhost:3202";
 
 const ACCOUNTS_BALANCES_COA_SVC_URL = process.env["ACCOUNTS_BALANCES_COA_SVC_URL"] || "localhost:3300";
 const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://localhost:3010";
@@ -159,6 +162,7 @@ export class Service {
 	static settlementsAdapter: ISettlementsServiceAdapter;
 	static schedulingAdapter: ISchedulingServiceAdapter;
     static configClient: IConfigurationClient;
+    static authorizationClient: IAuthorizationClient;
     static startupTimer: NodeJS.Timeout;
 
     static async start(
@@ -174,6 +178,7 @@ export class Service {
         settlementsAdapter?: ISettlementsServiceAdapter,
         schedulingAdapter?: ISchedulingServiceAdapter,
         configProvider?: IConfigProvider,
+        authorizationClient?: IAuthorizationClient,
         aggregate?: TransfersAggregate,
     ): Promise<void> {
         console.log(`Service starting with PID: ${process.pid}`);
@@ -212,6 +217,38 @@ export class Service {
         await this.configClient.init();
         await this.configClient.bootstrap(true);
         await this.configClient.fetch();
+
+        // authorization client
+        if (!authorizationClient) {
+            // create the instance of IAuthenticatedHttpRequester
+            const authRequester = new AuthenticatedHttpRequester(logger, AUTH_N_SVC_TOKEN_URL);
+            authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+
+            const messageConsumer = new MLKafkaJsonConsumer(
+                {
+                    kafkaBrokerList: KAFKA_URL,
+                    kafkaGroupId: `${BC_NAME}_${APP_NAME}_authz_client`
+                }, logger.createChild("authorizationClientConsumer")
+            );
+
+            // setup privileges - bootstrap app privs and get priv/role associations
+            authorizationClient = new AuthorizationClient(
+                BC_NAME, 
+                APP_VERSION,
+                AUTH_Z_SVC_BASEURL, 
+                logger.createChild("AuthorizationClient"),
+                authRequester,
+                messageConsumer
+            );
+
+
+            authorizationClient.addPrivilegesArray(TransfersPrivilegesDefinition);
+            await (authorizationClient as AuthorizationClient).bootstrap(true);
+            await (authorizationClient as AuthorizationClient).fetch();
+            // init message consumer to automatically update on role changed events
+            await (authorizationClient as AuthorizationClient).init();
+        }
+        this.authorizationClient = authorizationClient;
 
         /// start auditClient
         if (!auditClient) {
