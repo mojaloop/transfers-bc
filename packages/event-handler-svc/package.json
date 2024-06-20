@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/transfers-bc-event-handler-svc",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "description": "Mojaloop vNext Transfers BC - Event Handler Service",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/transfers-bc/event-handler-svc",
