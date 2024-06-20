@@ -99,6 +99,7 @@ jest.mock('@mojaloop/platform-configuration-bc-client-lib', () => {
     };
 });
 
+jest.mock('@mojaloop/security-bc-client-lib');
 jest.mock('@mojaloop/auditing-bc-client-lib');
 jest.mock('@mojaloop/platform-shared-lib-nodejs-kafka-client-lib');
 jest.mock('@mojaloop/transfers-bc-implementations-lib');
