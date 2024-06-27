@@ -167,10 +167,6 @@ const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
     ],
     "expiration": 1715939691772,
     extensionList: null,
-    prepare: {
-        headers: {},
-        payload: ''
-    }
 };
 
 const validBulkTransferPutPayload = {
@@ -1093,10 +1089,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerIdType: command.payload.payerIdType,
             payeeIdType: command.payload.payeeIdType,
             transferType: command.payload.transferType,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -2207,10 +2199,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerIdType: commandPrepareTransfer.payload.payerIdType,
             payeeIdType: commandPrepareTransfer.payload.payeeIdType,
             transferType: commandPrepareTransfer.payload.transferType,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -2255,10 +2243,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             completedTimestamp: validTransferPutPayload.completedTimestamp,
             extensionList: validTransferPutPayload.extensionList,
             notifyPayee: false,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -2550,11 +2534,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             individualTransfers: validBulkTransferPostPayload.individualTransfers,
             expiration: validBulkTransferPostPayload.expiration,
             extensionList: null,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
-    
         })
 
         jest.spyOn(messageProducer, "send");
@@ -2605,10 +2584,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             bulkTransferState: validBulkTransferPutPayload.bulkTransferState as BulkTransferState.PROCESSING,
             individualTransferResults: validBulkTransferPutPayload.individualTransferResults,
             extensionList: null,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -3126,10 +3101,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         const cmd = new RejectTransferCmd({
             transferId: validRejectTransferPostPayload.transferId,
             errorInformation: validRejectTransferPostPayload.errorInformation,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -3244,10 +3215,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         const cmd = new RejectBulkTransferCmd({
             bulkTransferId: validRejectBulkTransferPostPayload.bulkTransferId,
             errorInformation: validRejectBulkTransferPostPayload.errorInformation,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -3640,10 +3607,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
         const cmd = new QueryTransferCmd({
             transferId: validTransferPostContinuePayload.transferId,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
 
         jest.spyOn(messageProducer, "send");
@@ -3862,10 +3825,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
         const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
         const cmd = new QueryBulkTransferCmd({
             bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
-            prepare: {
-                headers: {},
-                payload: ''
-            }
         });
         
         jest.spyOn(messageProducer, "send");

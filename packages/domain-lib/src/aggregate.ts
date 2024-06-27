@@ -2038,7 +2038,6 @@ export class TransfersAggregate {
                 payerIdType: individualTransfer.payerIdType, 
                 payeeIdType: individualTransfer.payeeIdType,
                 transferType: individualTransfer.transferType,
-                prepare: message.fspiopOpaqueState
             });
 
             await this._prepareTransferStart(transferCmd);
@@ -2200,7 +2199,6 @@ export class TransfersAggregate {
                 completedTimestamp: message.payload.completedTimestamp,
                 notifyPayee: false,
                 extensionList: individualTransfer.extensionList,
-                prepare: message.fspiopOpaqueState
             });
 
             await this._fulfilTransferStart(transferCmd);
@@ -2347,7 +2345,6 @@ export class TransfersAggregate {
             const transferCmd:RejectTransferCmd = new RejectTransferCmd({
                 transferId: individualTransfer.transferId,
                 errorInformation: individualTransfer.errorCode as unknown as IErrorInformation,
-                prepare: message.fspiopOpaqueState
             });
 
             await this._rejectTransfer(transferCmd);

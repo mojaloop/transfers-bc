@@ -82,7 +82,6 @@ describe("Transfers Command Handler - Integration", () => {
             condition: "condition",
             expiration: 123,
             extensionList: null,
-            prepare: {} as any
 		});
 
                 
@@ -117,7 +116,6 @@ describe("Transfers Command Handler - Integration", () => {
             condition: "condition",
             expiration: 123,
             extensionList: null,
-            prepare: {} as any
 		});
 
         command.msgType = "nonexisting type" as any;

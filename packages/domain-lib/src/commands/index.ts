@@ -54,10 +54,6 @@ export type PrepareTransferCmdPayload = {
 	payerIdType: string; 
     payeeIdType: string;
     transferType: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class PrepareTransferCmd extends CommandMsg {
@@ -92,10 +88,6 @@ export type CommitTransferFulfilCmdPayload = {
         }[]
     } | null;
 	notifyPayee: boolean;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 
@@ -131,10 +123,6 @@ export type RejectTransferCmdPayload = {
             }[];
         } | null;
 	};
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class RejectTransferCmd extends CommandMsg {
@@ -159,10 +147,6 @@ export class RejectTransferCmd extends CommandMsg {
 
 export type QueryTransferCmdPayload = {
 	transferId: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class QueryTransferCmd extends CommandMsg {
@@ -244,10 +228,6 @@ export type PrepareBulkTransferCmdPayload = {
             value: string;
         }[]
     } | null;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 export class PrepareBulkTransferCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -299,10 +279,6 @@ export type CommitBulkTransferFulfilCmdPayload = {
             value: string;
         }[]
     } | null;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 export class CommitBulkTransferFulfilCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -336,10 +312,6 @@ export type RejectBulkTransferCmdPayload = {
 			}[]
 		} | null;
 	};
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class RejectBulkTransferCmd extends CommandMsg {
@@ -364,10 +336,6 @@ export class RejectBulkTransferCmd extends CommandMsg {
 
 export type QueryBulkTransferCmdPayload = {
 	bulkTransferId: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class QueryBulkTransferCmd extends CommandMsg {
