@@ -206,7 +206,7 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
 
     test("should return a empty array when there are no transfers", async () => {
          // Act
-         const result = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null, null, null, null, 0, 0);
+         const result = await mongoTransfersRepo.getTransfers(null,null,null,null,null,null, null, null, null, null, 0, 0);
 
          // Assert
          expect(result).toBeDefined();

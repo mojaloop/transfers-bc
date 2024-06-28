@@ -538,7 +538,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
         });
 
         // Act & Assert
-        await expect(mongoTransfersRepo.getTransfers(null, null, null, null, null, null, null, null, null, 0, 10)).rejects.toThrow(UnableToSearchTransfers);
+        await expect(mongoTransfersRepo.getTransfers(null, null, null, null, null, null, null, null, null, null, 0, 10)).rejects.toThrow(UnableToSearchTransfers);
     });
 
     it('should return distinct search keywords for different fields', async () => {
