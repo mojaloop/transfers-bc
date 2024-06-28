@@ -501,8 +501,8 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
                 { transferType: 'transferType' },
                 { payerIdType: 'payerIdType' },
                 { payeeIdType: 'payeeIdType' },
-                { amount: '0.0' },
                 { bulkTransferId: { $regex: 'bulkTransferId', $options: 'i' } },
+                { amount: '0.0' },
             ],
         },{
             limit: 100, 
