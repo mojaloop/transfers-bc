@@ -485,6 +485,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
             "payerId",
             "payeeId",
             "bulkTransferId",
+            "0.0",
             0,
             0,
         );
@@ -501,6 +502,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
                 { payerIdType: 'payerIdType' },
                 { payeeIdType: 'payeeIdType' },
                 { bulkTransferId: { $regex: 'bulkTransferId', $options: 'i' } },
+                { amount: '0.0' },
             ],
         },{
             limit: 100, 
@@ -522,6 +524,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
                 { payerIdType: 'payerIdType' },
                 { payeeIdType: 'payeeIdType' },
                 { bulkTransferId: { $regex: 'bulkTransferId', $options: 'i' } },
+                { amount: '0.0' },
             ],
         });
 
@@ -537,7 +540,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
         });
 
         // Act & Assert
-        await expect(mongoTransfersRepo.getTransfers(null, null, null, null, null, null, null, null, null, 0, 10)).rejects.toThrow(UnableToSearchTransfers);
+        await expect(mongoTransfersRepo.getTransfers(null, null, null, null, null, null, null, null, null, null, 0, 10)).rejects.toThrow(UnableToSearchTransfers);
     });
 
     it('should return distinct search keywords for different fields', async () => {
