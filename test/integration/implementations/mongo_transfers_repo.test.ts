@@ -211,8 +211,8 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
          // Assert
          expect(result).toBeDefined();
          expect(result).toEqual({
-            "items": [], 
-            "pageIndex": 0, 
+            "items": [],
+            "pageIndex": 0,
             "pageSize": 100,
             "totalPages": 0
         });
@@ -233,6 +233,7 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
             null,
             null,
             null,
+            null,
             0,
             0
         );
@@ -241,8 +242,8 @@ describe("Implementations - Mongo transfers Repo Integration tests", () => {
         expect(result).toBeDefined();
         expect(result.items).toHaveLength(1);
         expect(result).toEqual({
-            "items": [transfer1], 
-            "pageIndex": 0, 
+            "items": [transfer1],
+            "pageIndex": 0,
             "pageSize": 100,
             "totalPages": 1
         });
