@@ -485,6 +485,7 @@ describe("Implementations - Mongo Transfers Repo Unit Tests", () => {
             "payerId",
             "payeeId",
             "bulkTransferId",
+            "amount",
             0,
             0,
         );
