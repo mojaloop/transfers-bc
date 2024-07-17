@@ -31,7 +31,7 @@
 
 "use strict";
 
-import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
+import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import { IInteropFspiopValidator } from "@mojaloop/transfers-bc-domain-lib";
 import { ITransfer } from "@mojaloop/transfers-bc-public-types-lib";
 

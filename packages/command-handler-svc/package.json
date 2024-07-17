@@ -41,6 +41,7 @@
         "@mojaloop/transfers-bc-implementations-lib": "*",
         "@mojaloop/transfers-bc-config-lib": "*",
         "@mojaloop/auditing-bc-client-lib": "~0.5.3",
+        "@mojaloop/interop-bc-client-lib": "~0.6.2",
         "@mojaloop/logging-bc-client-lib": "~0.5.8",
         "@mojaloop/logging-bc-public-types-lib": "~0.5.4",
         "@mojaloop/platform-configuration-bc-client-lib": "~0.6.3",

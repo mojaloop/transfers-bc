@@ -30,7 +30,6 @@
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IInteropFspiopValidator } from "@mojaloop/transfers-bc-domain-lib";
-import { InteropValidationClient } from "@mojaloop/interop-bc-client-lib";
 import { ITransfer } from "@mojaloop/transfers-bc-public-types-lib";
 import { InteropFspiopValidator } from "../../../src/external_adapters/interop_apis_adapter";
 
