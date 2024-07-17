@@ -34,8 +34,8 @@
 
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageProducer } from "@mojaloop/platform-shared-lib-messaging-types-lib";
-import { MemoryTransferRepo, MemoryBulkTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService, MemorySettlementsService, MemorySchedulingService } from "@mojaloop/transfers-bc-shared-mocks-lib";
-import { ITransfersRepository, IParticipantsServiceAdapter, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
+import { MemoryTransferRepo, MemoryBulkTransferRepo, MemoryMessageProducer, MemoryParticipantService, MemoryAccountsAndBalancesService, MemorySettlementsService, MemorySchedulingService, MemoryInteropValidator } from "@mojaloop/transfers-bc-shared-mocks-lib";
+import { ITransfersRepository, IParticipantsServiceAdapter, IAccountsBalancesAdapter, ISettlementsServiceAdapter, ISchedulingServiceAdapter, IBulkTransfersRepository, IInteropFspiopValidator } from "@mojaloop/transfers-bc-domain-lib";
 
 const logger: ILogger = new ConsoleLogger();
 logger.setLogLevel(LogLevel.FATAL);
@@ -54,6 +54,8 @@ const settlementsService: ISettlementsServiceAdapter = new MemorySettlementsServ
 
 const schedulingService: ISchedulingServiceAdapter = new MemorySchedulingService(logger);
 
+const interopFspiopValidator: IInteropFspiopValidator = new MemoryInteropValidator(logger);
+
 export {
     logger,
     transfersRepo,
@@ -62,5 +64,6 @@ export {
     participantService,
     accountsAndBalancesService,
     settlementsService,
-    schedulingService
+    schedulingService,
+    interopFspiopValidator
 };

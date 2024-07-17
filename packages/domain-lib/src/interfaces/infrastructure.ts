@@ -38,6 +38,8 @@ import {
     AccountsAndBalancesAccountType, IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 import { IReminder } from "@mojaloop/scheduling-bc-public-types-lib";
+import { TransferFulfilRequestedEvt } from "@mojaloop/platform-shared-lib-public-messages-lib";
+
 export interface ITransfersRepository {
     init(): Promise<void>;
     destroy(): Promise<void>;
@@ -139,4 +141,8 @@ export interface ISchedulingServiceAdapter {
     createSingleReminder(id: string, time: string | number, payload: any): Promise<string | void>; // eslint-disable-line @typescript-eslint/no-explicit-any
     getReminder(reminderId: string): Promise<IReminder | null | void>;
     deleteReminder(reminderId: string): Promise<void>;
+}
+
+export interface IInteropFspiopValidator {
+    validateFulfilmentOpaqueState(fspiopOpaqueState: any, transfer: ITransfer): boolean;
 }

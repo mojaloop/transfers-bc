@@ -32,8 +32,23 @@
 
 "use strict";
 
-import { ApprovalRequestState, IParticipant, ParticipantAccountTypes, ParticipantChangeTypes, ParticipantEndpointProtocols, ParticipantEndpointTypes, ParticipantFundsMovementDirections, ParticipantFundsMovementTypes, ParticipantTypes } from "@mojaloop/participant-bc-public-types-lib";
-import { BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodes, TransferState } from "@mojaloop/transfers-bc-public-types-lib";
+import { 
+	ApprovalRequestState,
+	IParticipant,
+	ParticipantAccountTypes,
+	ParticipantChangeTypes,
+	ParticipantEndpointProtocols,
+	ParticipantEndpointTypes,
+	ParticipantFundsMovementTypes,
+	ParticipantTypes
+} from "@mojaloop/participant-bc-public-types-lib";
+import {
+	BulkTransferState,
+	IBulkTransfer,
+	ITransfer,
+	TransferErrorCodes,
+	TransferState
+} from "@mojaloop/transfers-bc-public-types-lib";
 
 const now = Date.now();
 
@@ -45,18 +60,7 @@ export const mockedTransfer1 : ITransfer = {
     transferId: "1",
     amount: "200",
     currencyCode: "EUR",
-	extensionList: {
-      extension: [
-        {
-          key: "key",
-          value: "value"
-        }
-      ]
-    },
     transferState: TransferState.COMMITTED,
-    ilpPacket: "omnis",
-    condition: "omnis",
-    fulfilment: "1",
     expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
@@ -65,7 +69,9 @@ export const mockedTransfer1 : ITransfer = {
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
 	transferType: "DEPOSIT",
-	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
+	extensions: [],
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	fspiopOpaqueState: null
 };
 
 export const mockedTransfer2 : ITransfer = {
@@ -76,18 +82,7 @@ export const mockedTransfer2 : ITransfer = {
 	transferId: "2",
 	amount: "300",
 	currencyCode: "USD",
-	extensionList: {
-		extension: [
-		{
-			key: "key",
-			value: "value"
-		}
-		]
-	},
 	transferState: TransferState.RESERVED,
-	ilpPacket: "omnis",
-	condition: "omnis",
-	fulfilment: "1",
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
@@ -96,7 +91,9 @@ export const mockedTransfer2 : ITransfer = {
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
 	transferType: "DEPOSIT",
-	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
+	extensions: [],
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	fspiopOpaqueState: null
 };
 
 export const mockedTransfer3 : ITransfer = {
@@ -107,18 +104,7 @@ export const mockedTransfer3 : ITransfer = {
 	transferId: "3",
 	amount: "400",
 	currencyCode: "USD",
-	extensionList: {
-		extension: [
-		{
-			key: "key",
-			value: "value"
-		}
-		]
-	},
 	transferState: TransferState.ABORTED,
-	ilpPacket: "omnis",
-	condition: "omnis",
-	fulfilment: "1",
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
@@ -127,7 +113,9 @@ export const mockedTransfer3 : ITransfer = {
 	payerIdType: "MSISDN", 
 	payeeIdType: "IBAN",
 	transferType: "DEPOSIT",
-	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
+	extensions: [],
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	fspiopOpaqueState: null
 };
 
 export const mockedTransfer4 : ITransfer = {
@@ -138,27 +126,18 @@ export const mockedTransfer4 : ITransfer = {
 	transferId: "4",
 	amount: "1000",
 	currencyCode: "EUR",
-	extensionList: {
-		extension: [
-		{
-			key: "key",
-			value: "value"
-		}
-		]
-	},
 	transferState: TransferState.COMMITTED,
-	ilpPacket: "omnis",
-	condition: "omnis",
-	fulfilment: "1",
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	payerIdType: "MSISDN", 
+	payerIdType: "MSISDN",
 	payeeIdType: "IBAN",
 	transferType: "DEPOSIT",
-	errorCode: TransferErrorCodes.TRANSFER_EXPIRED
+	extensions: [],
+	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	fspiopOpaqueState: null
 };
 
 export const mockedTransfer5 : ITransfer = {
@@ -169,27 +148,18 @@ export const mockedTransfer5 : ITransfer = {
 	transferId: "4",
 	amount: "1000",
 	currencyCode: "EUR",
-	extensionList: {
-		extension: [
-		{
-			key: "key",
-			value: "value"
-		}
-		]
-	},
 	transferState: TransferState.COMMITTED,
-	ilpPacket: "omnis",
-	condition: "omnis",
-	fulfilment: "1",
 	expirationTimestamp: now,
 	completedTimestamp: now,
 	settlementModel: "DEFAULT",
 	hash: "randomhash",
 	bulkTransferId: null,
-	payerIdType: "MSISDN", 
+	payerIdType: "MSISDN",
 	payeeIdType: "IBAN",
 	transferType: "DEPOSIT",
-	errorCode: null
+	extensions: [],
+	errorCode: null,
+	fspiopOpaqueState: null
 };
 
 
@@ -597,9 +567,6 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
 			"currency": "USD",
 			"amount": "10"
 		},
-		"ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-		"condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-		"extensionList": null
 	}],
     expiration: 2697585442210,
     transfersPreparedProcessedIds: [],
@@ -607,7 +574,7 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.RECEIVED,
 	errorCode: null,
-    extensionList: null
+	fspiopOpaqueState: null
 };
 
 export const mockedBulkTransfer2 : IBulkTransfer = {
@@ -624,9 +591,6 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
 			"currency": "USD",
 			"amount": "10"
 		},
-		"ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-		"condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-		"extensionList": null
 	}],
     expiration: 2697585442210,
     transfersPreparedProcessedIds: [],
@@ -634,7 +598,7 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.PROCESSING,
 	errorCode: null,
-    extensionList: null
+	fspiopOpaqueState: null
 };
 
 export const mockedTransferPreparePayload = {
@@ -643,15 +607,11 @@ export const mockedTransferPreparePayload = {
     payerFsp: "examplePayerFSP",
     amount: "100.00",
     currencyCode: "USD",
-    ilpPacket: "exampleILPPacket",
-    condition: "exampleCondition",
     expiration: 1621080000,
-    extensionList: {
-        extension: [
-            { key: "exampleKey1", value: "exampleValue1" },
-            { key: "exampleKey2", value: "exampleValue2" }
-        ]
-    },
+	extensions: [
+		{ key: "exampleKey1", value: "exampleValue1" },
+		{ key: "exampleKey2", value: "exampleValue2" }
+	],
     payerIdType: "MSISDN",
     payeeIdType: "MSISDN",
     transferType: "exampleTransferType"
@@ -660,14 +620,7 @@ export const mockedTransferPreparePayload = {
 export const mockedTransferFulfilPayload = {
     transferId: "9876543210",
     transferState: "PROCESSING",
-    fulfilment: null,
     completedTimestamp: 1621080000,
-    extensionList: {
-        extension: [
-            { key: "exampleKey1", value: "exampleValue1" },
-            { key: "exampleKey2", value: "exampleValue2" }
-        ]
-    },
     notifyPayee: true
 };
 
@@ -702,9 +655,7 @@ export const mockedBulkTransferPreparePayload = {
 				currency: "USD",
 				amount: "50.00"
 			},
-			ilpPacket: "exampleILPPacket1",
-			condition: "exampleCondition1",
-			extensionList: null,
+			extensions: [],
 			payerIdType: "MSISDN",
 			payeeIdType: "MSISDN",
 			transferType: "exampleTransferType1"
@@ -715,21 +666,16 @@ export const mockedBulkTransferPreparePayload = {
 				currency: "USD",
 				amount: "100.00"
 			},
-			ilpPacket: "exampleILPPacket2",
-			condition: "exampleCondition2",
-			extensionList: {
-				extension: [
-					{ key: "exampleKey3", value: "exampleValue3" },
-					{ key: "exampleKey4", value: "exampleValue4" }
-				]
-			},
+			extensions: [
+				{ key: "exampleKey3", value: "exampleValue3" },
+				{ key: "exampleKey4", value: "exampleValue4" }
+			],
 			payerIdType: "MSISDN",
 			payeeIdType: "MSISDN",
 			transferType: "exampleTransferType2"
 		}
 	],
 	expiration: 1621080000,
-	extensionList: null
 };
 
 export const mockedBulkTransferFulfilPayload = {
@@ -741,7 +687,7 @@ export const mockedBulkTransferFulfilPayload = {
             transferId: "111111",
             fulfilment: "exampleFulfilment1",
             errorInformation: null,
-            extensionList: null
+            extensions: []
         },
         {
             transferId: "222222",
@@ -756,10 +702,9 @@ export const mockedBulkTransferFulfilPayload = {
                     ]
                 }
             },
-            extensionList: null
+            extensions: []
         }
     ],
-    extensionList: null
 };
 
 export const mockedBulkTransferRejectedPayload = {

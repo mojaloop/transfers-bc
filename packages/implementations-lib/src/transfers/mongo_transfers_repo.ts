@@ -328,20 +328,19 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			payerFspId: transfer.payerFspId ?? null,
 			amount: transfer.amount ?? null,
 			currencyCode: transfer.currencyCode ?? null,
-			ilpPacket: transfer.ilpPacket ?? null,
-			condition: transfer.condition ?? null,
 			expirationTimestamp: transfer.expirationTimestamp ?? null,
 			transferState: transfer.transferState ?? null,
-			fulfilment: transfer.fulfilment ?? null,
 			completedTimestamp: transfer.completedTimestamp ?? null,
-			extensionList: transfer.extensionList ?? null,
 			settlementModel: transfer.settlementModel ?? null,
 			hash: transfer.hash ?? null,
 			bulkTransferId: transfer.bulkTransferId ?? null,
 			payerIdType: transfer.payerIdType ?? null, 
 			payeeIdType: transfer.payeeIdType ?? null,
 			transferType: transfer.transferType ?? null,
+			extensions: transfer.extensions ?? null,
 			errorCode: transfer.errorInformation ?? null,
+			// Protocol Specific
+			fspiopOpaqueState: transfer.fspiopOpaqueState ?? null,
 		};
 
 		return transferMapped;

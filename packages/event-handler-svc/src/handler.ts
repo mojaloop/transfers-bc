@@ -202,13 +202,11 @@ export class TransfersEventHandler{
 			currencyCode: evt.payload.currencyCode,
 			payerFsp: evt.payload.payerFsp,
 			payeeFsp: evt.payload.payeeFsp,
-			ilpPacket: evt.payload.ilpPacket,
 			expiration: evt.payload.expiration,
-			condition: evt.payload.condition,
-			extensionList: evt.payload.extensionList,
 			payerIdType: evt.payload.payerIdType, 
 			payeeIdType: evt.payload.payeeIdType,
-			transferType: evt.payload.transferType
+			transferType: evt.payload.transferType,
+			extensions: evt.payload.extensions
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -219,9 +217,7 @@ export class TransfersEventHandler{
 		const cmdPayload: CommitTransferFulfilCmdPayload = {
 			transferId: evt.payload.transferId,
 			transferState: evt.payload.transferState,
-			fulfilment: evt.payload.fulfilment,
 			completedTimestamp: evt.payload.completedTimestamp,
-			extensionList: evt.payload.extensionList,
 			notifyPayee: evt.payload.notifyPayee,
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
@@ -266,7 +262,6 @@ export class TransfersEventHandler{
 			payeeFsp: evt.payload.payeeFsp,
             individualTransfers: evt.payload.individualTransfers,
 			expiration: evt.payload.expiration,
-			extensionList: evt.payload.extensionList,
 		};
 		const cmd = new PrepareBulkTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -279,7 +274,6 @@ export class TransfersEventHandler{
 			completedTimestamp: evt.payload.completedTimestamp,
 			bulkTransferState: evt.payload.bulkTransferState,
 			individualTransferResults: evt.payload.individualTransferResults,
-			extensionList: evt.payload.extensionList,
 		};
 		const cmd = new CommitBulkTransferFulfilCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;

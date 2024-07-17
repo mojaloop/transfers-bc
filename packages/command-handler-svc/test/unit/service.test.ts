@@ -50,7 +50,8 @@ import {
     MemoryBulkTransferRepo,
     MemoryAccountsAndBalancesService,
     MemorySettlementsService,
-    MemorySchedulingService 
+    MemorySchedulingService, 
+    MemoryInteropValidator
 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import { IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
@@ -85,6 +86,7 @@ const mockedConfigProvider: IConfigProvider = new MemoryConfigProvider(logger);
 
 const metricsMock: IMetrics = new MetricsMock();
 
+const mockedInteropFspiopValidator = new MemoryInteropValidator(logger);
 
 jest.mock('@mojaloop/platform-configuration-bc-client-lib', () => {
     return {
@@ -120,7 +122,7 @@ describe('Command Handler - Unit Tests for TransfersBC Command Handler Service',
 
         // Act
         await Service.start(logger, mockedAuditService, mockedMessageConsumer, mockedMessageProducer, mockedParticipantService, mockedTransferRepository, mockedBulkTransferRepository, mockedAccountsAndBalancesService,
-            metricsMock, mockedSettlementsService, mockedSchedulingService, mockedConfigProvider);
+            metricsMock, mockedSettlementsService, mockedSchedulingService, mockedInteropFspiopValidator, mockedConfigProvider);
 
         // Assert
         expect(spyConsumerSetTopics).toHaveBeenCalledTimes(1);
@@ -140,7 +142,7 @@ describe('Command Handler - Unit Tests for TransfersBC Command Handler Service',
 
         // Act
         await Service.start(logger, mockedAuditService, mockedMessageConsumer, mockedMessageProducer, mockedParticipantService, mockedTransferRepository, mockedBulkTransferRepository, mockedAccountsAndBalancesService,
-            metricsMock, mockedSettlementsService, mockedSchedulingService, mockedConfigProvider);
+            metricsMock, mockedSettlementsService, mockedSchedulingService, mockedInteropFspiopValidator, mockedConfigProvider);
 
         await Service.stop();
 

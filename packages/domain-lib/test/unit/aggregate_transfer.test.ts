@@ -83,7 +83,8 @@ import {
     accountsAndBalancesService,
     settlementsService,
     schedulingService,
-    logger 
+    logger, 
+    interopFspiopValidator
 } from "../utils/mocked_variables";
 import { IMetrics, MetricsMock } from "@mojaloop/platform-shared-lib-observability-types-lib";
 import { 
@@ -157,16 +158,13 @@ const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
                 "currency": "USD",
                 "amount": "10"
             },
-            "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-            "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-            extensionList: null,
             payerIdType: '',
             payeeIdType: '',
-            transferType: ''
+            transferType: '',
+            extensions: [],
         }
     ],
     "expiration": 1715939691772,
-    extensionList: null,
 };
 
 const validBulkTransferPutPayload = {
@@ -217,7 +215,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
             accountsAndBalancesService,
             metricsMock,
             settlementsService,
-            schedulingService
+            schedulingService,
+            interopFspiopValidator
         );
 
         validTransfer = {
@@ -229,19 +228,17 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerFspId: "bluebank",
             amount: "10.5",
             currencyCode: "USD",
-            ilpPacket: "AYICSwAAAAAAAABkFGcuZ3JlZW5iYW5rLm1zaXNkbi4xggIqZXlKMGNtRnVjMkZqZEdsdmJrbGtJam9pTUdaaVlXWXhZVFV0WkRneVlpMDFZbUptTFRsbVptVXRPV1E0TldabFpEbGpabVE0SWl3aWNYVnZkR1ZKWkNJNklqSXlORE5tWkdKbExUVmtaV0V0TTJGaVpDMWhNakV3TFRNM09EQmxOMlkwWmpGbU5TSXNJbkJoZVdWbElqcDdJbkJoY25SNVNXUkpibVp2SWpwN0luQmhjblI1U1dSVWVYQmxJam9pVFZOSlUwUk9JaXdpY0dGeWRIbEpaR1Z1ZEdsbWFXVnlJam9pTVNJc0ltWnpjRWxrSWpvaVozSmxaVzVpWVc1ckluMTlMQ0p3WVhsbGNpSTZleUp3WVhKMGVVbGtTVzVtYnlJNmV5SndZWEowZVVsa1ZIbHdaU0k2SWsxVFNWTkVUaUlzSW5CaGNuUjVTV1JsYm5ScFptbGxjaUk2SWpFaUxDSm1jM0JKWkNJNkltSnNkV1ZpWVc1ckluMTlMQ0poYlc5MWJuUWlPbnNpWTNWeWNtVnVZM2tpT2lKVlUwUWlMQ0poYlc5MWJuUWlPaUl4SW4wc0luUnlZVzV6WVdOMGFXOXVWSGx3WlNJNmV5SnpZMlZ1WVhKcGJ5STZJa1JGVUU5VFNWUWlMQ0pwYm1sMGFXRjBiM0lpT2lKUVFWbEZVaUlzSW1sdWFYUnBZWFJ2Y2xSNWNHVWlPaUpDVlZOSlRrVlRVeUo5ZlEA",				// move to opaque object
-            condition: "VFWFNc85U0f23hniAuTmwk6XVVlR0llxRZ-xqPrCShk",
-            fulfilment: "on1meDEOvLmjYTvujP438_lhaMCi8V0wx0uUvjp8vT0",
             expirationTimestamp: new Date("2023-09-19T06:23:25.908Z").getTime(),
             transferState: TransferState.RESERVED,
             completedTimestamp: 1695659531014,
-            extensionList: null,
+            extensions: [],
             settlementModel: "DEFAULT",
             hash: "FMXpM1VNkEQKj8WGEgNXC5HpohnLJ/afDMFEYHHuUXw",
             payerIdType: "MSISDN",
             payeeIdType: "IBAN",
             transferType: "DEPOSIT",
-            errorCode:  null
+            errorCode:  null,
+            fspiopOpaqueState: null
         }
 
         const now = Date.now();
@@ -255,22 +252,19 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerFsp: "bluebank",
             completedTimestamp: 1697585442210,
             individualTransfers: [ {
-                "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
-                "transferAmount": {
-                    "currency": "USD",
-                    "amount": "10"
+                transferId: "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+                transferAmount: {
+                    currency: "USD",
+                    amount: "10"
                 },
-                "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-                "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-                "extensionList": null
             }],
             expiration: 2697585442210,
-            extensionList: null,
             transfersPreparedProcessedIds: [],
             transfersNotProcessedIds: [],
             transfersFulfiledProcessedIds: [],
             status: BulkTransferState.RECEIVED,
-            errorCode: null
+            errorCode: null,
+            fspiopOpaqueState: null
         }
 
     })
@@ -422,8 +416,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "msgName": TransferQueryResponseEvt.name,
                 "payload": {
                     "completedTimestamp": validTransfer.completedTimestamp,
-                    "extensionList": validTransfer.extensionList,
-                    "fulfilment": validTransfer.fulfilment,
                     "transferId": validTransfer.transferId,
                     "transferState": validTransfer.transferState
                 }
@@ -453,8 +445,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "msgName": TransferQueryResponseEvt.name,
                 "payload": {
                     "completedTimestamp": validTransfer.completedTimestamp,
-                    "extensionList": validTransfer.extensionList,
-                    "fulfilment": validTransfer.fulfilment,
                     "transferId": validTransfer.transferId,
                     "transferState": validTransfer.transferState
                 }
@@ -1082,13 +1072,11 @@ describe("Domain - Unit Tests for Command Handler", () => {
             currencyCode: validTransferPostPayload.currencyCode,
             payeeFsp: validTransferPostPayload.payeeFsp,
             payerFsp: validTransferPostPayload.payerFsp,
-            ilpPacket: validTransferPostPayload.ilpPacket,
             expiration: validTransferPostPayload.expiration,
-            condition: command.payload.condition,
-            extensionList: null,
             payerIdType: command.payload.payerIdType,
             payeeIdType: command.payload.payeeIdType,
             transferType: command.payload.transferType,
+            extensions: command.payload.extensions,
         });
 
         jest.spyOn(messageProducer, "send");
@@ -1116,10 +1104,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "transferId": cmd.payload.transferId,
                 "payerFsp": cmd.payload.payerFsp,
                 "payeeFsp": cmd.payload.payeeFsp,
-                "condition": cmd.payload.condition,
                 "currencyCode": cmd.payload.currencyCode,
                 "expiration": cmd.payload.expiration,
-                "ilpPacket": cmd.payload.ilpPacket
             })
         })]);
     });
@@ -2180,7 +2166,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
             accountsAndBalancesService,
             metricsMock,
             settlementsService,
-            schedulingService
+            schedulingService,
+            interopFspiopValidator
         );
 
         const commandPrepareTransfer: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
@@ -2192,13 +2179,11 @@ describe("Domain - Unit Tests for Command Handler", () => {
             currencyCode: validTransferPostPayload.currencyCode,
             payeeFsp: validTransferPostPayload.payeeFsp,
             payerFsp: validTransferPostPayload.payerFsp,
-            ilpPacket: validTransferPostPayload.ilpPacket,
             expiration: validTransferPostPayload.expiration,
-            condition: commandPrepareTransfer.payload.condition,
-            extensionList: null,
             payerIdType: commandPrepareTransfer.payload.payerIdType,
             payeeIdType: commandPrepareTransfer.payload.payeeIdType,
             transferType: commandPrepareTransfer.payload.transferType,
+            extensions: commandPrepareTransfer.payload.extensions,
         });
 
         jest.spyOn(messageProducer, "send");
@@ -2226,10 +2211,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "transferId": cmdPrepareTransfer.payload.transferId,
                 "payerFsp": cmdPrepareTransfer.payload.payerFsp,
                 "payeeFsp": cmdPrepareTransfer.payload.payeeFsp,
-                "condition": cmdPrepareTransfer.payload.condition,
                 "currencyCode": cmdPrepareTransfer.payload.currencyCode,
                 "expiration": cmdPrepareTransfer.payload.expiration,
-                "ilpPacket": cmdPrepareTransfer.payload.ilpPacket
             })
         })]);
         
@@ -2239,9 +2222,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         const cmd = new CommitTransferFulfilCmd({
             transferId: validTransferPostContinuePayload.transferId,
             transferState: validTransferPutPayload.transferState,
-            fulfilment: validTransferPutPayload.fulfilment,
             completedTimestamp: validTransferPutPayload.completedTimestamp,
-            extensionList: validTransferPutPayload.extensionList,
             notifyPayee: false,
         });
 
@@ -2272,9 +2253,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "msgName": TransferFulfiledEvt.name,
                 "payload": expect.objectContaining({
                     "transferId": cmd.payload.transferId,
-                    "fulfilment": cmd.payload.fulfilment,
                     "completedTimestamp": cmd.payload.completedTimestamp,
-                    "extensionList": cmd.payload.extensionList,
                 })
             })]);
         });
@@ -2521,7 +2500,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
             accountsAndBalancesService,
             metricsMock,
             settlementsService,
-            schedulingService
+            schedulingService,
+            interopFspiopValidator
         );
                 
         const commandBulkTransferPrepare: CommandMsg = createCommand(validBulkTransferPostPayload, PrepareBulkTransferCmd.name, null);
@@ -2533,7 +2513,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerFsp: validBulkTransferPostPayload.payerFsp,
             individualTransfers: validBulkTransferPostPayload.individualTransfers,
             expiration: validBulkTransferPostPayload.expiration,
-            extensionList: null,
         })
 
         jest.spyOn(messageProducer, "send");
@@ -2565,10 +2544,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
                     "individualTransfers": [{
                         "transferId": cmdBulkTransferPrepare.payload.individualTransfers[0].transferId,
                         "amount": cmdBulkTransferPrepare.payload.individualTransfers[0].transferAmount.amount,
-                        "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
                         "currencyCode": cmdBulkTransferPrepare.payload.individualTransfers[0].transferAmount.currency,
-                        "ilpPacket": cmdBulkTransferPrepare.payload.individualTransfers[0].ilpPacket,
-                        "extensionList": cmdBulkTransferPrepare.payload.individualTransfers[0].extensionList
                     }]
                 })
             })]);
@@ -2583,7 +2559,6 @@ describe("Domain - Unit Tests for Command Handler", () => {
             completedTimestamp: validBulkTransferPutPayload.completedTimestamp,
             bulkTransferState: validBulkTransferPutPayload.bulkTransferState as BulkTransferState.PROCESSING,
             individualTransferResults: validBulkTransferPutPayload.individualTransferResults,
-            extensionList: null,
         });
 
         jest.spyOn(messageProducer, "send");

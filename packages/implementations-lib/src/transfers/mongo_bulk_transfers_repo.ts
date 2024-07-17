@@ -203,14 +203,15 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
             payerFsp: bulkTransfer.payerFsp ?? null,
             payeeFsp: bulkTransfer.payeeFsp ?? null,
             expiration: bulkTransfer.expiration ?? null,
-            extensionList: bulkTransfer.extensionList ?? null,
             individualTransfers: bulkTransfer.individualTransfers ?? [],
             transfersPreparedProcessedIds: bulkTransfer.transfersPreparedProcessedIds ?? [],
             transfersNotProcessedIds: bulkTransfer.transfersNotProcessedIds ?? [],
             transfersFulfiledProcessedIds: bulkTransfer.transfersFulfiledProcessedIds ?? [],
             status: bulkTransfer.status ?? null,
             completedTimestamp: bulkTransfer.completedTimestamp ?? null,
-            errorCode: bulkTransfer.errorInformation ?? null
+            errorCode: bulkTransfer.errorInformation ?? null,
+            // Protocol Specific
+			fspiopOpaqueState: bulkTransfer.fspiopOpaqueState ?? null,
         };
         return bulkTransferMapped;
     }

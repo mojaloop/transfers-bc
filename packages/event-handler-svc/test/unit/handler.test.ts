@@ -121,7 +121,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -156,7 +162,14 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            },
+            fullfilment: "abc"
         };
 
         const receivedMessages = [
@@ -191,7 +204,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -226,7 +245,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -261,7 +286,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -296,7 +327,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            }
         };
 
         const receivedMessages = [
@@ -331,7 +368,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -367,7 +410,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
 
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const receivedMessages = [
@@ -398,7 +447,13 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         // Arrange
         const fspiopOpaqueState = { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
         };
 
         const payload = {
