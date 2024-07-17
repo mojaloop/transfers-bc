@@ -66,6 +66,7 @@ import {
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
     IBulkTransfersRepository,
+    IInteropFspiopValidator,
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -91,7 +92,17 @@ import {
     TransferNotFoundError,
     UnableToCancelTransferError
 } from "./errors";
-import {AccountType, TransferState, ITransfer, BulkTransferState, IBulkTransfer, ITransferParticipants, ITransferAccounts, IErrorInformation, TransferErrorCodeNames } from "@mojaloop/transfers-bc-public-types-lib";
+import {
+    AccountType,
+    TransferState,
+    ITransfer,
+    BulkTransferState,
+    IBulkTransfer,
+    ITransferParticipants,
+    ITransferAccounts,
+    IErrorInformation,
+    TransferErrorCodeNames 
+} from "@mojaloop/transfers-bc-public-types-lib";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
 import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
@@ -141,7 +152,8 @@ import {
     TransferBCUnableToAddBulkTransferToDatabaseEvt,
     TransferUnableToGetBulkTransferByIdEvt,
     BulkTransferQueryResponseEvt,
-    BulkTransferQueryResponseEvtPayload
+    BulkTransferQueryResponseEvtPayload,
+    TransferFulfilmentValidationFailedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { BulkTransfer, Transfer } from "./entities";
 
@@ -166,6 +178,7 @@ export class TransfersAggregate {
     }>();
     private _settlementsAdapter: ISettlementsServiceAdapter;
     private _schedulingAdapter: ISchedulingServiceAdapter;
+    private _interopFspiopValidator: IInteropFspiopValidator;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
     private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
@@ -185,6 +198,7 @@ export class TransfersAggregate {
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
         schedulingAdapter: ISchedulingServiceAdapter,
+        interopFspiopValidator: IInteropFspiopValidator,
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -195,6 +209,7 @@ export class TransfersAggregate {
         this._metrics = metrics;
         this._settlementsAdapter = settlementsAdapter;
         this._schedulingAdapter = schedulingAdapter;
+        this._interopFspiopValidator = interopFspiopValidator;
 
         this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
         this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
@@ -680,8 +695,6 @@ export class TransfersAggregate {
 						transferId: getTransferRep.transferId,
 						transferState: getTransferRep.transferState,
 						completedTimestamp: getTransferRep.completedTimestamp,
-						fulfilment: getTransferRep.fulfilment,
-						extensionList: getTransferRep.extensionList
 					};
 
 					const event = new TransferQueryResponseEvt(payload);
@@ -700,7 +713,7 @@ export class TransfersAggregate {
                 message.payload.amount,
                 message.payload.currencyCode,
                 message.payload.currencyCode,
-                message.payload.extensionList?.extension ? message.payload.extensionList.extension : []
+                message.payload.extensions
             );
             if(!settlementModel) throw new Error("Invalid settlementModelId from settlementsAdapter.getSettlementModelId()");
 		} catch(err: unknown) {
@@ -713,7 +726,6 @@ export class TransfersAggregate {
 				amount: message.payload.amount,
 				payerCurrency: message.payload.currencyCode,
 				payeeCurrency: message.payload.currencyCode,
-				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
 				errorCode: errorCode
 			});
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
@@ -732,20 +744,22 @@ export class TransfersAggregate {
             payerFspId: message.payload.payerFsp,
             amount: message.payload.amount,
             currencyCode: message.payload.currencyCode,
-            ilpPacket: message.payload.ilpPacket,
-            condition: message.payload.condition,
             expirationTimestamp: message.payload.expiration,
             transferState: TransferState.RECEIVED,
             hash: hash,
-            fulfilment: null,
             completedTimestamp: null,
-            extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
             payerIdType: message.payload.payerIdType, 
             payeeIdType: message.payload.payeeIdType,
             transferType: message.payload.transferType,
-            errorCode: null
+            extensions: message.payload.extensions,
+            errorCode: null,
+            fspiopOpaqueState: null,
         };
+
+        if(message.fspiopOpaqueState) {
+            transfer.fspiopOpaqueState = message.fspiopOpaqueState;
+        }
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
 
@@ -1052,12 +1066,9 @@ export class TransfersAggregate {
                 payerFsp: message.payload.payerFsp,
                 amount: message.payload.amount,
                 currencyCode: message.payload.currencyCode,
-                ilpPacket: message.payload.ilpPacket,
-                condition: message.payload.condition,
                 expiration: message.payload.expiration,
                 settlementModel: transfer.settlementModel,
                 preparedAt: preparedAtTime,
-                extensionList: message.payload.extensionList
             };
 
             const event = new TransferPreparedEvt(payload);
@@ -1119,6 +1130,68 @@ export class TransfersAggregate {
             errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
+        }
+
+        // NOTE: We override the previous fspiopOpaqueState with the most updated fspiopOpaqueState from the payee
+        if(message.fspiopOpaqueState) {
+            transfer.fspiopOpaqueState = { ...transfer.fspiopOpaqueState, ...message.fspiopOpaqueState };
+        }
+
+        // TODO: Once we have a new protocol, take a new look at this
+        // Validation
+        if(transfer.fspiopOpaqueState) {
+            try {
+                const isValid = this._interopFspiopValidator.validateFulfilmentOpaqueState(message.fspiopOpaqueState, transfer.fspiopOpaqueState);
+                
+                if(!isValid) {
+                    const errorMessage = `Fulfilment with transferId: ${message.payload.transferId} is invalid`;
+                    this._logger.error(errorMessage);
+                    const errorCode = TransferErrorCodeNames.UNABLE_TO_VALIDATE_TRANSFER_FULFILMENT;
+
+                    const errorEvent = new TransferFulfilmentValidationFailedEvt({
+                        payerFspId: transfer.payerFspId,
+                        transferId: message.payload.transferId,
+                        errorCode: errorCode
+                    });
+                    
+                    try {
+                        const errorCode = TransferErrorCodeNames.UNABLE_TO_VALIDATE_TRANSFER_FULFILMENT;
+                        await this._cancelTransfer(message.payload.transferId, errorCode);
+                    } catch(err: unknown) {
+                        const error = (err as Error).message;
+                        const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                        this._logger.error(err, `${errorMessage}: ${error}`);
+                        const errorCode = TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION;
+                        const errorEvent = new TransferCancelReservationFailedEvt({
+                            transferId: message.payload.transferId,
+                            errorCode: errorCode
+                        });
+
+                        errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                        this._outputEvents.push(errorEvent);
+                        return;
+                    }
+
+                    errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                    this._outputEvents.push(errorEvent);
+                    return;
+                }
+            } catch(err: unknown) {
+                const error = (err as Error).message;
+                const errorMessage = `Unable to validate fulfilment with transferId: ${message.payload.transferId}`;
+                this._logger.error(err, `${errorMessage}: ${error}`);
+                const errorCode = TransferErrorCodeNames.UNABLE_TO_VALIDATE_TRANSFER_FULFILMENT;
+                const errorEvent = new TransferFulfilmentValidationFailedEvt({
+                    payerFspId: transfer.payerFspId,
+                    transferId: message.payload.transferId,
+                    errorCode: errorCode
+                });
+
+                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                this._outputEvents.push(errorEvent);
+                return;
+            }
+        
         }
 
         let participants:ITransferParticipants;
@@ -1417,18 +1490,14 @@ export class TransfersAggregate {
 
         transfer.updatedAt = Date.now();
         transfer.transferState = TransferState.COMMITTED;
-        transfer.fulfilment = message.payload.fulfilment;
         transfer.completedTimestamp = message.payload.completedTimestamp;
-        transfer.extensionList = message.payload.extensionList;
 
         this._transfersCache.set(transfer.transferId, transfer);
 
         if(!transfer.bulkTransferId) {
             const event = new TransferFulfiledEvt({
                 transferId: message.payload.transferId,
-                fulfilment: message.payload.fulfilment,
                 completedTimestamp: message.payload.completedTimestamp,
-                extensionList: message.payload.extensionList,
                 payerFspId: transfer.payerFspId,
                 payeeFspId: transfer.payeeFspId,
                 amount: transfer.amount,
@@ -1803,8 +1872,6 @@ export class TransfersAggregate {
 			transferId: transfer.transferId,
 			transferState: transfer.transferState,
 			completedTimestamp: transfer.completedTimestamp,
-			fulfilment: transfer.fulfilment,
-			extensionList: transfer.extensionList
 		};
 
 		const event = new TransferQueryResponseEvt(payload);
@@ -1991,19 +2058,19 @@ export class TransfersAggregate {
             createdAt: now,
             updatedAt: now,
             bulkTransferId: message.payload.bulkTransferId,
-			bulkQuoteId: message.payload.bulkQuoteId,
+            bulkQuoteId: message.payload.bulkQuoteId,
             payeeFsp: message.payload.payeeFsp,
             payerFsp: message.payload.payerFsp,
             individualTransfers: message.payload.individualTransfers,
             expiration: message.payload.expiration,
             completedTimestamp: null,
-            extensionList: message.payload.extensionList,
             transfersPreparedProcessedIds: [],
-			transfersNotProcessedIds: [],
-			transfersFulfiledProcessedIds: [],
-			status: BulkTransferState.RECEIVED,
-            errorCode: null
-		};
+            transfersNotProcessedIds: [],
+            transfersFulfiledProcessedIds: [],
+            status: BulkTransferState.RECEIVED,
+            errorCode: null,
+            fspiopOpaqueState: null
+        };
 
         try{
             this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
@@ -2031,14 +2098,11 @@ export class TransfersAggregate {
                 currencyCode: individualTransfer.transferAmount.currency,
                 payerFsp: message.payload.payerFsp,
                 payeeFsp: message.payload.payeeFsp,
-                ilpPacket: individualTransfer.ilpPacket,
                 expiration: message.payload.expiration,
-                condition: individualTransfer.condition,
-                extensionList: individualTransfer.extensionList,
                 payerIdType: individualTransfer.payerIdType, 
                 payeeIdType: individualTransfer.payeeIdType,
                 transferType: individualTransfer.transferType,
-                prepare: message.fspiopOpaqueState
+                extensions: individualTransfer.extensions,
             });
 
             await this._prepareTransferStart(transferCmd);
@@ -2127,15 +2191,11 @@ export class TransfersAggregate {
                 payeeFsp: message.payload.payeeFsp,
                 payerFsp: message.payload.payerFsp,
                 expiration: message.payload.expiration,
-                extensionList: message.payload.extensionList,
                 individualTransfers: transfers.map((transferResult: ITransfer) => {
                     return {
                         transferId: transferResult.transferId,
                         amount: transferResult.amount,
                         currencyCode: transferResult.currencyCode,
-                        ilpPacket: transferResult.ilpPacket,
-                        condition: transferResult.condition,
-                        extensionList: transferResult.extensionList
                     };
                 }),
             };
@@ -2196,11 +2256,8 @@ export class TransfersAggregate {
             const transferCmd:CommitTransferFulfilCmd = new CommitTransferFulfilCmd({
                 transferId: individualTransfer.transferId,
                 transferState: message.payload.bulkTransferState,
-                fulfilment: individualTransfer.fulfilment,
                 completedTimestamp: message.payload.completedTimestamp,
                 notifyPayee: false,
-                extensionList: individualTransfer.extensionList,
-                prepare: message.fspiopOpaqueState
             });
 
             await this._fulfilTransferStart(transferCmd);
@@ -2269,7 +2326,6 @@ export class TransfersAggregate {
                 bulkTransferState: message.payload.bulkTransferState,
                 completedTimestamp: message.payload.completedTimestamp,
                 individualTransferResults: message.payload.individualTransferResults,
-                extensionList: message.payload.extensionList
             });
 
 
@@ -2347,7 +2403,6 @@ export class TransfersAggregate {
             const transferCmd:RejectTransferCmd = new RejectTransferCmd({
                 transferId: individualTransfer.transferId,
                 errorInformation: individualTransfer.errorCode as unknown as IErrorInformation,
-                prepare: message.fspiopOpaqueState
             });
 
             await this._rejectTransfer(transferCmd);
@@ -2554,13 +2609,10 @@ export class TransfersAggregate {
             individualTransferResults: transfers.map((transferResult: ITransfer) => {
                 return {
                     transferId: transferResult.transferId,
-                    fulfilment: transferResult.fulfilment,
                     errorInformation: transferResult.errorCode as unknown as IErrorInformation,
-                    extensionList: transferResult.extensionList
                 };
             }),
             bulkTransferState: bulkTransfer.status,
-            extensionList: bulkTransfer.extensionList
 		};
 
 		const event = new BulkTransferQueryResponseEvt(payload);

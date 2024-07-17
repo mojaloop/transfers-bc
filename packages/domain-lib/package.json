@@ -38,7 +38,7 @@
         "@mojaloop/participant-bc-public-types-lib": "~0.5.5",
         "@mojaloop/platform-shared-lib-messaging-types-lib": "~0.6.2",
         "@mojaloop/platform-shared-lib-observability-types-lib": "~0.5.7",
-        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.23",
+        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.24",
         "@mojaloop/security-bc-public-types-lib": "~0.6.1",
         "@mojaloop/scheduling-bc-public-types-lib": "~0.0.10"
     },

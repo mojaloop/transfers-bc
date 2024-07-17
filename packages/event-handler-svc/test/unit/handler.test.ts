@@ -116,12 +116,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         // Arrange
         const payload = {
             bulkTransferId: null,
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedTransferPreparePayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: TransferPrepareRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: TransferPrepareRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState 
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -133,7 +148,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: PrepareTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -141,12 +157,28 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process TransferFulfilRequestedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedTransferFulfilPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            },
+            fullfilment: "abc"
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: TransferFulfilRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: TransferFulfilRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState 
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -158,7 +190,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: CommitTransferFulfilCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -166,12 +199,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process TransferQueryReceivedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedTransferQueryPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: TransferQueryReceivedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: TransferQueryReceivedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -183,7 +231,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: QueryTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -191,12 +240,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process TransferRejectRequestedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedTransferRejectPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: TransferRejectRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: TransferRejectRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState 
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -208,7 +272,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: RejectTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -216,12 +281,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process BulkTransferPrepareRequestedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedBulkTransferPreparePayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: BulkTransferPrepareRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: BulkTransferPrepareRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -233,7 +313,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: PrepareBulkTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -241,12 +322,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process BulkTransferFulfilRequestedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedBulkTransferFulfilPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            }
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: BulkTransferFulfilRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: BulkTransferFulfilRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -258,7 +354,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: CommitBulkTransferFulfilCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -266,12 +363,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process BulkTransferQueryReceivedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedBulkTransferQueryPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: BulkTransferQueryReceivedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: BulkTransferQueryReceivedEvt.name,
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -283,7 +395,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: QueryBulkTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
@@ -292,12 +405,27 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
     it('should process BulkTransferRejectRequestedEvt successfully', async () => {
         // Arrange
         const payload = {
-            prepare: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedBulkTransferRejectedPayload,
-        }
+        };
+
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: BulkTransferRejectRequestedEvt.name, payload: payload, fspiopOpaqueState: payload.prepare },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: BulkTransferRejectRequestedEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState 
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -309,20 +437,37 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: RejectBulkTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });
 
     it('should process TransferTimeoutEvt successfully', async () => {
         // Arrange
+        const fspiopOpaqueState = { 
+            committedSendTimestamp: 123456789, 
+            prepareSendTimestamp: 123456789,
+            extensionList: {
+                extension: [
+                    { key: "exampleKey1", value: "exampleValue1" },
+                    { key: "exampleKey2", value: "exampleValue2" }
+                ]
+            } 
+        };
+
         const payload = {
-            timeout: { committedSendTimestamp: 123456789, prepareSendTimestamp: 123456789 },
             ...mockedTransferTimeoutPayload,
-        }
+            timeout: fspiopOpaqueState
+        };
 
         const receivedMessages = [
-            { msgType: MessageTypes.DOMAIN_EVENT, msgName: TransferTimeoutEvt.name, payload: payload, fspiopOpaqueState: payload.timeout },
+            { 
+                msgType: MessageTypes.DOMAIN_EVENT, 
+                msgName: TransferTimeoutEvt.name, 
+                payload: payload, 
+                fspiopOpaqueState: fspiopOpaqueState 
+            },
         ];
 
         jest.spyOn(messageProducerMock, "send");
@@ -334,7 +479,8 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
         expect(messageProducerMock.send).toHaveBeenCalledWith([
             expect.objectContaining({
                 msgName: TimeoutTransferCmd.name,
-                payload: payload
+                payload: payload,
+                fspiopOpaqueState: fspiopOpaqueState
             })
         ]);
     });

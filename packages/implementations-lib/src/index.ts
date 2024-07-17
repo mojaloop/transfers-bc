@@ -47,5 +47,6 @@ export * from "./external_adapters/participant_adapter";
 export * from "./external_adapters/grpc_acc_bal_adapter";
 export * from "./external_adapters/settlements_adapter";
 export * from "./external_adapters/scheduling_adapter";
+export * from "./external_adapters/interop_apis_adapter";
 export * from "./errors";
 

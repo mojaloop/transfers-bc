@@ -42,22 +42,14 @@ export type PrepareTransferCmdPayload = {
 	currencyCode: string;
 	payerFsp: string;
 	payeeFsp: string;
-	ilpPacket: string;
 	expiration: number;
-	condition: string;
-	extensionList: {
-		extension: {
-			key: string;
-			value: string;
-		}[];
-	} | null;
 	payerIdType: string; 
     payeeIdType: string;
     transferType: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
+	extensions: {
+		key: string;
+		value: string;
+	}[];
 }
 
 export class PrepareTransferCmd extends CommandMsg {
@@ -83,19 +75,8 @@ export class PrepareTransferCmd extends CommandMsg {
 export type CommitTransferFulfilCmdPayload = {
 	transferId: string;
 	transferState: string,
-	fulfilment: string | null,
 	completedTimestamp: number | null,
-	extensionList: {
-        extension: {
-            key: string;
-            value: string;
-        }[]
-    } | null;
 	notifyPayee: boolean;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 
@@ -124,16 +105,6 @@ export type RejectTransferCmdPayload = {
 	errorInformation: {
 		errorCode: string;
 		errorDescription: string;
-		extensionList: {
-            extension: {
-                key: string;
-                value: string;
-            }[];
-        } | null;
-	};
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
 	};
 }
 
@@ -159,10 +130,6 @@ export class RejectTransferCmd extends CommandMsg {
 
 export type QueryTransferCmdPayload = {
 	transferId: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class QueryTransferCmd extends CommandMsg {
@@ -225,29 +192,15 @@ export type PrepareBulkTransferCmdPayload = {
             currency: string;
             amount: string;
         };
-        ilpPacket: string;
-        condition: string;
-        extensionList: {
-            extension: {
-                key: string;
-                value: string;
-            }[]
-        } | null;
 		payerIdType: string; 
 		payeeIdType: string;
 		transferType: string;
+		extensions: {
+			key: string;
+			value: string;
+		}[];
     }[];
     expiration: number;
-    extensionList: {
-        extension: {
-            key: string;
-            value: string;
-        }[]
-    } | null;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 export class PrepareBulkTransferCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -279,30 +232,8 @@ export type CommitBulkTransferFulfilCmdPayload = {
         errorInformation: {
             errorCode: string;
             errorDescription: string;
-            extensionList: {
-                extension: {
-                    key: string;
-                    value: string;
-                }[]
-            } | null;
-        } | null;
-        extensionList: {
-            extension: {
-                key: string;
-                value: string;
-            }[]
         } | null;
     }[];
-	extensionList: {
-        extension: {
-            key: string;
-            value: string;
-        }[]
-    } | null;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 export class CommitBulkTransferFulfilCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -329,16 +260,6 @@ export type RejectBulkTransferCmdPayload = {
 	errorInformation: {
 		errorCode: string;
 		errorDescription: string;
-		extensionList: {
-			extension: {
-				key: string;
-				value: string;
-			}[]
-		} | null;
-	};
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
 	};
 }
 
@@ -364,10 +285,6 @@ export class RejectBulkTransferCmd extends CommandMsg {
 
 export type QueryBulkTransferCmdPayload = {
 	bulkTransferId: string;
-	prepare: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class QueryBulkTransferCmd extends CommandMsg {

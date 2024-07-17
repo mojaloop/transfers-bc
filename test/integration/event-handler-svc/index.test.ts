@@ -138,8 +138,6 @@ describe("Transfers Event Handler - Integration", () => {
             completedTimestamp: 123456789,
             notifyPayee: false,
             extensionList: null,
-            prepare: message.fspiopOpaqueState
-
         })
         // Act
         await consumer.sendMessage(message);

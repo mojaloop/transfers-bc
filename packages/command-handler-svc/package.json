@@ -41,6 +41,7 @@
         "@mojaloop/transfers-bc-implementations-lib": "*",
         "@mojaloop/transfers-bc-config-lib": "*",
         "@mojaloop/auditing-bc-client-lib": "~0.5.3",
+        "@mojaloop/interop-bc-client-lib": "~0.6.2",
         "@mojaloop/logging-bc-client-lib": "~0.5.8",
         "@mojaloop/logging-bc-public-types-lib": "~0.5.4",
         "@mojaloop/platform-configuration-bc-client-lib": "~0.6.3",
@@ -48,7 +49,7 @@
         "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "~0.5.18",
         "@mojaloop/platform-shared-lib-observability-client-lib": "~0.5.8",
         "@mojaloop/platform-shared-lib-observability-types-lib": "~0.5.7",
-        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.23",
+        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.24",
         "@mojaloop/security-bc-client-lib": "~0.6.2",
         "express": "^4.18.3"
     },

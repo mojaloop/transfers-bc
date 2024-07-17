@@ -38,7 +38,8 @@ import {
     MemorySettlementsService,
     MemorySchedulingService,
     MemoryTransferRepo,
-    MemoryBulkTransferRepo 
+    MemoryBulkTransferRepo, 
+    MemoryInteropValidator
 } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { ConsoleLogger, ILogger, LogLevel } from "@mojaloop/logging-bc-public-types-lib";
 import {
@@ -88,6 +89,8 @@ const mockedBulkTransferRepository: IBulkTransfersRepository = new MemoryBulkTra
 
 const metricsMock: IMetrics = new MetricsMock();
 
+const mockedInteropFspiopValidator = new MemoryInteropValidator(logger);
+
 const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     logger,
     mockedTransferRepository,
@@ -98,6 +101,7 @@ const mockedAggregate: TransfersAggregate = new TransfersAggregate(
     metricsMock,
     mockedSettlementsService,
     mockedSchedulingService,
+    mockedInteropFspiopValidator
 );
 
 describe('Command Handler - Unit Tests for TransfersBC Command Handler', () => {

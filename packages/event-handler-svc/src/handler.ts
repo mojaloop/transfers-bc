@@ -202,14 +202,11 @@ export class TransfersEventHandler{
 			currencyCode: evt.payload.currencyCode,
 			payerFsp: evt.payload.payerFsp,
 			payeeFsp: evt.payload.payeeFsp,
-			ilpPacket: evt.payload.ilpPacket,
 			expiration: evt.payload.expiration,
-			condition: evt.payload.condition,
-			prepare: evt.fspiopOpaqueState,
-			extensionList: evt.payload.extensionList,
 			payerIdType: evt.payload.payerIdType, 
 			payeeIdType: evt.payload.payeeIdType,
-			transferType: evt.payload.transferType
+			transferType: evt.payload.transferType,
+			extensions: evt.payload.extensions
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -220,11 +217,8 @@ export class TransfersEventHandler{
 		const cmdPayload: CommitTransferFulfilCmdPayload = {
 			transferId: evt.payload.transferId,
 			transferState: evt.payload.transferState,
-			fulfilment: evt.payload.fulfilment,
 			completedTimestamp: evt.payload.completedTimestamp,
-			extensionList: evt.payload.extensionList,
 			notifyPayee: evt.payload.notifyPayee,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -235,7 +229,6 @@ export class TransfersEventHandler{
 		const cmdPayload: RejectTransferCmdPayload = {
 			transferId: evt.payload.transferId,
 			errorInformation: evt.payload.errorInformation,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new RejectTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -245,7 +238,6 @@ export class TransfersEventHandler{
 	private _prepareEventToQueryCommand(evt: TransferQueryReceivedEvt): QueryTransferCmd {
 		const cmdPayload: QueryTransferCmdPayload = {
 			transferId: evt.payload.transferId,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new QueryTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -270,9 +262,6 @@ export class TransfersEventHandler{
 			payeeFsp: evt.payload.payeeFsp,
             individualTransfers: evt.payload.individualTransfers,
 			expiration: evt.payload.expiration,
-			extensionList: evt.payload.extensionList,
-			prepare: evt.fspiopOpaqueState
-
 		};
 		const cmd = new PrepareBulkTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -285,8 +274,6 @@ export class TransfersEventHandler{
 			completedTimestamp: evt.payload.completedTimestamp,
 			bulkTransferState: evt.payload.bulkTransferState,
 			individualTransferResults: evt.payload.individualTransferResults,
-			extensionList: evt.payload.extensionList,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new CommitBulkTransferFulfilCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -297,7 +284,6 @@ export class TransfersEventHandler{
 		const cmdPayload: RejectBulkTransferCmdPayload = {
 			bulkTransferId: evt.payload.bulkTransferId,
 			errorInformation: evt.payload.errorInformation,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new RejectBulkTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
@@ -307,7 +293,6 @@ export class TransfersEventHandler{
 	private _prepareEventToQueryBulkCommand(evt: BulkTransferQueryReceivedEvt): QueryBulkTransferCmd {
 		const cmdPayload: QueryBulkTransferCmdPayload = {
 			bulkTransferId: evt.payload.bulkTransferId,
-			prepare: evt.fspiopOpaqueState
 		};
 		const cmd = new QueryBulkTransferCmd(cmdPayload);
 		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;

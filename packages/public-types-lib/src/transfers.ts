@@ -59,13 +59,9 @@ export interface ITransfer {
 	payerFspId: string;
 	amount: string;
 	currencyCode: string;
-	ilpPacket: string;				// move to opaque object
-	condition: string;				// move to opaque object
-	fulfilment: string | null;		// move to opaque object
 	expirationTimestamp: number;
 	transferState: TransferState;
 	completedTimestamp: number | null;
-	extensionList: IExtensionList | null;
 	errorCode: string | null;
 
 	// populated from the settlements lib during prepare
@@ -75,6 +71,13 @@ export interface ITransfer {
 	payerIdType: string; 
 	payeeIdType: string;
 	transferType: string;
+	extensions: {
+		key: string;
+		value: string;
+	}[];
+
+	// Protocol Specific
+	fspiopOpaqueState: any;
 }
 
 export interface ITransferParticipants {
@@ -105,27 +108,16 @@ export interface IBulkTransfer {
 			currency: string;
 			amount: string;
 		};
-		ilpPacket: string;
-		condition: string;
-		extensionList: {
-			extension: {
-				key: string;
-				value: string;
-			}[]
-		} | null;
 	}[];
 	expiration: number;
-	extensionList: {
-		extension: {
-			key: string;
-			value: string;
-		}[]
-	} | null;
 	transfersPreparedProcessedIds: string[]
 	transfersNotProcessedIds: string[];
 	transfersFulfiledProcessedIds: string[];
 	status: BulkTransferState;
 	errorCode: string | null;
+
+	// Protocol Specific
+	fspiopOpaqueState: any;
 }
 
 export declare type TransfersSearchResults = {

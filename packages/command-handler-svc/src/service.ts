@@ -38,6 +38,7 @@ import {
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
     IBulkTransfersRepository,
+    IInteropFspiopValidator,
 } from "@mojaloop/transfers-bc-domain-lib";
 import {
     ParticipantAdapter,
@@ -46,6 +47,7 @@ import {
     GrpcAccountsAndBalancesAdapter,
     SettlementsAdapter,
     SchedulingAdapter,
+    InteropFspiopValidator
 } from "@mojaloop/transfers-bc-implementations-lib";
 import {existsSync} from "fs";
 import express, {Express} from "express";
@@ -115,6 +117,7 @@ const PARTICIPANTS_SVC_URL = process.env["PARTICIPANTS_SVC_URL"] || "http://loca
 const SETTLEMENTS_SVC_URL = process.env["SETTLEMENTS_SVC_URL"] || "http://localhost:3600";
 const SCHEDULING_SVC_URL = process.env["SCHEDULING_SVC_URL"] || "http://localhost:3150";
 
+
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-command-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
 
@@ -161,6 +164,7 @@ export class Service {
     static metrics:IMetrics;
 	static settlementsAdapter: ISettlementsServiceAdapter;
 	static schedulingAdapter: ISchedulingServiceAdapter;
+    static interopFspiopValidator: IInteropFspiopValidator;
     static configClient: IConfigurationClient;
     static authorizationClient: IAuthorizationClient;
     static startupTimer: NodeJS.Timeout;
@@ -177,6 +181,7 @@ export class Service {
         metrics?:IMetrics,
         settlementsAdapter?: ISettlementsServiceAdapter,
         schedulingAdapter?: ISchedulingServiceAdapter,
+        interopFspiopValidator?: IInteropFspiopValidator,
         configProvider?: IConfigProvider,
         authorizationClient?: IAuthorizationClient,
         aggregate?: TransfersAggregate,
@@ -308,10 +313,10 @@ export class Service {
 
         if(!accountAndBalancesAdapter) {
             // TODO put these credentials in env var
-            const loginHelper = new LoginHelper(AUTH_N_SVC_TOKEN_URL, logger);
-            loginHelper.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
+			const loginHelper = new LoginHelper(AUTH_N_SVC_TOKEN_URL, this.logger);
+			(loginHelper as LoginHelper).setAppCredentials("settlements-bc-command-handler-svc", SVC_CLIENT_SECRET);
 
-            accountAndBalancesAdapter = new GrpcAccountsAndBalancesAdapter(ACCOUNTS_BALANCES_COA_SVC_URL, loginHelper, logger);
+            accountAndBalancesAdapter = new GrpcAccountsAndBalancesAdapter(ACCOUNTS_BALANCES_COA_SVC_URL, loginHelper as LoginHelper, this.logger);
             await accountAndBalancesAdapter.init();
         }
         this.accountAndBalancesAdapter = accountAndBalancesAdapter;
@@ -340,6 +345,11 @@ export class Service {
 		}
 		this.schedulingAdapter = schedulingAdapter;
 
+        if (!interopFspiopValidator) {
+			interopFspiopValidator = new InteropFspiopValidator(logger);
+		}
+		this.interopFspiopValidator = interopFspiopValidator;
+
         if (!aggregate) {
             aggregate = new TransfersAggregate(
                 this.logger,
@@ -351,6 +361,7 @@ export class Service {
                 this.metrics,
                 this.settlementsAdapter,
                 this.schedulingAdapter,
+                this.interopFspiopValidator,
             );
         }
         this.aggregate = aggregate;

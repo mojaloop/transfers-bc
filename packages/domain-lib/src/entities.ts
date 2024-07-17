@@ -36,6 +36,7 @@ import { ITransfer, TransferState, IExtensionList, IBulkTransfer, BulkTransferSt
 
 /** Transfer entity **/
 export class Transfer implements ITransfer {
+	// NOTE: This data is just used for validation, we don't use it for logic/don't need to understand it
 	createdAt: number;
 	updatedAt: number;
 	transferId: string;
@@ -43,15 +44,11 @@ export class Transfer implements ITransfer {
 	payerFspId: string;
 	amount: string;
 	currencyCode: string;
-	ilpPacket: string;				// move to opaque object
-	condition: string;				// move to opaque object
-	fulfilment: string | null;		// move to opaque object
 	expirationTimestamp: number;
 	transferState: TransferState;
 	completedTimestamp: number | null;
-	extensionList: IExtensionList | null;
 	errorCode: string | null;
-
+	
 	// populated from the settlements lib during prepare
 	settlementModel: string;
 	hash: string;
@@ -59,6 +56,13 @@ export class Transfer implements ITransfer {
 	payerIdType: string; 
 	payeeIdType: string;
 	transferType: string;
+	extensions: {
+		key: string;
+		value: string;
+	}[];
+	
+	// Protocol Specific
+	fspiopOpaqueState: any;
 }
 
 /** BulkTransfer entity **/
@@ -76,25 +80,18 @@ export class BulkTransfer implements IBulkTransfer {
 			currency: string;
 			amount: string;
 		};
-		ilpPacket: string;
-		condition: string;
-		extensionList: {
-			extension: {
-				key: string;
-				value: string;
-			}[]
-		} | null;
-	}[];
-	expiration: number;
-	extensionList: {
-		extension: {
+		extensions: {
 			key: string;
 			value: string;
-		}[]
-	} | null;
+		}[];
+	}[];
+	expiration: number;
 	transfersPreparedProcessedIds: string[];
 	transfersNotProcessedIds: string[];
 	transfersFulfiledProcessedIds: string[];
 	status: BulkTransferState;
 	errorCode: string | null;
+	
+	// Protocol Specific
+	fspiopOpaqueState: any;
 }

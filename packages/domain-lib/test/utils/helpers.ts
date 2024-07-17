@@ -43,11 +43,8 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
         payerFsp: mockedTransfer.payerFspId,
         amount: mockedTransfer.amount,
         currencyCode: mockedTransfer.currencyCode,
-        ilpPacket: mockedTransfer.ilpPacket,
-        condition: mockedTransfer.condition,
         expiration: mockedTransfer.expirationTimestamp,
         settlementModel: mockedTransfer.settlementModel, 
-        extensionList: mockedTransfer.extensionList,
         preparedAt: Date.now()
     };
 }
@@ -55,9 +52,7 @@ export function createTransferPreparedEvtPayload(mockedTransfer: ITransfer): Tra
 export function createTransferFulfiledEvtPayload(mockedTransfer: ITransfer): TransferFulfiledEvtPayload {
     return {
         transferId: mockedTransfer.transferId,
-        fulfilment: mockedTransfer.fulfilment,
         completedTimestamp: mockedTransfer.completedTimestamp as number,
-        extensionList: mockedTransfer.extensionList,
         payeeFspId: mockedTransfer.payeeFspId,
         payerFspId: mockedTransfer.payerFspId,
         amount: mockedTransfer.amount,

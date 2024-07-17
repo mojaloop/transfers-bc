@@ -40,7 +40,7 @@ import {
     // AccountsBalancesHighLevelRequestTypes,
     IAccountsBalancesHighLevelRequest,
     IAccountsBalancesHighLevelResponse
- } from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
+ } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
 export class MemoryAccountsAndBalancesService implements IAccountsBalancesAdapter {
 	private readonly logger: ILogger;

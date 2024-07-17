@@ -45,6 +45,7 @@ export * from "./memory_login_helper";
 export * from "./memory_config_provider";
 export * from "./memory_token_helper";
 export * from "./memory_authorization_client";
+export * from "./memory_interop_validator";
 export * from "./mocked_data";
 export * from "./helpers/kafkaproducer";
 export * from "./helpers/utils";

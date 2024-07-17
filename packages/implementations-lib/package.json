@@ -33,11 +33,12 @@
         "test:unit": "jest --testMatch **/test/unit/**/*.test.ts --verbose"
     },
     "dependencies": {
-        "@mojaloop/accounts-and-balances-bc-grpc-client-lib": "~0.5.2",
-        "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.5.1",
+        "@mojaloop/accounts-and-balances-bc-grpc-client-lib": "~0.6.2",
+        "@mojaloop/accounts-and-balances-bc-public-types-lib": "~0.6.1",
         "@mojaloop/participant-bc-public-types-lib": "~0.5.5",
+        "@mojaloop/interop-bc-client-lib": "~0.6.2",
         "@mojaloop/participants-bc-client-lib": "~0.5.5",
-        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.23",
+        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.24",
         "@mojaloop/security-bc-client-lib": "~0.6.2",
         "@mojaloop/security-bc-public-types-lib": "~0.6.1",
         "@mojaloop/settlements-bc-model-lib": "~0.5.4",
