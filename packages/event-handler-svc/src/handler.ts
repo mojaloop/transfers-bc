@@ -49,6 +49,8 @@ import {
     BulkTransferFulfilRequestedEvt,
 	BulkTransferRejectRequestedEvt,
 	BulkTransferQueryReceivedEvt,
+	Envelope,
+	TransferPrepareRequestedEvtPB,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {
 	CommitTransferFulfilCmd,
@@ -100,7 +102,7 @@ export class TransfersEventHandler{
 		await this._messageProducer.connect();
 
 		// create and start the consumer handler
-		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests, TransfersBCTopics.DomainEvents, TransfersBCTopics.TimeoutEvents]);
+		this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests, TransfersBCTopics.TimeoutEvents]);
 
 		// this._messageConsumer.setCallbackFn(this._msgHandler.bind(this));
         this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
@@ -120,9 +122,13 @@ export class TransfersEventHandler{
             try{
                 const outputCommands:CommandMsg[] = [];
                 for(const message of receivedMessages){
-                    if(message.msgType!=MessageTypes.DOMAIN_EVENT) continue;
+					// TODO: fix types
+					const envelope = Envelope.deserializeBinary(message as any);
+					const envelopeObj = envelope.toObject();
+					
+                    // if(deserializedMessage.msgType!=MessageTypes.DOMAIN_EVENT) continue;
 
-                    const transferCmd: CommandMsg | null = this._getCmdFromEvent(message);
+                    const transferCmd: CommandMsg | null = this._getCmdFromEvent(envelopeObj.event as unknown as IMessage);
                     if(transferCmd) {
                         outputCommands.push(transferCmd);
                         this._eventsCounter.inc({eventName: message.msgName}, 1);
@@ -131,9 +137,9 @@ export class TransfersEventHandler{
                     // metrics
                     if(!message.fspiopOpaqueState) continue;
                     const now = Date.now();
-                    if(message.msgName === TransferPrepareRequestedEvt.name && message.fspiopOpaqueState.prepareSendTimestamp){
+                    if(envelopeObj.type === TransferPrepareRequestedEvt.name && message.fspiopOpaqueState.prepareSendTimestamp){
                         this._transferDurationHisto.observe({"leg": "prepare"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
-                    }else if(message.msgName === TransferFulfilRequestedEvt.name && message.fspiopOpaqueState.committedSendTimestamp ){
+                    }else if(envelopeObj.type === TransferFulfilRequestedEvt.name && message.fspiopOpaqueState.committedSendTimestamp ){
                         this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.fspiopOpaqueState.committedSendTimestamp);
                         if(message.fspiopOpaqueState.prepareSendTimestamp){
                             this._transferDurationHisto.observe({"leg": "total"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
@@ -160,8 +166,10 @@ export class TransfersEventHandler{
     }
 
     private _getCmdFromEvent(message: IMessage):CommandMsg | null{
+		// const payload = TransferPrepareRequestedEvtPB.deserializeBinary(envelopeObj.event as any);
+		// const deserializedMessage = payload.toObject();
         if(message.msgName === TransferPrepareRequestedEvt.name) {
-            const transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt);
+            const transferCmd = this._prepareEventToPrepareCommand(message as any);
             return transferCmd;
         }else if(message.msgName === TransferFulfilRequestedEvt.name){
             const transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilRequestedEvt);
@@ -194,7 +202,10 @@ export class TransfersEventHandler{
 
     }
 
-    private _prepareEventToPrepareCommand(evt: TransferPrepareRequestedEvt): PrepareTransferCmd{
+    private _prepareEventToPrepareCommand(serializedEvent: any): PrepareTransferCmd{
+		const payload = TransferPrepareRequestedEvtPB.deserializeBinary(serializedEvent);
+		const evt = payload.toObject() as unknown as TransferPrepareRequestedEvt;
+
 		const cmdPayload: PrepareTransferCmdPayload = {
 			bulkTransferId: null,
 			transferId: evt.payload.transferId,
@@ -213,10 +224,13 @@ export class TransfersEventHandler{
 		return cmd;
 	}
 
-	private _fulfilEventToFulfilCommand(evt: TransferFulfilRequestedEvt): CommitTransferFulfilCmd {
+	private _fulfilEventToFulfilCommand(serializedEvent: any): CommitTransferFulfilCmd {
+		const payload = TransferPrepareRequestedEvtPB.deserializeBinary(serializedEvent);
+		const evt = payload.toObject() as unknown as TransferFulfilRequestedEvt;
+
 		const cmdPayload: CommitTransferFulfilCmdPayload = {
 			transferId: evt.payload.transferId,
-			transferState: evt.payload.transferState,
+			transferState: evt.payload.transferState as unknown as string,
 			completedTimestamp: evt.payload.completedTimestamp,
 			notifyPayee: evt.payload.notifyPayee,
 		};

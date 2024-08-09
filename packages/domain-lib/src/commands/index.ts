@@ -57,7 +57,7 @@ export class PrepareTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: PrepareTransferCmdPayload;
 
 	constructor(payload: PrepareTransferCmdPayload) {

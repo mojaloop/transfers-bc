@@ -57,7 +57,7 @@ export class TransfersCommandHandler{
 
 	async start():Promise<void>{
 		// create and start the consumer handler
-        this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests]);
+        this._messageConsumer.setTopics([TransfersBCTopics.DomainCommands]);
         this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
         await this._messageConsumer.connect();
         await this._messageConsumer.startAndWaitForRebalance();

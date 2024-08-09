@@ -46,7 +46,8 @@ import {
 	MLKafkaJsonConsumer,
 	MLKafkaJsonProducer,
 	MLKafkaJsonConsumerOptions,
-	MLKafkaJsonProducerOptions
+	MLKafkaJsonProducerOptions,
+	MLKafkaProtoBuffConsumer
 } from "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib";
 import {IMessageConsumer, IMessageProducer} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import process from "process";
@@ -180,7 +181,7 @@ export class Service {
 		if(!messageConsumer){
 			const consumerHandlerLogger = logger.createChild("handlerConsumer");
 			consumerHandlerLogger.setLogLevel(LogLevel.INFO);
-			messageConsumer = new MLKafkaJsonConsumer(kafkaConsumerOptions, consumerHandlerLogger);
+			messageConsumer = new MLKafkaProtoBuffConsumer(kafkaConsumerOptions, consumerHandlerLogger);
 		}
 		this.messageConsumer = messageConsumer;
 
