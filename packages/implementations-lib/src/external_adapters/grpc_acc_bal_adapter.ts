@@ -29,6 +29,7 @@
  ******/
 
  "use strict";
+/*
 
 import {GrpcCreateJournalEntryArray} from "@mojaloop/accounts-and-balances-bc-grpc-client-lib";
 import {AccountsAndBalancesAccountType} from "@mojaloop/accounts-and-balances-bc-public-types-lib";
@@ -37,7 +38,7 @@ import { IAccountsBalancesAdapter } from "@mojaloop/transfers-bc-domain-lib";
 import { AccountsAndBalancesAccount,IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse} from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 import { AccountsAndBalancesGrpcClient, GrpcCreateAccountArray } from "@mojaloop/accounts-and-balances-bc-grpc-client-lib";
 import { ILoginHelper, UnauthorizedError } from "@mojaloop/security-bc-public-types-lib";
-import {AccountsAndBalancesJournalEntry} from "@mojaloop/accounts-and-balances-bc-public-types-lib/dist/types";
+import {AccountsAndBalancesJournalEntry} from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 
 export class GrpcAccountsAndBalancesAdapter implements IAccountsBalancesAdapter {
     private readonly _grpcUrl: string;
@@ -166,7 +167,7 @@ export class GrpcAccountsAndBalancesAdapter implements IAccountsBalancesAdapter 
         return resp;
     }
 
-    /*
+    /!*
 
     // high level
     async checkLiquidAndReserve(
@@ -196,6 +197,7 @@ export class GrpcAccountsAndBalancesAdapter implements IAccountsBalancesAdapter 
             transferAmount, currencyCode, transferId);
     }
 
-    */
+    *!/
 
 }
+*/

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package transferCommands;
+
+import "google/protobuf/timestamp.proto";
+
+
+// common
+
+enum MessageType{
+    STATE_EVENT = 0;
+    STATE_SNAPSHOT = 1;
+    DOMAIN_EVENT = 2;
+    COMMAND = 3;
+    DOMAIN_ERROR_EVENT = 4;
+}
+
+message DomainMsgHeader {
+    MessageType msgType = 1;
+    string msgName = 2;
+    string msgId = 3;
+    uint64 msgTimestamp = 4;
+    string msgTopic = 5;
+    optional string msgKey = 6;
+    optional uint32 msgPartition = 7;
+    optional uint32 msgOffset = 8;
+
+    string boundedContextName = 9;
+    string aggregateId = 10;
+}
+
+
+message CheckExpiredTimerTickEvt {
+    DomainMsgHeader header = 1;
+
+    uint64 msgTimestamp = 2;
+}

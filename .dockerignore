@@ -1,4 +1,4 @@
-**/node_modules/
+node_modules
 **/dist
 .git
 npm-debug.log
@@ -7,3 +7,4 @@ npm-debug.log
 *.log
 .circleci
 .husky
+

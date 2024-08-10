@@ -19,19 +19,43 @@
  their names indented and be marked with a '-'. Email address can be added
  optionally within square brackets <email>.
 
- * Gates Foundation
- - Name Surname <name.surname@gatesfoundation.com>
-
- * Crosslake
- - Pedro Sousa Barreto <pedrob@crosslaketech.com>
+ * Interledger Foundation
+ - Pedro Sousa Barreto <pedrosousabarreto@gmail.com>
 
  --------------
  ******/
 
 "use strict";
 
-import {Service} from "./service";
 
-Service.start().then(() => {
-    console.log("Service start complete");
-});
+
+import {DomainEventMsg} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+    TRANSFERS_AGGREGATE_NAME,
+    TRANSFERS_BOUNDED_CONTEXT_NAME,
+    TransfersBCTopics
+} from "@mojaloop/platform-shared-lib-public-messages-lib";
+
+
+export class CheckExpiredTimerTickEvt extends DomainEventMsg {
+    boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
+    aggregateId: string;
+    aggregateName: string = TRANSFERS_AGGREGATE_NAME;
+    msgKey: string;
+    msgTopic: string = TransfersBCTopics.TimeoutEvents;
+    payload: null;
+
+    constructor () {
+        super();
+
+        // Note: fixed msgKey, so all CheckExpiredTimerTickEvt end up in the same partition
+        // this is important, we only want to have one handler (consumer group) handing these events
+        // Nothing bad will happen if not, just not efficient having multiple instances doing the same work
+        this.aggregateId = this.msgKey = "0";
+        //this.payload = payload;
+    }
+
+    validatePayload (): void {
+        // noop
+    }
+}

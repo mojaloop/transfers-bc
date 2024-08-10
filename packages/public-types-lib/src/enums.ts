@@ -50,12 +50,6 @@ export declare const enum BulkTransferState {
     REJECTED = "REJECTED"		// payee reject to process the bulk transfer
 }
 
-export declare const enum AccountType {
-	HUB = "HUB_RECONCILIATION",
-	POSITION = "POSITION",
-	SETTLEMENT = "SETTLEMENT"
-}
-
 type TransferErrorCodeKeys = keyof typeof TransferErrorCodes;
 
 export const TransferErrorCodes = {
@@ -93,7 +87,9 @@ export const TransferErrorCodes = {
     BULK_TRANSFER_NOT_FOUND: "Bulk transfer not found",
     UNABLE_TO_GET_TRANSFERS_FROM_BULK_TRANSFER: "Unable to get transfers from bulk transfer",
     UNABLE_TO_ADD_BULK_TRANSFER: "Unable to add bulk transfer",
-    UNABLE_TO_DELETE_TRANSFER_REMINDER: "Unable to delete transfer reminder"
+    UNABLE_TO_DELETE_TRANSFER_REMINDER: "Unable to delete transfer reminder",
+    DUPLICATE_TRANSFER_ID_DETECTED: "Another transfer with the same ID and different contents was found",
+    DUPLICATE_TRANSFER_ID_DETECTED_IN_UNEXPECTED_STATE: "Another transfer with the same ID was found with an unexpected state",
 } as const;
 
 export const TransferErrorCodeNames: {
@@ -133,5 +129,7 @@ export const TransferErrorCodeNames: {
     BULK_TRANSFER_NOT_FOUND: "BULK_TRANSFER_NOT_FOUND",
     UNABLE_TO_GET_TRANSFERS_FROM_BULK_TRANSFER: "UNABLE_TO_GET_TRANSFERS_FROM_BULK_TRANSFER",
     UNABLE_TO_ADD_BULK_TRANSFER: "UNABLE_TO_ADD_BULK_TRANSFER",
-    UNABLE_TO_DELETE_TRANSFER_REMINDER: "UNABLE_TO_DELETE_TRANSFER_REMINDER"
+    UNABLE_TO_DELETE_TRANSFER_REMINDER: "UNABLE_TO_DELETE_TRANSFER_REMINDER",
+    DUPLICATE_TRANSFER_ID_DETECTED: "DUPLICATE_TRANSFER_ID_DETECTED",
+    DUPLICATE_TRANSFER_ID_DETECTED_IN_UNEXPECTED_STATE: "DUPLICATE_TRANSFER_ID_DETECTED_IN_UNEXPECTED_STATE"
   };

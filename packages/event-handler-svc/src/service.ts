@@ -30,14 +30,9 @@
 
 "use strict";
 
-import {existsSync} from "fs";
+
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger, LogLevel} from "@mojaloop/logging-bc-public-types-lib";
-import {
-	AuditClient,
-	KafkaAuditClientDispatcher,
-	LocalAuditClientCryptoProvider
-} from "@mojaloop/auditing-bc-client-lib";
 import {
     AuthenticatedHttpRequester,
 } from "@mojaloop/security-bc-client-lib";
@@ -59,6 +54,10 @@ import {PrometheusMetrics} from "@mojaloop/platform-shared-lib-observability-cli
 import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
 import {DefaultConfigProvider, IConfigProvider} from "@mojaloop/platform-configuration-bc-client-lib";
 import {GetTransfersConfigSet} from "@mojaloop/transfers-bc-config-lib";
+import crypto from "crypto";
+import {OpenTelemetryClient} from "@mojaloop/platform-shared-lib-observability-client-lib";
+import {RedisTimeoutAdapter} from "@mojaloop/transfers-bc-implementations-lib";
+import {ITimeoutAdapter} from "@mojaloop/transfers-bc-domain-lib";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJSON = require("../package.json");
@@ -68,12 +67,18 @@ const APP_NAME = "event-handler-svc";
 const APP_VERSION = packageJSON.version;
 const PRODUCTION_MODE = process.env["PRODUCTION_MODE"] || false;
 const LOG_LEVEL: LogLevel = process.env["LOG_LEVEL"] as LogLevel || LogLevel.DEBUG;
+const INSTANCE_NAME = `${BC_NAME}_${APP_NAME}`;
+const INSTANCE_ID = `${INSTANCE_NAME}__${crypto.randomUUID()}`;
 
+// Message Consumer/Publisher
 const KAFKA_URL = process.env["KAFKA_URL"] || "localhost:9092";
+const KAFKA_AUTH_ENABLED = process.env["KAFKA_AUTH_ENABLED"] && process.env["KAFKA_AUTH_ENABLED"].toUpperCase()==="TRUE" || false;
+const KAFKA_AUTH_PROTOCOL = process.env["KAFKA_AUTH_PROTOCOL"] || "sasl_plaintext";
+const KAFKA_AUTH_MECHANISM = process.env["KAFKA_AUTH_MECHANISM"] || "plain";
+const KAFKA_AUTH_USERNAME = process.env["KAFKA_AUTH_USERNAME"] || "user";
+const KAFKA_AUTH_PASSWORD = process.env["KAFKA_AUTH_PASSWORD"] || "password";
 
-const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
-const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
 const AUTH_N_SVC_BASEURL = process.env["AUTH_N_SVC_BASEURL"] || "http://localhost:3201";
 const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should not be known here, libs that use the base should add the suffix
@@ -81,20 +86,38 @@ const AUTH_N_SVC_TOKEN_URL = AUTH_N_SVC_BASEURL + "/token"; // TODO this should 
 const SVC_CLIENT_ID = process.env["SVC_CLIENT_ID"] || "transfers-bc-event-handler-svc";
 const SVC_CLIENT_SECRET = process.env["SVC_CLIENT_SECRET"] || "superServiceSecret";
 
-const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 50;
-const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 50;
+const CONSUMER_BATCH_SIZE = (process.env["CONSUMER_BATCH_SIZE"] && parseInt(process.env["CONSUMER_BATCH_SIZE"])) || 250;
+const CONSUMER_BATCH_TIMEOUT_MS = (process.env["CONSUMER_BATCH_TIMEOUT_MS"] && parseInt(process.env["CONSUMER_BATCH_TIMEOUT_MS"])) || 5;
+
+const REDIS_HOST = process.env["REDIS_HOST"] || "localhost";
+const REDIS_PORT = (process.env["REDIS_PORT"] && parseInt(process.env["REDIS_PORT"])) || 6379;
+
+const TIMEOUT_LOOP_INTERVAL_SECS = (process.env["TIMEOUT_LOOP_INTERVAL_SECS"] && parseInt(process.env["TIMEOUT_LOOP_INTERVAL_SECS"])) || 5;
 
 const SERVICE_START_TIMEOUT_MS= (process.env["SERVICE_START_TIMEOUT_MS"] && parseInt(process.env["SERVICE_START_TIMEOUT_MS"])) || 60_000;
 
-const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
+// kafka common options
+const kafkaProducerCommonOptions:MLKafkaJsonProducerOptions = {
     kafkaBrokerList: KAFKA_URL,
+    producerClientId: `${INSTANCE_ID}`,
+};
+const kafkaConsumerCommonOptions:MLKafkaJsonConsumerOptions ={
+    kafkaBrokerList: KAFKA_URL
+};
+if(KAFKA_AUTH_ENABLED){
+    kafkaProducerCommonOptions.authentication = kafkaConsumerCommonOptions.authentication = {
+        protocol: KAFKA_AUTH_PROTOCOL as "plaintext" | "ssl" | "sasl_plaintext" | "sasl_ssl",
+        mechanism: KAFKA_AUTH_MECHANISM as "PLAIN" | "GSSAPI" | "SCRAM-SHA-256" | "SCRAM-SHA-512",
+        username: KAFKA_AUTH_USERNAME,
+        password: KAFKA_AUTH_PASSWORD
+    };
+}
+
+const kafkaConsumerOptions: MLKafkaJsonConsumerOptions = {
+    ...kafkaConsumerCommonOptions,
     kafkaGroupId: `${BC_NAME}_${APP_NAME}`,
     batchSize: CONSUMER_BATCH_SIZE,
     batchTimeoutMs: CONSUMER_BATCH_TIMEOUT_MS
-};
-
-const kafkaProducerOptions: MLKafkaJsonProducerOptions = {
-	kafkaBrokerList: KAFKA_URL
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -107,12 +130,12 @@ export class Service {
 	static logger: ILogger;
     static app: Express;
     static expressServer: Server;
-	static auditClient: IAuditClient;
 	static messageConsumer: IMessageConsumer;
 	static messageProducer: IMessageProducer;
 	static handler: TransfersEventHandler;
     static metrics:IMetrics;
     static configClient: IConfigurationClient;
+    static timeoutAdapter: ITimeoutAdapter;
     static startupTimer: NodeJS.Timeout;
 
 	static async start(
@@ -122,6 +145,7 @@ export class Service {
 		messageProducer?: IMessageProducer,
         metrics?:IMetrics,
         configProvider?: IConfigProvider,
+        timeoutAdapter?: ITimeoutAdapter
 	): Promise<void> {
 		console.log(`Service starting with PID: ${process.pid}`);
 
@@ -135,7 +159,7 @@ export class Service {
 				BC_NAME,
 				APP_NAME,
 				APP_VERSION,
-				kafkaProducerOptions,
+                kafkaProducerCommonOptions,
 				KAFKA_LOGS_TOPIC,
 				LOG_LEVEL
 			);
@@ -150,8 +174,8 @@ export class Service {
             authRequester.setAppCredentials(SVC_CLIENT_ID, SVC_CLIENT_SECRET);
 
             const messageConsumer = new MLKafkaJsonConsumer({
-                kafkaBrokerList: KAFKA_URL,
-                kafkaGroupId: `${APP_NAME}_${Date.now()}` // unique consumer group - use instance id when possible
+                ...kafkaConsumerCommonOptions,
+                kafkaGroupId: `${INSTANCE_ID}_config` // unique consumer group - use instance id when possible
             }, this.logger.createChild("configClient.consumer"));
             configProvider = new DefaultConfigProvider(logger, authRequester, messageConsumer);
         }
@@ -160,24 +184,6 @@ export class Service {
         await this.configClient.init();
         await this.configClient.bootstrap(true);
         await this.configClient.fetch();
-
-		/// start auditClient
-		if (!auditClient) {
-			if (!existsSync(AUDIT_KEY_FILE_PATH)) {
-				if (PRODUCTION_MODE) process.exit(9);
-				// create e tmp file
-				LocalAuditClientCryptoProvider.createRsaPrivateKeyFileSync(AUDIT_KEY_FILE_PATH, 2048);
-			}
-			const auditLogger = logger.createChild("auditDispatcher");
-			auditLogger.setLogLevel(LogLevel.INFO);
-
-			const cryptoProvider = new LocalAuditClientCryptoProvider(AUDIT_KEY_FILE_PATH);
-			const auditDispatcher = new KafkaAuditClientDispatcher(kafkaProducerOptions, KAFKA_AUDITS_TOPIC, auditLogger);
-			// NOTE: to pass the same kafka logger to the audit client, make sure the logger is started/initialised already
-			auditClient = new AuditClient(BC_NAME, APP_NAME, APP_VERSION, cryptoProvider, auditDispatcher);
-			await auditClient.init();
-		}
-		this.auditClient = auditClient;
 
 		if(!messageConsumer){
 			const consumerHandlerLogger = logger.createChild("handlerConsumer");
@@ -189,22 +195,34 @@ export class Service {
 		if (!messageProducer) {
 			const producerLogger = logger.createChild("producerLogger");
 			producerLogger.setLogLevel(LogLevel.INFO);
-			messageProducer = new MLKafkaJsonProducer(kafkaProducerOptions, producerLogger);
+			messageProducer = new MLKafkaJsonProducer(kafkaProducerCommonOptions, producerLogger);
 		}
 		this.messageProducer = messageProducer;
+
+        if (!timeoutAdapter) {
+            timeoutAdapter = new RedisTimeoutAdapter(logger, REDIS_HOST, REDIS_PORT);
+            await timeoutAdapter.init();
+        }
+        this.timeoutAdapter = timeoutAdapter;
 
         if(!metrics){
             const labels: Map<string, string> = new Map<string, string>();
             labels.set("bc", BC_NAME);
             labels.set("app", APP_NAME);
             labels.set("version", APP_VERSION);
+            labels.set("instance_id", INSTANCE_ID);
             PrometheusMetrics.Setup({prefix:"", defaultLabels: labels}, this.logger);
             metrics = PrometheusMetrics.getInstance();
         }
         this.metrics = metrics;
 
+        OpenTelemetryClient.Start(BC_NAME, APP_NAME, APP_VERSION, INSTANCE_ID, this.logger);
+
 		// create handler and start it
-		this.handler = new TransfersEventHandler(this.logger, this.auditClient, this.messageConsumer, this.messageProducer, this.metrics);
+		this.handler = new TransfersEventHandler(
+            this.logger, this.messageConsumer, this.messageProducer, this.metrics,
+            this.timeoutAdapter, TIMEOUT_LOOP_INTERVAL_SECS
+        );
 		await this.handler.start();
 
         await this.setupExpress();
@@ -222,8 +240,9 @@ export class Service {
 
             // Add health and metrics http routes
             this.app.get("/health", (req: express.Request, res: express.Response) => {
-return res.send({ status: "OK" });
-});
+                return res.send({ status: "OK" });
+            });
+
             this.app.get("/metrics", async (req: express.Request, res: express.Response) => {
                 const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
                 return res.send(strMetrics);
@@ -267,9 +286,9 @@ return res.send({ status: "OK" });
 				this.logger.debug("Tearing down config client");
 				await this.configClient.destroy();
 			}
-			if (this.auditClient) {
-				this.logger.debug("Tearing down audit client");
-				await this.auditClient.destroy();
+			if (this.timeoutAdapter) {
+				this.logger.debug("Tearing down timeoutAdapter");
+				await this.timeoutAdapter.destroy();
 			}
 			if (this.logger && this.logger instanceof KafkaLogger) {
 				setTimeout(async ()=>{

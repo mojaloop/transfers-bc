@@ -31,21 +31,34 @@
 "use strict";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {CommandMsg, IMessage, IMessageConsumer, MessageTypes} from "@mojaloop/platform-shared-lib-messaging-types-lib";
+import {
+    CommandMsg,
+    IMessage,
+    IMessageConsumer,
+    MessageTypes
+} from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {TransfersBCTopics} from "@mojaloop/platform-shared-lib-public-messages-lib";
 import {IGauge, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
 
-import {TransfersAggregate} from "@mojaloop/transfers-bc-domain-lib";
+import {
+    TransfersAggregate
+} from "@mojaloop/transfers-bc-domain-lib";
 
 export class TransfersCommandHandler{
-	private _logger: ILogger;
-	private _auditClient: IAuditClient;
-	private _messageConsumer: IMessageConsumer;
-	private _transfersAgg: TransfersAggregate;
+	private readonly _logger: ILogger;
+    private _auditClient: IAuditClient;
+    private _messageConsumer: IMessageConsumer;
+    private _transfersAgg: TransfersAggregate;
     private _histo:IHistogram;
     private _batchSizeGauge:IGauge;
 
-    constructor(logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer, metrics:IMetrics, transfersAgg: TransfersAggregate) {
+
+    private _processingCount = 0;
+
+    constructor(
+        logger: ILogger, auditClient:IAuditClient, messageConsumer: IMessageConsumer,
+        metrics:IMetrics, transfersAgg: TransfersAggregate
+    ) {
 		this._logger = logger.createChild(this.constructor.name);
 		this._auditClient = auditClient;
 		this._messageConsumer = messageConsumer;
@@ -57,77 +70,48 @@ export class TransfersCommandHandler{
 
 	async start():Promise<void>{
 		// create and start the consumer handler
-        this._messageConsumer.setTopics([TransfersBCTopics.DomainRequests]);
+        this._messageConsumer.setTopics([TransfersBCTopics.DomainCommands]);
         this._messageConsumer.setBatchCallbackFn(this._batchMsgHandler.bind(this));
         await this._messageConsumer.connect();
         await this._messageConsumer.startAndWaitForRebalance();
 	}
 
     private async _batchMsgHandler(receivedMessages: IMessage[]): Promise<void>{
-		// eslint-disable-next-line no-async-promise-executor
-        return await new Promise<void>(async (resolve) => {
-            // filter out non-commands
-            receivedMessages = receivedMessages.filter(msg => msg.msgType===MessageTypes.COMMAND);
-            if(!receivedMessages || receivedMessages.length<=0)
-                return resolve();
+        const startTime = Date.now();
+        const timerEndFn = this._histo.startTimer({callName: "batchMsgHandler"});
 
-            const startTime = Date.now();
-            const timerEndFn = this._histo.startTimer({ callName: "batchMsgHandler"});
-
-            console.log(`Got message batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
+        try {
+            this._logger.isDebugEnabled() && this._logger.debug(`Got message batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
             this._batchSizeGauge.set(receivedMessages.length);
 
-            try{
+            this._processingCount++;
+            if (this._processingCount > 1) {
+                this._logger.warn("WARNING - Processing more than one _batchMsgHandler at a time - this shouldn't happen");
+            }
+
+            // filter out non-commands
+            // note: to remove when we have a dedicated command topic
+            receivedMessages = receivedMessages.filter(msg => msg.msgType === MessageTypes.COMMAND);
+
+            if (receivedMessages.length > 0) {
                 await this._transfersAgg.processCommandBatch(receivedMessages as CommandMsg[]);
-            }catch(err: unknown){
-				const error = (err as Error);
-                this._logger.error(err, `TransfersCommandHandler - failed processing batch - Error: ${error.message || error.toString()}`);
-                // TODO Don't suppress the exception - find proper exception but make sure the app dies
-                throw err;
-            }finally {
-                timerEndFn({ success: "true" });
-                console.log(`  Completed batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
-                console.log(`  Took: ${Date.now()-startTime}`);
-                console.log("\n\n");
-                resolve();
             }
-        });
+
+            timerEndFn({success: "true"});
+        }catch (err){
+            timerEndFn({success: "false"});
+            const error = (err as Error);
+            this._logger.error(err, `TransfersCommandHandler - failed processing batch - Error: ${error.message || error.toString()}`);
+
+            // Don't suppress the exception - find proper exception but make sure the app dies if not handled
+            // TODO: send error to error Topic, only throw if we can't continue
+            throw error;
+        }finally {
+            this._processingCount--;
+            this._logger.isDebugEnabled() && this._logger.debug(`  Completed batch in TransfersCommandHandler batch size: ${receivedMessages.length}`);
+            this._logger.isDebugEnabled() && this._logger.debug(`  Took: ${Date.now() - startTime} ms \n\n`);
+        }
     }
-
-/*    private async _msgHandler_OLD(message: IMessage): Promise<void>{
-		// eslint-disable-next-line no-async-promise-executor
-		return await new Promise<void>(async (resolve) => {
-            if(message.msgType!=MessageTypes.COMMAND){
-                return resolve();
-            }
-
-            this._logger.debug(`Got message in TransfersCommandHandler with name: ${message.msgName}`);
-            const timerEndFn = this._histo.startTimer();
-			try {
-
-				switch (message.msgName) {
-					case PrepareTransferCmd.name:
-						// send to aggregate handler
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
-					case CommitTransferFulfilCmd.name:
-						// send to aggregate handler
-						await this._transfersAgg.handleTransferCommand(message as CommandMsg);
-						break;
-					default: {
-						this._logger.isWarnEnabled() && this._logger.warn(`TransfersCommandHandler - unknown command - msgName: ${message?.msgName} msgKey: ${message?.msgKey} msgId: ${message?.msgId}`);
-					}
-				}
-
-                timerEndFn({ commandName: message.msgName, success: "true" });
-			}catch(err: unknown){
-				this._logger.error(err, `TransfersCommandHandler - processing command - ${message?.msgName}:${message?.msgKey}:${message?.msgId} - Error: ${(err as Error)?.message?.toString()}`);
-                timerEndFn({ commandName: message.msgName, success: "false" });
-			}finally {
-				resolve();
-			}
-		});
-	}*/
 
 	async stop():Promise<void>{
 		await this._messageConsumer.stop();

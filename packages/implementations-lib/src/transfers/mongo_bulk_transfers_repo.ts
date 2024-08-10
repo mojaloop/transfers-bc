@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { Collection, Document, MongoClient, WithId } from "mongodb";
+import {Collection, Db, Document, MongoClient, WithId} from "mongodb";
 import { ILogger } from "@mojaloop/logging-bc-public-types-lib";
 import {
     BulkTransferAlreadyExistsError,
@@ -46,27 +46,40 @@ import {
 import { IBulkTransfersRepository } from "@mojaloop/transfers-bc-domain-lib";
 import { IBulkTransfer } from "@mojaloop/transfers-bc-public-types-lib";
 
+const DB_NAME: string = "transfers";
+const COLLECTION_NAME: string = "bulk_transfers";
+
 export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
     private readonly _logger: ILogger;
     private readonly _connectionString: string;
-    private readonly _dbName;
-    private readonly _collectionName = "bulk_transfers";
-    private mongoClient: MongoClient;
-    private bulkTransfers: Collection;
+    private _mongoClient: MongoClient;
+    private _bulkTransfersCollection: Collection;
 
-    constructor(logger: ILogger, connectionString: string, dbName: string) {
+    constructor(logger: ILogger, connectionString: string) {
         this._logger = logger.createChild(this.constructor.name);
         this._connectionString = connectionString;
-        this._dbName = dbName;
     }
 
     async init(): Promise<void> {
+        this._logger.info(`Initializing ${this.constructor.name}...`);
         try {
-            this.mongoClient = new MongoClient(this._connectionString);
-            this.mongoClient.connect();
-            this.bulkTransfers = this.mongoClient
-                .db(this._dbName)
-                .collection(this._collectionName);
+            this._mongoClient = new MongoClient(this._connectionString);
+            await this._mongoClient.connect();
+
+            const db: Db = this._mongoClient.db(DB_NAME);
+
+            // Check if the collection already exists.
+            const collections: any[] = await db.listCollections().toArray();
+            const collectionExists: boolean = collections.some((collection) => {
+                return collection.name === COLLECTION_NAME;
+            });
+
+            if (collectionExists) {
+                this._bulkTransfersCollection = db.collection(COLLECTION_NAME);
+            }else{
+                this._bulkTransfersCollection = await db.createCollection(COLLECTION_NAME);
+                //await this._bulkTransfersCollection.createIndex({"transferBulkId": 1}, {unique: true});
+            }
         } catch (e: unknown) {
             this._logger.error(
                 `Unable to connect to the database: ${(e as Error).message}`
@@ -75,11 +88,12 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
                 "Unable to connect to the database"
             );
         }
+        this._logger.info(`${this.constructor.name} initialized`);
     }
 
     async destroy(): Promise<void> {
         try {
-            await this.mongoClient.close();
+            await this._mongoClient.close();
         } catch (e: unknown) {
             this._logger.error(
                 `Unable to close the database connection: ${
@@ -93,7 +107,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
     }
 
     async getBulkTransferById(bulkTransferId: string): Promise<IBulkTransfer | null> {
-        const bulkTransfer = await this.bulkTransfers
+        const bulkTransfer = await this._bulkTransfersCollection
             .findOne({ bulkTransferId: bulkTransferId })
             .catch((e: unknown) => {
                 this._logger.error(
@@ -110,7 +124,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
     }
 
     async getBulkTransfers(): Promise<IBulkTransfer[]> {
-        const bulkTransfers = await this.bulkTransfers
+        const bulkTransfers = await this._bulkTransfersCollection
             .find({})
             .toArray()
             .catch((e: unknown) => {
@@ -135,7 +149,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
             await this.checkIfBulkTransferExists(bulkTransferToAdd);
         }
 
-        await this.bulkTransfers.insertOne(bulkTransferToAdd).catch((e: unknown) => {
+        await this._bulkTransfersCollection.insertOne(bulkTransferToAdd).catch((e: unknown) => {
             this._logger.error(
                 `Unable to insert bulkTransfer: ${(e as Error).message}`
             );
@@ -159,7 +173,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
         const updatedTransfer: IBulkTransfer = { ...existingBulkTransfer, ...bulkTransfer };
         updatedTransfer.bulkTransferId = existingBulkTransfer.bulkTransferId;
 
-        await this.bulkTransfers
+        await this._bulkTransfersCollection
             .updateOne(
                 { bulkTransferId: bulkTransfer.bulkTransferId },
                 { $set: updatedTransfer }
@@ -176,7 +190,7 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
 
     private async checkIfBulkTransferExists(bulkTransfer: IBulkTransfer) {
         const transferAlreadyPresent: WithId<Document> | null =
-            await this.bulkTransfers
+            await this._bulkTransfersCollection
                 .findOne({
                     bulkTransferId: bulkTransfer.bulkTransferId,
                 })

@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/transfers-bc-event-handler-svc",
-    "version": "0.5.5",
+    "version": "0.6.0",
     "description": "Mojaloop vNext Transfers BC - Event Handler Service",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/transfers-bc/event-handler-svc",
@@ -45,11 +45,11 @@
         "@mojaloop/logging-bc-public-types-lib": "~0.5.4",
         "@mojaloop/platform-configuration-bc-public-types-lib": "~0.5.2",
         "@mojaloop/platform-configuration-bc-client-lib": "~0.5.4",
-        "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "~0.5.11",
-        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.15",
+        "@mojaloop/platform-shared-lib-nodejs-kafka-client-lib": "~0.5.18",
+        "@mojaloop/platform-shared-lib-public-messages-lib": "~0.5.23",
         "@mojaloop/security-bc-public-types-lib": "~0.5.6",
-        "@mojaloop/platform-shared-lib-observability-client-lib": "~0.5.1",
-        "@mojaloop/platform-shared-lib-observability-types-lib": "~0.5.2",
+        "@mojaloop/platform-shared-lib-observability-client-lib": "~0.5.8",
+        "@mojaloop/platform-shared-lib-observability-types-lib": "~0.5.6",
         "express": "^4.18.3"
     },
     "devDependencies": {

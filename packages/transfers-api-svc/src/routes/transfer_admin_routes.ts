@@ -84,7 +84,7 @@ export class TransferAdminExpressRoutes extends BaseRoutes {
             const id = req.query.id as string;
             const payerId = req.query.payerId as string || req.query.payerid as string;
             const payeeId = req.query.payeeId as string || req.query.payeeid as string;
-            
+
             const startDateStr = req.query.startDate as string || req.query.startdate as string;
             const startDate = startDateStr ? parseInt(startDateStr) : undefined;
             const endDateStr = req.query.endDate as string || req.query.enddate as string;

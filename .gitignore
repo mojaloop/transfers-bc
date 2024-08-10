@@ -136,3 +136,4 @@ devspace*
 # Visual Studio Code #
 # --------------- #
 .vscode/*
+/.clinic/

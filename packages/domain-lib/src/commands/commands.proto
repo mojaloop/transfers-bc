@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package transferCommands;
+
+import "google/protobuf/timestamp.proto";
+
+enum MessageType{
+    STATE_EVENT = 0;
+    STATE_SNAPSHOT = 1;
+    DOMAIN_EVENT = 2;
+    COMMAND = 3;
+    DOMAIN_ERROR_EVENT = 4;
+}
+
+message KeyPair{
+    string key = 1;
+    string value = 2;
+}
+
+message CommandMsgHeader {
+    MessageType msgType = 1;
+    string msgName = 2;
+    string msgId = 3;
+    uint64 msgTimestamp = 4;
+    string msgTopic = 5;
+    optional string msgKey = 6;
+    optional uint32 msgPartition = 7;
+    optional uint32 msgOffset = 8;
+
+    string boundedContextName = 9;
+    string aggregateId = 10;
+}
+
+message PassThroughState{
+    optional bytes fspiopOpaqueState = 16;
+    // trace headers
+    optional bytes tracingInfo = 17;
+}
+
+message Prepare{
+    repeated KeyPair headers = 1;
+    string payload = 2;
+}
+
+message TransferPrepareCommandMsg {
+    CommandMsgHeader header=1;
+
+    optional string bulkTransferId = 2;
+    string transferId = 3;
+    string amount = 4;
+    string currencyCode = 5;
+    string payerFsp = 6;
+    string payeeFsp = 7;
+    string ilpPacket = 8;
+    uint64 expiration = 9;
+    string condition = 10;
+
+    string payerIdType = 11;
+    string payeeIdType = 12;
+    string transferType = 13;
+
+    optional Prepare prepare = 14;
+    repeated KeyPair extensionList = 15;
+
+    optional PassThroughState passThroughState= 99;
+}
+
+message TransferFulfilCmdMsg {
+    CommandMsgHeader header = 1;
+
+    string transferId = 2;
+    string transferState = 3;
+    string fulfilment = 4;
+    uint64 completedTimestamp = 5;
+    bool notifyPayee = 6;
+
+    repeated KeyPair extensionList = 7;
+    Prepare prepare = 8;
+
+    PassThroughState passThroughState= 99;
+}
+
+
+/*
+class single{
+    msgType: MessageTypes;
+    msgName: string;
+    msgId: string;
+    msgTimestamp: number;
+    msgTopic: string;
+    msgKey: string | null;
+    msgPartition: number | null;
+    msgOffset: number | null;
+
+    payload: any;
+
+    fspiopOpaqueState: any;
+
+    boundedContextName: string;
+    aggregateId: string;
+}
+
+export declare enum MessageTypes {
+    "STATE_EVENT" = 0,
+    "STATE_SNAPSHOT" = 1,
+    "DOMAIN_EVENT" = 2,
+    "COMMAND" = 3,
+    "DOMAIN_ERROR_EVENT" = 4
+}
+export interface IMessage {
+    msgType: MessageTypes;
+    msgName: string;
+    msgId: string;
+    msgTimestamp: number;
+    msgTopic: string;
+    msgKey: string | null;
+    msgPartition: number | null;
+    msgOffset: number | null;
+    payload: any;
+    fspiopOpaqueState: any;
+}
+export interface IDomainMessage extends IMessage {
+    boundedContextName: string;
+    aggregateId: string;
+}
+export declare abstract class DomainMsg implements IDomainMessage {
+    msgId: string;
+    msgTimestamp: number;
+    msgPartition: number | null;
+    msgOffset: number | null;
+    msgName: string;
+    abstract msgType: MessageTypes;
+    abstract msgKey: string;
+    abstract msgTopic: string;
+    abstract aggregateId: string;
+    abstract boundedContextName: string;
+    abstract payload: any;
+    abstract fspiopOpaqueState: any;
+    abstract validatePayload(): void;
+}
+
+export declare abstract class CommandMsg extends DomainMsg {
+    msgType: MessageTypes;
+    fspiopOpaqueState: any;
+    abstract validatePayload(): void;
+}
+*/

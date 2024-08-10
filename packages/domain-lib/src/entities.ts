@@ -46,7 +46,7 @@ export class Transfer implements ITransfer {
 	ilpPacket: string;				// move to opaque object
 	condition: string;				// move to opaque object
 	fulfilment: string | null;		// move to opaque object
-	expirationTimestamp: number;
+	expirationTimestamp: number | null;
 	transferState: TransferState;
 	completedTimestamp: number | null;
 	extensionList: IExtensionList | null;
@@ -56,7 +56,7 @@ export class Transfer implements ITransfer {
 	settlementModel: string;
 	hash: string;
 	bulkTransferId: string | null;
-	payerIdType: string; 
+	payerIdType: string;
 	payeeIdType: string;
 	transferType: string;
 }
@@ -85,7 +85,7 @@ export class BulkTransfer implements IBulkTransfer {
 			}[]
 		} | null;
 	}[];
-	expiration: number;
+	expiration: number | null;
 	extensionList: {
 		extension: {
 			key: string;

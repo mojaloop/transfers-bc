@@ -33,22 +33,31 @@
 import {IParticipant} from "@mojaloop/participant-bc-public-types-lib";
 import { IBulkTransfer, ITransfer, TransfersSearchResults } from "@mojaloop/transfers-bc-public-types-lib";
 import {
-    AccountsAndBalancesAccount,
-    AccountsAndBalancesJournalEntry,
-    AccountsAndBalancesAccountType, IAccountsBalancesHighLevelRequest, IAccountsBalancesHighLevelResponse
+    AnbAccountType,
+    IAnbAccount, IAnbHighLevelRequest, IAnbHighLevelResponse, IAnbJournalEntry,
+
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 import { IReminder } from "@mojaloop/scheduling-bc-public-types-lib";
 export interface ITransfersRepository {
     init(): Promise<void>;
 	destroy(): Promise<void>;
-    addTransfer(transfer: ITransfer):Promise<string>;
+    // addTransfer(transfer: ITransfer):Promise<string>;
     updateTransfer(transfer: ITransfer):Promise<void>;
-	removeTransfer(id: string):Promise<void>;
+	// removeTransfer(id: string):Promise<void>;
     getTransferById(id:string):Promise<ITransfer|null>;
-	getTransfersByBulkId(id:string):Promise<ITransfer[]>;
+
+    // getTransferByIdOrHash(transferId:string, transferHash:string):Promise<ITransfer|null>;
+
+    getTransfersByBulkId(id:string):Promise<ITransfer[]>;
 
     storeTransfers(transfers:ITransfer[]):Promise<void>;
 
+/*
+
+    // this should store a new hash record and return undefined if successful (not duplicate)
+    // if a duplicate was found, it returns the transfer Id of the matched transfer
+    storeNewTransferHashIfNotDuplicate(transferId:string, transferHash:string, ttlSecs:number):Promise<undefined | string>;
+*/
 
     getSearchKeywords():Promise<{fieldName:string, distinctTerms:string[]}[]>
 
@@ -90,10 +99,10 @@ export interface IAccountsBalancesAdapter {
 	setUserCredentials(client_id: string, username: string, password: string): void;
 	setAppCredentials(client_id: string, client_secret: string): void;
 
-	createAccount(requestedId: string, ownerId: string, type: AccountsAndBalancesAccountType, currencyCode: string): Promise<string>;
-	getAccount(accountId: string): Promise<AccountsAndBalancesAccount | null>;
-	getAccounts(accountIds: string[]): Promise<AccountsAndBalancesAccount[]>;
-	getParticipantAccounts(participantId: string): Promise<AccountsAndBalancesAccount[]>;
+	createAccount(requestedId: string, ownerId: string, type: AnbAccountType, currencyCode: string): Promise<string>;
+	getAccount(accountId: string): Promise<IAnbAccount | null>;
+	getAccounts(accountIds: string[]): Promise<IAnbAccount[]>;
+	getParticipantAccounts(participantId: string): Promise<IAnbAccount[]>;
 
 	createJournalEntry(
 		requestedId: string,
@@ -105,9 +114,9 @@ export interface IAccountsBalancesAdapter {
 		creditedAccountId: string
 	): Promise<string>;
 
-	getJournalEntriesByAccountId(accountId: string): Promise<AccountsAndBalancesJournalEntry[]>;
+	getJournalEntriesByAccountId(accountId: string): Promise<IAnbJournalEntry[]>;
 
-    processHighLevelBatch(requests:IAccountsBalancesHighLevelRequest[]):Promise<IAccountsBalancesHighLevelResponse[]>;
+    processHighLevelBatch(requests:IAnbHighLevelRequest[]):Promise<IAnbHighLevelResponse[]>;
 
 /*
 
@@ -130,6 +139,13 @@ export interface IAccountsBalancesAdapter {
 */
 }
 
+export interface IAccountsBalancesAdapterV2 {
+    init(): Promise<void>;
+    destroy(): Promise<void>;
+
+    processHighLevelBatch(requests:IAnbHighLevelRequest[]):Promise<IAnbHighLevelResponse[]>;
+}
+
 export interface ISettlementsServiceAdapter {
     getSettlementModelId(transferAmount: string, payerCurrency: string | null, payeeCurrency: string | null, extensionList: { key: string; value: string; }[]): Promise<string>;
 }
@@ -141,5 +157,15 @@ export interface ISchedulingServiceAdapter {
 	deleteReminder(reminderId: string): Promise<void>;
 }
 
+export interface ITimeoutAdapter{
+    init(): Promise<void>;
+    destroy(): Promise<void>;
 
+    setTimeout(transferId:string, timeoutTimestamp:number): Promise<void>;
+    setTimeouts(timeouts:{transferId:string, timeoutTimestamp:number}[]): Promise<void>;
 
+    clearTimeout(transferId:string): Promise<void>;
+    clearTimeouts(transferIds:string[]): Promise<void>;
+
+    getOlderThan(timestamp?: number): Promise<string[]>;
+}

@@ -43,7 +43,7 @@ export type PrepareTransferCmdPayload = {
 	payerFsp: string;
 	payeeFsp: string;
 	ilpPacket: string;
-	expiration: number;
+	expiration: number | null;
 	condition: string;
 	extensionList: {
 		extension: {
@@ -51,7 +51,7 @@ export type PrepareTransferCmdPayload = {
 			value: string;
 		}[];
 	} | null;
-	payerIdType: string; 
+	payerIdType: string;
     payeeIdType: string;
     transferType: string;
 	prepare: {
@@ -65,7 +65,7 @@ export class PrepareTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: PrepareTransferCmdPayload;
 
 	constructor(payload: PrepareTransferCmdPayload) {
@@ -74,6 +74,78 @@ export class PrepareTransferCmd extends CommandMsg {
 		this.aggregateId = this.msgKey = payload.transferId;
 		this.payload = payload;
 	}
+
+  /*
+    static encode(msg:PrepareTransferCmd): Uint8Array{
+        const protoHeader: CommandMsgHeader = {
+          msgId: msg.msgId,
+          msgKey: msg.msgKey,
+          msgName: msg.msgName,
+          msgTopic: msg.msgTopic,
+          msgOffset: msg.msgOffset || undefined,
+          msgPartition: msg.msgPartition || undefined,
+          msgType: messageTypeFromJSON(msg.msgType),
+          msgTimestamp: msg.msgTimestamp,
+          aggregateId: msg.aggregateId,
+          boundedContextName: msg.boundedContextName
+        };
+
+        const protoMsg: TransferPrepareCommandMsg = {
+            transferId: msg.payload.transferId,
+            amount: msg.payload.amount,
+            currencyCode: msg.payload.currencyCode,
+            payerFsp: msg.payload.payeeFsp,
+            payeeFsp: msg.payload.payeeFsp,
+            ilpPacket: msg.payload.ilpPacket,
+            expiration: msg.payload.expiration,
+            condition: msg.payload.condition,
+            transferType: msg.payload.transferType,
+            payerIdType: msg.payload.payeeIdType,
+            payeeIdType: msg.payload.payeeIdType,
+            bulkTransferId: msg.payload.bulkTransferId || undefined,
+            header: protoHeader,
+            extensionList: [],
+            prepare: undefined,
+            passThroughState: {
+                fspiopOpaqueState: undefined,
+                tracingInfo: undefined
+            }
+        };
+
+        // if(this.fspiopOpaqueState) {
+        //     msg.passThroughState.fspiopOpaqueState = PassThroughState.fromJSON(this.fspiopOpaqueState);
+        // }
+
+        return TransferPrepareCommandMsg.encode(protoMsg).finish();
+    }
+
+    static decode(bytes:Uint8Array):PrepareTransferCmd{
+        const decoded:TransferPrepareCommandMsg = TransferPrepareCommandMsg.decode(bytes);
+
+        const payload: PrepareTransferCmdPayload ={
+            transferId: decoded.transferId,
+            amount: decoded.amount,
+            currencyCode: decoded.currencyCode,
+            payerFsp: decoded.payeeFsp,
+            payeeFsp: decoded.payeeFsp,
+            ilpPacket: decoded.ilpPacket,
+            expiration: decoded.expiration,
+            condition: decoded.condition,
+            transferType: decoded.transferType,
+            payerIdType: decoded.payeeIdType,
+            payeeIdType: decoded.payeeIdType,
+            bulkTransferId: decoded.bulkTransferId || undefined,
+            header: protoHeader,
+            extensionList: [],
+            prepare: undefined,
+            passThroughState: {
+                fspiopOpaqueState: undefined,
+                tracingInfo: undefined
+            }
+
+        }
+    }*/
+
 
 	validatePayload(): void {
 		// TODO
@@ -104,7 +176,7 @@ export class CommitTransferFulfilCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: CommitTransferFulfilCmdPayload;
 
 	constructor(payload: CommitTransferFulfilCmdPayload) {
@@ -142,7 +214,7 @@ export class RejectTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: RejectTransferCmdPayload;
 
 	constructor(payload: RejectTransferCmdPayload) {
@@ -170,7 +242,7 @@ export class QueryTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: QueryTransferCmdPayload;
 
 	constructor(payload: QueryTransferCmdPayload) {
@@ -187,10 +259,6 @@ export class QueryTransferCmd extends CommandMsg {
 
 export type TimeoutTransferCmdPayload = {
 	transferId: string;
-	timeout: {
-		headers: { [key: string]: string };
-		payload: string;
-	};
 }
 
 export class TimeoutTransferCmd extends CommandMsg {
@@ -198,7 +266,7 @@ export class TimeoutTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: TimeoutTransferCmdPayload;
 
 	constructor(payload: TimeoutTransferCmdPayload) {
@@ -233,11 +301,11 @@ export type PrepareBulkTransferCmdPayload = {
                 value: string;
             }[]
         } | null;
-		payerIdType: string; 
+		payerIdType: string;
 		payeeIdType: string;
 		transferType: string;
     }[];
-    expiration: number;
+    expiration: number | null;
     extensionList: {
         extension: {
             key: string;
@@ -254,7 +322,7 @@ export class PrepareBulkTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: PrepareBulkTransferCmdPayload;
 
 	constructor(payload: PrepareBulkTransferCmdPayload) {
@@ -309,7 +377,7 @@ export class CommitBulkTransferFulfilCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: CommitBulkTransferFulfilCmdPayload;
 
 	constructor(payload: CommitBulkTransferFulfilCmdPayload) {
@@ -347,7 +415,7 @@ export class RejectBulkTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: RejectBulkTransferCmdPayload;
 
 	constructor(payload: RejectBulkTransferCmdPayload) {
@@ -375,7 +443,7 @@ export class QueryBulkTransferCmd extends CommandMsg {
 	aggregateId: string;
 	aggregateName: string = TRANSFERS_AGGREGATE_NAME;
 	msgKey: string;
-	msgTopic: string = TransfersBCTopics.DomainRequests;
+	msgTopic: string = TransfersBCTopics.DomainCommands;
 	payload: QueryBulkTransferCmdPayload;
 
 	constructor(payload: QueryBulkTransferCmdPayload) {

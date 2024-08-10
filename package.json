@@ -12,7 +12,6 @@
     "Pedro Sousa Barreto <pedrosousabarreto@gmail.com>"
   ],
   "scripts": {
-    "prepare": "husky install",
     "pre_commit_check": "npm run build && npm run lint && npm run test:unit",
     "build": "npm -ws run build",
     "watch": "npm -ws run watch",
@@ -49,7 +48,8 @@
     "nyc": "^15.1.0",
     "supertest": "^6.3.4",
     "ts-jest": "^29.1.2",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "ts-proto": "~1.176.2"
   },
   "workspaces": [
     "packages/public-types-lib",

@@ -34,9 +34,12 @@
 
 import {createHash, randomUUID} from "crypto";
 import {
-    AccountsBalancesHighLevelRequestTypes,
-    IAccountsBalancesHighLevelRequest,
-    IAccountsBalancesHighLevelResponse
+    AnbHighLevelRequestTypes,
+    IAnbCancelReservationAndCommitRequest,
+    IAnbCheckLiquidAndReserveRequest,
+    IAnbHighLevelRequest,
+    IAnbHighLevelResponse,
+    AnbAccountType, IAnbCancelReservationRequest
 } from "@mojaloop/accounts-and-balances-bc-public-types-lib";
 import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
@@ -49,15 +52,15 @@ import {
     MessageTypes
 } from "@mojaloop/platform-shared-lib-messaging-types-lib";
 import {
-    PrepareTransferCmd, 
-    CommitTransferFulfilCmd, 
-    QueryTransferCmd, 
-    RejectTransferCmd, 
-    TimeoutTransferCmd, 
-    PrepareBulkTransferCmd, 
+    PrepareTransferCmd,
+    CommitTransferFulfilCmd,
+    QueryTransferCmd,
+    RejectTransferCmd,
+    TimeoutTransferCmd,
+    PrepareBulkTransferCmd,
     CommitBulkTransferFulfilCmd,
     RejectBulkTransferCmd,
-    QueryBulkTransferCmd
+    QueryBulkTransferCmd, PrepareTransferCmdPayload
 } from "./commands";
 import {
     IAccountsBalancesAdapter,
@@ -65,7 +68,7 @@ import {
     ITransfersRepository,
     ISettlementsServiceAdapter,
     ISchedulingServiceAdapter,
-    IBulkTransfersRepository
+    IBulkTransfersRepository, IAccountsBalancesAdapterV2, ITimeoutAdapter
 } from "./interfaces/infrastructure";
 import {
     CheckLiquidityAndReserveFailedError,
@@ -91,41 +94,41 @@ import {
     TransferNotFoundError,
     UnableToCancelTransferError
 } from "./errors";
-import {AccountType, TransferState, ITransfer, BulkTransferState, IBulkTransfer, ITransferParticipants, ITransferAccounts, IErrorInformation, TransferErrorCodeNames } from "@mojaloop/transfers-bc-public-types-lib";
+import { TransferState, ITransfer, BulkTransferState, IBulkTransfer, ITransferParticipants, ITransferAccounts, IErrorInformation, TransferErrorCodeNames } from "@mojaloop/transfers-bc-public-types-lib";
 import {IParticipant, IParticipantAccount} from "@mojaloop/participant-bc-public-types-lib";
-import {ICounter, IHistogram, IMetrics} from "@mojaloop/platform-shared-lib-observability-types-lib";
+import {ICounter, IHistogram, IMetrics, ITracing, SpanStatusCode, Tracer} from "@mojaloop/platform-shared-lib-observability-types-lib";
 import {
-	TransferFulfiledEvt,
+    TransferFulfiledEvt,
     TransferPreparedEvt,
-	TransferPreparedEvtPayload,
-	TransferRejectRequestProcessedEvt,
-	TransferRejectRequestProcessedEvtPayload,
-	TransferQueryResponseEvt,
-	TransferQueryResponseEvtPayload,
-	TransferUnableToUpdateEvt,
-	TransferPrepareLiquidityCheckFailedEvt,
-	TransferUnableToGetTransferByIdEvt,
-	TransferNotFoundEvt,
-	TransferPayerNotFoundFailedEvt,
+    TransferPreparedEvtPayload,
+    TransferRejectRequestProcessedEvt,
+    TransferRejectRequestProcessedEvtPayload,
+    TransferQueryResponseEvt,
+    TransferQueryResponseEvtPayload,
+    TransferUnableToUpdateEvt,
+    TransferPrepareLiquidityCheckFailedEvt,
+    TransferUnableToGetTransferByIdEvt,
+    TransferNotFoundEvt,
+    TransferPayerNotFoundFailedEvt,
     TransferPayerIdMismatchEvt,
     TransferPayerNotApprovedEvt,
     TransferPayerNotActiveEvt,
-	TransferPayeeNotFoundFailedEvt,
+    TransferPayeeNotFoundFailedEvt,
     TransferPayeeIdMismatchEvt,
     TransferPayeeNotApprovedEvt,
     TransferPayeeNotActiveEvt,
-	TransferHubNotFoundFailedEvt,
+    TransferHubNotFoundFailedEvt,
     TransferHubIdMismatchEvt,
     TransferHubNotApprovedEvt,
     TransferHubNotActiveEvt,
-	TransferHubAccountNotFoundFailedEvt,
-	TransferPayerPositionAccountNotFoundFailedEvt,
-	TransferPayerLiquidityAccountNotFoundFailedEvt,
-	TransferPayeePositionAccountNotFoundFailedEvt,
-	TransferPayeeLiquidityAccountNotFoundFailedEvt,
-	TransferCancelReservationFailedEvt,
-	TransferCancelReservationAndCommitFailedEvt,
-	TransferUnableToGetSettlementModelEvt,
+    TransferHubAccountNotFoundFailedEvt,
+    TransferPayerPositionAccountNotFoundFailedEvt,
+    TransferPayerLiquidityAccountNotFoundFailedEvt,
+    TransferPayeePositionAccountNotFoundFailedEvt,
+    TransferPayeeLiquidityAccountNotFoundFailedEvt,
+    TransferCancelReservationFailedEvt,
+    TransferCancelReservationAndCommitFailedEvt,
+    TransferUnableToGetSettlementModelEvt,
     TransferInvalidMessageTypeEvt,
     TransferPrepareRequestTimedoutEvt,
     TransferPrepareRequestTimedoutEvtPayload,
@@ -141,11 +144,16 @@ import {
     TransferBCUnableToAddBulkTransferToDatabaseEvt,
     TransferUnableToGetBulkTransferByIdEvt,
     BulkTransferQueryResponseEvt,
-    BulkTransferQueryResponseEvtPayload
+    BulkTransferQueryResponseEvtPayload, TransferDuplicateCheckFailedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { BulkTransfer, Transfer } from "./entities";
+import {OpenTelemetryClient} from "@mojaloop/platform-shared-lib-observability-client-lib";
+import {SpanKind, SpanOptions} from "@opentelemetry/api";
 
 const HUB_ID = "hub"; // move to shared lib
+
+// TODO: consider moving this to a configuration param in platform-config
+const DEFAULT_DUPLICATE_CHECK_HASH_TTL_SECS = 60*5;
 
 export class TransfersAggregate {
     private _logger: ILogger;
@@ -154,26 +162,27 @@ export class TransfersAggregate {
     private _bulkTransfersRepo: IBulkTransfersRepository;
     private _messageProducer: IMessageProducer;
     private _participantAdapter: IParticipantsServiceAdapter;
-    private _accountAndBalancesAdapter: IAccountsBalancesAdapter;
+    private _accountAndBalancesAdapter: IAccountsBalancesAdapterV2;
     private _metrics: IMetrics;
     private _histo: IHistogram;
     private _commandsCounter:ICounter;
-    private _aandbHisto: IHistogram;
-    private _participantsHisto: IHistogram;
-    private _participantsCache: Map<string, { participant: IParticipant, timestamp: number }> = new Map<string, {
-        participant: IParticipant;
-        timestamp: number
-    }>();
     private _settlementsAdapter: ISettlementsServiceAdapter;
-    private _schedulingAdapter: ISchedulingServiceAdapter;
+    private _timeoutServiceClient: ITimeoutAdapter;
 
     private _transfersCache: Map<string, ITransfer> = new Map<string, ITransfer>();
+    // private _transfersHashesCache: Map<string, ITransfer> = new Map<string, ITransfer>();
     private _bulkTransfersCache: Map<string, IBulkTransfer> = new Map<string, IBulkTransfer>();
     private _batchCommands: Map<string, IDomainMessage> = new Map<string, IDomainMessage>();
-    private _abBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
-    private _abCancelationBatchRequests: IAccountsBalancesHighLevelRequest[] = [];
-    private _abBatchResponses: IAccountsBalancesHighLevelResponse[] = [];
+    private _abBatchRequests: IAnbHighLevelRequest[] = [];
+    private _abCancellationBatchRequests: IAnbHighLevelRequest[] = [];
+    private _abBatchResponses: IAnbHighLevelResponse[] = [];
     private _outputEvents: DomainEventMsg[] = [];
+
+    private _timeoutsToSet: {transferId:string, timeoutTimestamp:number}[] = [];
+    private _transferIdsToClearTimeout: string[] = []; // transferIds
+
+    private _tracingClient: ITracing;
+    private _tracer:Tracer;
 
     constructor(
         logger: ILogger,
@@ -181,10 +190,11 @@ export class TransfersAggregate {
         bulkTransfersRepo: IBulkTransfersRepository,
         participantsServiceAdapter: IParticipantsServiceAdapter,
         messageProducer: IMessageProducer,
-        accountAndBalancesAdapter: IAccountsBalancesAdapter,
+        accountAndBalancesAdapter: IAccountsBalancesAdapterV2,
         metrics: IMetrics,
         settlementsAdapter: ISettlementsServiceAdapter,
-        schedulingAdapter: ISchedulingServiceAdapter
+        timeoutServiceClient: ITimeoutAdapter,
+        tracingClient: ITracing
     ) {
         this._logger = logger.createChild(this.constructor.name);
         this._transfersRepo = transfersRepo;
@@ -194,12 +204,15 @@ export class TransfersAggregate {
         this._accountAndBalancesAdapter = accountAndBalancesAdapter;
         this._metrics = metrics;
         this._settlementsAdapter = settlementsAdapter;
-        this._schedulingAdapter = schedulingAdapter;
+        this._timeoutServiceClient = timeoutServiceClient;
+        this._tracingClient = tracingClient;
 
-        this._histo = metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
-        this._commandsCounter = metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
-        this._aandbHisto = metrics.getHistogram("TransfersAggregate_aandbAdapter", "A&B adapter timings on the Transfers Aggregate", ["callName", "success"]);
-        this._participantsHisto = metrics.getHistogram("TransfersAggregate_participantsAdapter", "Participants adapter timings on the Transfers Aggregate", ["callName", "success"]);
+        this._histo = this._metrics.getHistogram("TransfersAggregate", "TransfersAggregate calls", ["callName", "success"]);
+        this._commandsCounter = this._metrics.getCounter("TransfersAggregate_CommandsProcessed", "Commands processed by the Transfers Aggregate", ["commandName"]);
+        // this._aandbHisto = this._metrics.getHistogram("TransfersAggregate_aandbAdapter", "A&B adapter timings on the Transfers Aggregate", ["callName", "success"]);
+        // this._participantsHisto = this._metrics.getHistogram("TransfersAggregate_participantsAdapter", "Participants adapter timings on the Transfers Aggregate", ["callName", "success"]);
+
+        this._tracer = this._tracingClient.trace.getTracer(this.constructor.name);
     }
 
     async init(): Promise<void> {
@@ -207,92 +220,141 @@ export class TransfersAggregate {
         //await this._messageProducer.connect();
     }
 
-    async processCommandBatch(cmdMessages: CommandMsg[]): Promise<void> {
-        // TODO make sure we're not processing another batch already
-        // eslint-disable-next-line no-async-promise-executor
-        return new Promise<void>(async (resolve) => {
-            this._abBatchRequests = [];
-            this._abCancelationBatchRequests = [];
-            this._abBatchResponses = [];
-            this._outputEvents = [];
-            this._batchCommands.clear();
+    async processCommandBatch(cmdMessages: CommandMsg[]): Promise<void>{
+        this._abBatchRequests = [];
+        this._abCancellationBatchRequests = [];
+        this._abBatchResponses = [];
+        this._outputEvents = [];
+        this._batchCommands.clear();
+        this._timeoutsToSet = [];
+        this._transferIdsToClearTimeout = [];
 
-            try {
-                // execute starts
-                const execStarts_timerEndFn = this._histo.startTimer({ callName: "executeStarts"});
-                for (const cmd of cmdMessages) {
-                    if(cmd.msgType !== MessageTypes.COMMAND) continue;
-                    await this._processCommand(cmd);
-                    if(cmd.payload.bulkTransferId) {
-                        if(cmd.msgName === PrepareBulkTransferCmd.name) {
-                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransfers.length);
-                        } else if(cmd.msgName === CommitBulkTransferFulfilCmd.name) {
-                            this._commandsCounter.inc({commandName: cmd.msgName}, cmd.payload.individualTransferResults.length);
-                        }
-                    } else {
-                        this._commandsCounter.inc({commandName: cmd.msgName}, 1);
+        // NOTE: do not change this code without comprehending thoroughly first
+
+        /*
+        * 1. Execute all start phase, with the _processCommand();
+        * 2. Set any expiration timeouts from the prepares (expiration is optional)
+        * 3. Execute any A&B requests
+        * 4. Process any A&B responses (aka continue), with the _processAccountsAndBalancesResponse();
+        * 5. If any A&B cancellation requests where queued by #3, process them
+        * */
+
+        try {
+            /// ------------------------------------------------------------------------------------------------
+            // 1. execute starts
+            const execStarts_timerEndFn = this._histo.startTimer({ callName: "executeStarts"});
+            for (const cmd of cmdMessages) {
+                if(cmd.msgType !== MessageTypes.COMMAND) continue;
+
+                const context =  OpenTelemetryClient.getInstance().propagationExtract(cmd.tracingInfo);
+                const spanName = `processCommandStart ${cmd.msgName}`;
+                const spanOptions: SpanOptions = {
+                    kind: SpanKind.CONSUMER,
+                    attributes: {
+                        "msgName": cmd.msgName,
+                        "entityId": cmd.payload.transferId,
+                        "transferId": cmd.payload.transferId,
+                        "batchSize": cmdMessages.length
                     }
-        
+                };
 
+                await this._tracer.startActiveSpan(spanName, spanOptions, context, async (span) => {
+                    await this.processCommand(cmd);
+                    this._commandsCounter.inc({commandName: cmd.msgName}, 1); // even in bulk, it is only one command
+                    span.end();
+                });
+            }
+            execStarts_timerEndFn({success:"true"});
 
-                }
-                execStarts_timerEndFn({success:"true"});
+            /// ------------------------------------------------------------------------------------------------
+            // 2.1 Set any expiration timeouts from the prepares (expiration is optional)
+            await this._stepSetTimeouts();
+            /// ------------------------------------------------------------------------------------------------
+            // 2.2 Clear any expiration timeouts from the fulfils (expiration is optional)
+            await this._stepClearTimeouts();
 
-                if(this._abBatchRequests.length<=0){
-                    // return Promise.resolve();
-                    resolve();
-                    return;
-                }
+            /// ------------------------------------------------------------------------------------------------
+            // 3. Execute any A&B requests
+            if(this._abBatchRequests.length > 0) {
+                const execAB_timerEndFn1 = this._histo.startTimer({callName: "executeAandbProcessHighLevelBatch"});
+                if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()");
 
-                // if(this._abBatchRequests.length !== cmdMessages.length)
-                //     // eslint-disable-next-line no-debugger
-                //     debugger;
-
-                // send to A&B
-                const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
-                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()");
                 this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
-                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()");
-                execAB_timerEndFn({success:"true"});
 
-                // peek first and check count to establish no errors - or any other way to determine error
+                if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()");
+                execAB_timerEndFn1({success: "true"});
 
-                // execute continues
-                const executeContinues_timerEndFn = this._histo.startTimer({ callName: "executeContinues"});
+                /// ------------------------------------------------------------------------------------------------
+                // 4. Process any A&B responses (aka continue)
+                // should peek first and check count to establish no errors - or any other way to determine error
+                const executeContinues_timerEndFn = this._histo.startTimer({callName: "executeContinues"});
                 for (const abResponse of this._abBatchResponses) {
                     await this._processAccountsAndBalancesResponse(abResponse);
                 }
-                executeContinues_timerEndFn({success:"true"});
+                executeContinues_timerEndFn({success: "true"});
 
-                // if the continues queued cancellations, send then now
-                if(this._abCancelationBatchRequests.length){
+                /// ------------------------------------------------------------------------------------------------
+                // 4.1 Clear any expiration timeouts from the a&b responses processing
+                await this._stepClearTimeouts();
+
+                /// ------------------------------------------------------------------------------------------------
+                // 5. if the continues queued any cancellations, send then now
+                if (this._abCancellationBatchRequests.length) {
                     // send cancellations to A&B
-                    const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelCancelationBatch"});
-                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancelationBatch()");
-                    this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancelationBatchRequests);
-                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancelationBatch()");
-                    execAB_timerEndFn({success:"true"});
+                    const execAB_timerEndFn2 = this._histo.startTimer({callName: "executeAandbProcessHighLevelCancellationBatch"});
+                    if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelCancellationBatch()");
+
+                    this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abCancellationBatchRequests);
+
+                    if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelCancellationBatch()");
+                    execAB_timerEndFn2({success: "true"});
                 }
 
-            } catch (err: unknown) {
-                const error = (err as Error).message;
-                this._logger.error(err, error);
-                throw error;
-            } finally {
-                // flush in mem repositories
-                await this._flush();
-
-                // send resulting/output events
-                await this._messageProducer.send(this._outputEvents);
-
-                // eslint-disable-next-line no-unsafe-finally
-                // return Promise.resolve();
-                resolve();
             }
-        });
+
+            // flush in mem repositories only when no errors happened
+            await this._flush();
+        } catch (err: any) {
+            this._logger.error(err);
+
+            throw err;
+        } finally {
+            // always send resulting/output events if any, they could be error events
+            if(this._outputEvents.length>0) {
+                const publish_timerEndFn = this._histo.startTimer({callName: "publishOutputEvents"});
+                await this._messageProducer.send(this._outputEvents);
+                publish_timerEndFn({success: "true"});
+            }
+        }
     }
 
-    private async _processCommand(cmd: CommandMsg): Promise<void> {
+    private async _stepSetTimeouts(){
+        if(this._timeoutsToSet.length > 0) {
+            if (this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before _timeoutServiceClient.setTimeouts() - have ${this._timeoutsToSet.length} timeouts to set`);
+            const execSetTimeouts_timerEndFn = this._histo.startTimer({callName: "setTimeouts"});
+            await this._timeoutServiceClient.setTimeouts(this._timeoutsToSet);
+            execSetTimeouts_timerEndFn({success: "true"});
+            if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after _timeoutServiceClient.setTimeouts()");
+
+            this._timeoutsToSet = []; // reset
+        }
+    }
+
+    private async _stepClearTimeouts(){
+        if(this._transferIdsToClearTimeout.length > 0) {
+            if (this._logger.isDebugEnabled()) this._logger.debug(`processCommandBatch() - before _timeoutServiceClient.clearTimeouts() - have ${this._transferIdsToClearTimeout.length} timeouts to clear`);
+            const execClearTimeouts_timerEndFn = this._histo.startTimer({callName: "clearTimeouts"});
+            await this._timeoutServiceClient.clearTimeouts(this._transferIdsToClearTimeout);
+            execClearTimeouts_timerEndFn({success: "true"});
+            if (this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after _timeoutServiceClient.clearTimeouts()");
+
+            this._transferIdsToClearTimeout = []; // reset
+        }
+    }
+
+    async processCommand(cmd: CommandMsg): Promise<void> {
+        this._histo.observe({callName:"msgDelay"}, (Date.now() - cmd.msgTimestamp)/1000);
+
         // cache command for later retrieval in continue methods - do this first!
         if(cmd.payload.bulkTransferId) {
             let transfers = [];
@@ -313,25 +375,34 @@ export class TransfersAggregate {
         // validate message
         this._ensureValidMessage(cmd);
 
+        const context = this._tracingClient.propagationExtract(cmd.tracingInfo);
+        const parentSpan = this._tracer.startSpan("processCommand", {}, context);
+        parentSpan.setAttributes({
+            "msgName": cmd.msgName,
+            "entityId": cmd.payload.transferId,
+            "transferId": cmd.payload.transferId
+        });
+
         if (cmd.msgName === PrepareTransferCmd.name) {
-            return this._prepareTransferStart(cmd as PrepareTransferCmd);
+            await this._prepareTransferStart(cmd as PrepareTransferCmd);
         } else if (cmd.msgName === CommitTransferFulfilCmd.name) {
-            return this._fulfilTransferStart(cmd as CommitTransferFulfilCmd);
+            await this._fulfilTransferStart(cmd as CommitTransferFulfilCmd);
         } else if (cmd.msgName === RejectTransferCmd.name) {
-            return this._rejectTransfer(cmd as RejectTransferCmd);
+            await this._rejectTransfer(cmd as RejectTransferCmd);
         } else if (cmd.msgName === QueryTransferCmd.name) {
-            return this._queryTransfer(cmd as QueryTransferCmd);
+            await this._queryTransfer(cmd as QueryTransferCmd);
         } else if (cmd.msgName === TimeoutTransferCmd.name) {
-            return this._timeoutTransfer(cmd as TimeoutTransferCmd);
+            await this._timeoutTransfer(cmd as TimeoutTransferCmd);
         } else if (cmd.msgName === PrepareBulkTransferCmd.name) {
-            return this._prepareBulkTransferStart(cmd as PrepareBulkTransferCmd);
+            await this._prepareBulkTransferStart(cmd as PrepareBulkTransferCmd);
         } else if (cmd.msgName === CommitBulkTransferFulfilCmd.name) {
-            return this._fulfilBulkTransferStart(cmd as CommitBulkTransferFulfilCmd);
+            await this._fulfilBulkTransferStart(cmd as CommitBulkTransferFulfilCmd);
         } else if (cmd.msgName === RejectBulkTransferCmd.name) {
-            return this._rejectBulkTransfer(cmd as RejectBulkTransferCmd);
+            await this._rejectBulkTransfer(cmd as RejectBulkTransferCmd);
         } else if (cmd.msgName === QueryBulkTransferCmd.name) {
-            return this._queryBulkTransfer(cmd as QueryBulkTransferCmd);
+            await this._queryBulkTransfer(cmd as QueryBulkTransferCmd);
         } else {
+            parentSpan.setStatus({ code: SpanStatusCode.ERROR });
             const requesterFspId = cmd.fspiopOpaqueState?.requesterFspId;
             const transferId = cmd.payload?.transferId;
 			const errorMessage = `Command type is unknown: ${cmd.msgName}`;
@@ -346,12 +417,14 @@ export class TransfersAggregate {
             errorEvent.fspiopOpaqueState = cmd.fspiopOpaqueState;
             this._outputEvents.push(errorEvent);
         }
+
+        parentSpan.end();
     }
 
-    private async _processAccountsAndBalancesResponse(abResponse: IAccountsBalancesHighLevelResponse): Promise<void> {
+    private async _processAccountsAndBalancesResponse(abResponse: IAnbHighLevelResponse): Promise<void> {
         const request = this._abBatchRequests.find(value => value.requestId === abResponse.requestId);
         if (!request) {
-            const err = new CheckLiquidityAndReserveFailedError("Could not find corresponding request for checkLiquidAndReserve IAccountsBalancesHighLevelResponse");
+            const err = new CheckLiquidityAndReserveFailedError("Could not find corresponding request for checkLiquidAndReserve IAnbHighLevelResponse");
             this._logger.error(err);
             throw err;
         }
@@ -368,39 +441,30 @@ export class TransfersAggregate {
         try {
 			transfer = await this._getTransfer(request.transferId);
 		} catch(err: unknown) {
-            const error = (err as Error).message;
-			const errorMessage = `Unable to get transfer record for transferId: ${request.transferId} from repository - error: ${abResponse.errorMessage}`;
-			this._logger.error(err, `${errorMessage}: ${error}`);
-            
-            const errorCode = TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER;
-			const errorEvent = new TransferUnableToGetTransferByIdEvt({
-				transferId: request.transferId,
-				errorCode: errorCode
-			});
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
-
-            this._outputEvents.push(errorEvent);
+			this._logger.error(err,`Unable to get transfer record for transferId: ${request.transferId} from repository - error: ${(err as Error).message}`);
+            // note: null transfer is this is being caught/handled in the continue methods below
 		}
 
-        if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.checkLiquidAndReserve) {
+        if (abResponse.requestType === AnbHighLevelRequestTypes.checkLiquidAndReserve) {
             if(originalCmdMsg.payload.bulkTransferId) {
                 return this._prepareBulkTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
             } else {
                 return this._prepareTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
             }
-        } else if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit) {
+        } else if (abResponse.requestType === AnbHighLevelRequestTypes.cancelReservationAndCommit) {
             if(originalCmdMsg.payload.bulkTransferId) {
                 return this._fulfilBulkTransferContinue(abResponse, request, originalCmdMsg, transfer as ITransfer);
             } else {
                 return this._fulfilTTransferContinue(abResponse, request, originalCmdMsg, transfer);
             }
-        } else if (abResponse.requestType === AccountsBalancesHighLevelRequestTypes.cancelReservation) {
+        } else if (abResponse.requestType === AnbHighLevelRequestTypes.cancelReservation) {
             throw new Error("not implemented");
         } else {
             // throw unhandled cmd
         }
     }
 
+    // TODO this should return an error event msg
     private _ensureValidMessage(message: CommandMsg): void {
         if (!message.payload) {
             this._logger.error("TransferCommandHandler: message payload has invalid format or value");
@@ -418,20 +482,56 @@ export class TransfersAggregate {
         }
     }
 
+    private _cacheTransfer(transfer:ITransfer): void {
+        this._transfersCache.set(transfer.transferId, transfer);
+        // this._transfersHashesCache.set(transfer.hash, transfer);
+    }
+
     private async  _getTransfer(id:string):Promise<ITransfer | null>{
+        const timerEndFn = this._histo.startTimer({ callName: "_getTransfer()"});
+
         let transfer: ITransfer | null = this._transfersCache.get(id) || null;
         if(transfer){
+            timerEndFn({success:"true"});
             return transfer;
         }
 
         transfer = await this._transfersRepo.getTransferById(id);
         if(transfer){
-            this._transfersCache.set(id, transfer);
+            this._cacheTransfer(transfer);
+            timerEndFn({success:"true"});
             return transfer;
         }
 
+        timerEndFn({success:"true"});
         return null;
     }
+
+/*    private async _getTransferByIdOrHash(id:string, hash:string):Promise<ITransfer | null>{
+        const timerEndFn = this._histo.startTimer({ callName: "_getTransferByIdOrHash()"});
+
+        let transfer: ITransfer | null = this._transfersCache.get(id) || null;
+        if(transfer){
+            timerEndFn({success:"true"});
+            return transfer;
+        }
+
+        transfer = this._transfersHashesCache.get(hash) || null;
+        if(transfer){
+            timerEndFn({success:"true"});
+            return transfer;
+        }
+
+        transfer = await this._transfersRepo.getTransferByIdOrHash(id, hash);
+        if(transfer){
+            this._cacheTransfer(transfer);
+            timerEndFn({success:"true"});
+            return transfer;
+        }
+
+        timerEndFn({success:"true"});
+        return null;
+    }*/
 
     private async  _getBulkTransfer(id:string):Promise<IBulkTransfer | null>{
         let bulkTransfer: IBulkTransfer | null = this._bulkTransfersCache.get(id) || null;
@@ -452,16 +552,24 @@ export class TransfersAggregate {
         const timerEndFn = this._histo.startTimer({callName: "flush"});
 
         if(this._transfersCache.size){
-            const entries = Array.from(this._transfersCache.values());
-            await this._transfersRepo.storeTransfers(entries);
+            await this._transfersRepo.storeTransfers([...this._transfersCache.values()]);
             this._transfersCache.clear();
         }
 
         timerEndFn({success: "true"});
     }
 
+    private _propagateState(sourceMessage:IDomainMessage, destinationMessage:IDomainMessage):void {
+        // fspiop opaque state
+        destinationMessage.fspiopOpaqueState = sourceMessage.fspiopOpaqueState;
+
+        // add tracing to outputEvent
+        destinationMessage.tracingInfo = {};
+        OpenTelemetryClient.getInstance().propagationInject(destinationMessage.tracingInfo);
+    }
+
     private async _timeoutTransfer(message: TimeoutTransferCmd): Promise<void> {
-        if(this._logger.isDebugEnabled()) this._logger.debug(`transferTimeoutStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
+        if(this._logger.isDebugEnabled()) this._logger.debug(`_timeoutTransfer() - Got TimeoutTransferCmd msg for transferId: ${message.payload.transferId}`);
 
 		let transfer:ITransfer | null;
 		try {
@@ -476,7 +584,7 @@ export class TransfersAggregate {
 				transferId: message.payload.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -496,119 +604,114 @@ export class TransfersAggregate {
             //     return;
 			// }
 
+            if(!transfer.expirationTimestamp || (transfer.expirationTimestamp && Date.now() < transfer.expirationTimestamp)){
+                this._logger.warn(`Got timeout command for message without expiration or not yet expired - transfer if: ${transfer.transferId}`);
+                return;
+            }
+
 			switch(transfer.transferState) {
 				case TransferState.RECEIVED: {
-                    const now = new Date().getTime();
-                    const expirationTime = new Date(transfer.expirationTimestamp).getTime();
+                    const errorCode = TransferErrorCodeNames.TRANSFER_EXPIRED;
+                    try {
+                        transfer.updatedAt = Date.now();
+                        transfer.transferState = TransferState.ABORTED;
+                        transfer.errorCode = errorCode;
+                        // transfer.errorCode = TransferErrorCodes.TRANSFER_EXPIRED;
+                        // set transfer in cache
+                        this._cacheTransfer(transfer);
+                        await this._transfersRepo.updateTransfer(transfer);
+                    } catch(err: unknown) {
+                        const error = (err as Error).message;
+                        const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
+                        this._logger.error(err, `${errorMessage}: ${error}`);
 
-                    if(now < expirationTime) {
-                        const errorCode = TransferErrorCodeNames.TRANSFER_EXPIRED;
-                        try {
-                            transfer.updatedAt = Date.now();
-                            transfer.transferState = TransferState.ABORTED;
-                            transfer.errorCode = errorCode;
-                            // transfer.errorCode = TransferErrorCodes.TRANSFER_EXPIRED;
-                            // set transfer in cache
-                            this._transfersCache.set(transfer.transferId, transfer);
-                            await this._transfersRepo.updateTransfer(transfer);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-
-                            const errorCode = TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER;
-                            const errorEvent = new TransferUnableToUpdateEvt({
-                                transferId: transfer.transferId,
-                                payerFspId: transfer.payerFspId,
-                                errorCode: errorCode
-                            });
-
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
-
-                        // Send a response event to the payer
-                        this._logger.info(`Timedout received transfer request for transferId: ${transfer.transferId}`);
-                        
-                        const payload: TransferPrepareRequestTimedoutEvtPayload = {
+                        const errorCode = TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER;
+                        const errorEvent = new TransferUnableToUpdateEvt({
                             transferId: transfer.transferId,
                             payerFspId: transfer.payerFspId,
                             errorCode: errorCode
-                        };
+                        });
 
-                        const event = new TransferPrepareRequestTimedoutEvt(payload);
-
-                        event.fspiopOpaqueState = message.fspiopOpaqueState;
-                        this._outputEvents.push(event);
+                        this._propagateState(message, errorEvent);
+                        this._outputEvents.push(errorEvent);
+                        return;
                     }
+
+                    // Send a response event to the payer
+                    this._logger.info(`Timedout received transfer request for transferId: ${transfer.transferId}`);
+
+                    const payload: TransferPrepareRequestTimedoutEvtPayload = {
+                        transferId: transfer.transferId,
+                        payerFspId: transfer.payerFspId,
+                        errorCode: errorCode
+                    };
+
+                    const event = new TransferPrepareRequestTimedoutEvt(payload);
+
+                    this._propagateState(message, event);
+                    this._outputEvents.push(event);
 
 					// Ignore the request
 					return;
 				}
 				case TransferState.RESERVED: {
-                    const now = new Date().getTime();
-                    const expirationTime = new Date(transfer.expirationTimestamp).getTime();
-
-                    if(now > expirationTime) {
-                        try {
-                            const errorCode = TransferErrorCodeNames.TRANSFER_EXPIRED;
-                            await this._cancelTransfer(message.payload.transferId, errorCode);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-
-                            const errorCode = TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION;
-                            const errorEvent = new TransferCancelReservationFailedEvt({
-                                transferId: message.payload.transferId,
-                                errorCode: errorCode
-                            });
-
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
-
-                        try {
-                            transfer.updatedAt = Date.now();
-                            transfer.transferState = TransferState.ABORTED;
-                            // set transfer in cache
-                            this._transfersCache.set(transfer.transferId, transfer);
-                            await this._transfersRepo.updateTransfer(transfer);
-                        } catch(err: unknown) {
-                            const error = (err as Error).message;
-                            const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
-                            this._logger.error(err, `${errorMessage}: ${error}`);
-
-                            const errorCode = TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER;
-                            const errorEvent = new TransferUnableToUpdateEvt({
-                                transferId: transfer.transferId,
-                                payerFspId: transfer.payerFspId,
-                                errorCode: errorCode
-                            });
-
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-                            this._outputEvents.push(errorEvent);
-                            return;
-                        }
-
-                        // Send a response event to the payer and payee
-                        this._logger.info(`Timedout reserved transfer request for transferId: ${transfer.transferId}`);
-
+                    try {
                         const errorCode = TransferErrorCodeNames.TRANSFER_EXPIRED;
-                        const payload: TransferFulfilCommittedRequestedTimedoutEvtPayload = {
+                        await this._cancelTransfer(message.payload.transferId, errorCode);
+                    } catch(err: unknown) {
+                        const error = (err as Error).message;
+                        const errorMessage = `Unable to cancel reservation with transferId: ${message.payload.transferId}`;
+                        this._logger.error(err, `${errorMessage}: ${error}`);
+
+                        const errorCode = TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION;
+                        const errorEvent = new TransferCancelReservationFailedEvt({
+                            transferId: message.payload.transferId,
+                            errorCode: errorCode
+                        });
+
+                        this._propagateState(message, errorEvent);
+                        this._outputEvents.push(errorEvent);
+                        return;
+                    }
+
+                    try {
+                        transfer.updatedAt = Date.now();
+                        transfer.transferState = TransferState.ABORTED;
+                        // set transfer in cache
+                        this._cacheTransfer(transfer);
+                        await this._transfersRepo.updateTransfer(transfer);
+                    } catch(err: unknown) {
+                        const error = (err as Error).message;
+                        const errorMessage = `Error deleting reminder for transferId: ${transfer.transferId}.`;
+                        this._logger.error(err, `${errorMessage}: ${error}`);
+
+                        const errorCode = TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER;
+                        const errorEvent = new TransferUnableToUpdateEvt({
                             transferId: transfer.transferId,
                             payerFspId: transfer.payerFspId,
-                            payeeFspId: transfer.payeeFspId,
                             errorCode: errorCode
-                        };
+                        });
 
-                        const event = new TransferFulfilCommittedRequestedTimedoutEvt(payload);
-
-                        event.fspiopOpaqueState = message.fspiopOpaqueState;
-                        this._outputEvents.push(event);
+                        this._propagateState(message, errorEvent);
+                        this._outputEvents.push(errorEvent);
+                        return;
                     }
+
+                    // Send a response event to the payer and payee
+                    this._logger.info(`Timedout TRANSFER_EXPIRED reserved transfer request for transferId: ${transfer.transferId}`);
+
+                    const errorCode = TransferErrorCodeNames.TRANSFER_EXPIRED;
+                    const payload: TransferFulfilCommittedRequestedTimedoutEvtPayload = {
+                        transferId: transfer.transferId,
+                        payerFspId: transfer.payerFspId,
+                        payeeFspId: transfer.payeeFspId,
+                        errorCode: errorCode
+                    };
+
+                    const event = new TransferFulfilCommittedRequestedTimedoutEvt(payload);
+
+                    this._propagateState(message, event);
+                    this._outputEvents.push(event);
 
 					return;
 				}
@@ -622,21 +725,17 @@ export class TransfersAggregate {
     }
 
     private async _prepareTransferStart(message: PrepareTransferCmd): Promise<void> {
+        const timerEndFn = this._histo.startTimer({ callName: "prepareTransferStart()"});
         if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferStart() - Got transferPreparedReceivedEvt msg for transferId: ${message.payload.transferId}`);
 
-		const hash = this._generateSha256({
-			transferId: message.payload.transferId,
-			payeeFspId: message.payload.payeeFsp,
-			payerFspId: message.payload.payerFsp,
-			amount: message.payload.amount,
-			expirationTimestamp: message.payload.expiration
-		});
+        const now = Date.now();
+        const hash = this._generateSha256(message.payload);
 
         // Duplicate Transfer POST use cases
         let getTransferRep:ITransfer | null;
 		try {
-            // TODO: fix since at the moment we only search in cache, otherwise we hit the dabatase in every request
 			getTransferRep = await this._getTransfer(message.payload.transferId);
+            // getTransferRep = await this._getTransferByIdOrHash(message.payload.transferId, hash);
 		} catch(err: unknown) {
 			const error = (err as Error).message;
 			const errorMessage = `Unable to get transfer record for transferId: ${message.payload.transferId} from repository`;
@@ -646,55 +745,68 @@ export class TransfersAggregate {
 				transferId: message.payload.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
 		}
 
-		// TODO Use hash repository to fetch the hashes
 		if(getTransferRep) {
-			// if(getTransferRep.hash !== hash) {
-			// 	const errorMessage = `Transfer hash for ${message.payload.transferId} doesn't match`;
-			// 	this._logger.error(errorMessage);
-			// 	const errorEvent = new TransferDuplicateCheckFailedEvt({
-			// 		transferId: message.payload.transferId,
-			// 		payerFspId: message.payload.payerFsp,
-			// 		errorDescription: errorMessage
-			// 	});
-            //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-            //     this._outputEvents.push(errorEvent);
-            //     return;
-			// }
-			this._logger.warn(`Transfer ${getTransferRep.transferId} already exists.`);
-
-			switch(getTransferRep.transferState) {
-				case TransferState.RECEIVED:
-				case TransferState.RESERVED: {
-					// Ignore the request
-					return;
-				}
-				case TransferState.COMMITTED:
-				case TransferState.ABORTED: {
-					// Send a response event to the payer
-					const payload: TransferQueryResponseEvtPayload = {
-						transferId: getTransferRep.transferId,
-						transferState: getTransferRep.transferState,
-						completedTimestamp: getTransferRep.completedTimestamp,
-						fulfilment: getTransferRep.fulfilment,
-						extensionList: getTransferRep.extensionList
-					};
-
-					const event = new TransferQueryResponseEvt(payload);
-
-					event.fspiopOpaqueState = message.fspiopOpaqueState;
-                    this._outputEvents.push(event);
-					return;
-				}
+            // cases where the id is the same, but the hash (contents) is not
+			if(getTransferRep.hash !== hash) {
+				this._logger.warn(`Transfer hash for ${message.payload.transferId} doesn't match`);
+				const errorEvent = new TransferDuplicateCheckFailedEvt({
+					transferId: message.payload.transferId,
+					payerFspId: message.payload.payerFsp,
+                    errorCode: TransferErrorCodeNames.DUPLICATE_TRANSFER_ID_DETECTED
+				});
+                this._propagateState(message, errorEvent);
+                this._outputEvents.push(errorEvent);
+                timerEndFn({success:"false"});
+                return;
 			}
-		}
+
+            if (getTransferRep.transferState === TransferState.RECEIVED || getTransferRep.transferState === TransferState.RESERVED) {
+                // Ignore the request
+                this._logger.isDebugEnabled() && this._logger.debug(`Transfer ${getTransferRep.transferId} already exists win state RECEIVED or RESERVED - ignoring`);
+                timerEndFn({success: "true"});
+                return;
+            } else if (getTransferRep.transferState === TransferState.COMMITTED || getTransferRep.transferState === TransferState.ABORTED) {
+                // Send a response event to the payer
+                this._logger.isDebugEnabled() && this._logger.debug(`Transfer ${getTransferRep.transferId} already exists win state COMMITTED or ABORTED - responded with a TransferQueryResponseEvt`);
+                const payload: TransferQueryResponseEvtPayload = {
+                    transferId: getTransferRep.transferId,
+                    transferState: getTransferRep.transferState,
+                    completedTimestamp: getTransferRep.completedTimestamp,
+                    fulfilment: getTransferRep.fulfilment,
+                    extensionList: getTransferRep.extensionList
+                };
+
+                const event = new TransferQueryResponseEvt(payload);
+
+                this._propagateState(message, event);
+                this._outputEvents.push(event);
+                timerEndFn({success: "true"});
+                return;
+            }else{
+                // unexpected state in found transfer
+                this._logger.warn(`Duplicate transfer with id: ${message.payload.transferId} found in an unexpected state: ${getTransferRep.transferState}`);
+                const errorEvent = new TransferDuplicateCheckFailedEvt({
+                    transferId: message.payload.transferId,
+                    payerFspId: message.payload.payerFsp,
+                    errorCode: TransferErrorCodeNames.DUPLICATE_TRANSFER_ID_DETECTED_IN_UNEXPECTED_STATE
+                });
+                this._propagateState(message, errorEvent);
+                this._outputEvents.push(errorEvent);
+                timerEndFn({success:"false"});
+                return;
+            }
+        }
 
 
 		let settlementModel: string;
+        const timerEndFn_getSettlementModelId = this._histo.startTimer({ callName: "getSettlementModelId()"});
 		try {
 			settlementModel = await this._settlementsAdapter.getSettlementModelId(
                 message.payload.amount,
@@ -703,8 +815,10 @@ export class TransfersAggregate {
                 message.payload.extensionList?.extension ? message.payload.extensionList.extension : []
             );
             if(!settlementModel) throw new Error("Invalid settlementModelId from settlementsAdapter.getSettlementModelId()");
+            timerEndFn_getSettlementModelId({success:"true"});
 		} catch(err: unknown) {
-			const error = (err as Error).message;
+            timerEndFn_getSettlementModelId({success:"false"});
+            const error = (err as Error).message;
 			const errorMessage = `Unable to get settlementModel for transferId: ${message.payload.transferId}`;
 			this._logger.error(err, `${errorMessage}: ${error}`);
             const errorCode = TransferErrorCodeNames.UNABLE_TO_GET_TRANSFER_SETTLEMENT_MODEL;
@@ -716,12 +830,15 @@ export class TransfersAggregate {
 				extensionList: message.payload.extensionList ? (message.payload.extensionList).toString() : null,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+
+            timerEndFn({success:"false"});
             return;
 		}
 
-        const now = Date.now();
+
 
         const transfer: Transfer = {
             createdAt: now,
@@ -741,7 +858,7 @@ export class TransfersAggregate {
             completedTimestamp: null,
             extensionList: message.payload.extensionList,
             settlementModel: settlementModel,
-            payerIdType: message.payload.payerIdType, 
+            payerIdType: message.payload.payerIdType,
             payeeIdType: message.payload.payeeIdType,
             transferType: message.payload.transferType,
             errorCode: null
@@ -855,9 +972,11 @@ export class TransfersAggregate {
                 return;
             }
 
-            this._transfersCache.set(transfer.transferId, transfer);
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._cacheTransfer(transfer);
+
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
@@ -908,11 +1027,13 @@ export class TransfersAggregate {
                 transfer.errorCode = errorCode;
             } else {
                 this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
+                timerEndFn({success:"false"});
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
@@ -928,33 +1049,20 @@ export class TransfersAggregate {
         }
 
         // set transfer in cache
-        this._transfersCache.set(transfer.transferId, transfer);
+        this._cacheTransfer(transfer);
 
-        try {
-            await this._schedulingAdapter.createSingleReminder(
-                transfer.transferId,
-                transfer.expirationTimestamp,
-                {
-                    payload: transfer,
-                    fspiopOpaqueState: message.fspiopOpaqueState
-                }
-            );
-        } catch (err: unknown) {
-			const error = (err as Error).message;
-			const errorMessage = `Unable to create reminder for transferId: ${message.payload.transferId}`;
-			this._logger.error(err, `${errorMessage}: ${error}`);
-            const errorCode = TransferErrorCodeNames.UNABLE_TO_CREATE_TRANSFER_REMINDER;
-            const errorEvent = new TransferUnableCreateReminderEvt({
-				transferId: message.payload.transferId,
-				errorCode: errorCode
-			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
-            this._outputEvents.push(errorEvent);
-            return;
+        // expiration is optional - only add this when the transfer prepare is going to fail (like above)
+        if(transfer.expirationTimestamp != null) {
+            this._timeoutsToSet.push({
+                transferId: transfer.transferId,
+                timeoutTimestamp: transfer.expirationTimestamp
+            });
         }
 
-        this._abBatchRequests.push({
-            requestType: AccountsBalancesHighLevelRequestTypes.checkLiquidAndReserve,
+       // TODO add tracing to AccountsBalancesHighLevelRequest
+
+        const req:IAnbCheckLiquidAndReserveRequest = {
+            requestType: AnbHighLevelRequestTypes.checkLiquidAndReserve,
             requestId: randomUUID(),
             payerPositionAccountId: participantAccounts.payerPosAccount.id,
             payerLiquidityAccountId: participantAccounts.payerLiqAccount.id,
@@ -962,23 +1070,26 @@ export class TransfersAggregate {
             transferId: transfer.transferId,
             transferAmount: transfer.amount,
             currencyCode: transfer.currencyCode,
-            payerNetDebitCap: payerNdc,
-            payeePositionAccountId: null,
-        });
+            payerNetDebitCap: payerNdc
+        };
 
-        if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - complete");
+        this._abBatchRequests.push(req);
+
+        if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferStart() - complete for msg: ${message.payload.transferId}`);
+        timerEndFn({success:"true"});
     }
 
     private async _prepareTransferContinue(
-        abResponse: IAccountsBalancesHighLevelResponse,
-        request: IAccountsBalancesHighLevelRequest,
+        abResponse: IAnbHighLevelResponse,
+        request: IAnbHighLevelRequest,
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer | null
     ): Promise<void> {
+        const timerEndFn = this._histo.startTimer({ callName: "prepareTransferContinue()"});
         const preparedAtTime = Date.now();
 
         if (!transfer) {
-			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for checkLiquidAndReserve IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.TRANSFER_NOT_FOUND;
             let errorEvent = new TransferNotFoundEvt({
@@ -1001,8 +1112,13 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            // remove timeout
+            // as we couldn't fund the transfer we don't know if this transfer had a timeout, but remove just in case
+            this._transferIdsToClearTimeout.push(originalCmdMsg.payload.transferId);
+
+            this._propagateState(originalCmdMsg, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
         if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferContinue() - Called for transferId: ${transfer.transferId}`);
@@ -1015,7 +1131,7 @@ export class TransfersAggregate {
                 this._logger.warn(`Payer failed liquidity check for transfer with id: ${request.transferId}`);
             }
 
-            // TODO: handle each case with a different error event 
+            // TODO: handle each case with a different error event
             const errorCode = TransferErrorCodeNames.TRANSFER_LIQUIDITY_CHECK_FAILED;
             const errorEvent = new TransferPrepareLiquidityCheckFailedEvt({
 				transferId: transfer.transferId,
@@ -1030,10 +1146,14 @@ export class TransfersAggregate {
             transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
             transfer.errorCode = errorCode;
-            this._transfersCache.set(transfer.transferId, transfer);
+            this._cacheTransfer(transfer);
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            // remove timeout
+            if(transfer.expirationTimestamp) this._transferIdsToClearTimeout.push(request.transferId);
+
+            this._propagateState(originalCmdMsg, errorEvent);
 			this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
@@ -1043,7 +1163,7 @@ export class TransfersAggregate {
         // update transfer and cache it
         transfer.updatedAt = Date.now();
         transfer.transferState = TransferState.RESERVED;
-        this._transfersCache.set(transfer.transferId, transfer);
+        this._cacheTransfer( transfer);
 
         if(!transfer.bulkTransferId) {
             const payload: TransferPreparedEvtPayload = {
@@ -1062,15 +1182,16 @@ export class TransfersAggregate {
 
             const event = new TransferPreparedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, event);
+            this._outputEvents.push(event);
 
             if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferContinue() - completed for transferId: ${transfer.transferId}`);
-
-            this._outputEvents.push(event);
         }
+        timerEndFn({success:"true"});
     }
 
     private async _fulfilTransferStart(message: CommitTransferFulfilCmd): Promise<void> {
+        const timerEndFn = this._histo.startTimer({ callName: "fulfilTransferStart()"});
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTransfer() - Got transferFulfilCommittedEvt msg for transferId: ${message.payload.transferId}`);
 
         let participantTransferAccounts: ITransferAccounts | null = null;
@@ -1088,13 +1209,17 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
 		}
 
+        // clear expiration timeout
+        this._transferIdsToClearTimeout.push(message.payload.transferId);
+
         if(!transfer) {
-			const errorMessage = `Could not find corresponding transfer with id: ${message.payload.transferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding transfer with id: ${message.payload.transferId} for checkLiquidAndReserve IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.TRANSFER_NOT_FOUND;
             let errorEvent = new TransferNotFoundEvt({
@@ -1116,10 +1241,17 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
+
+        if(transfer.transferState !== TransferState.RESERVED) {
+            // Wrong state, either this is a duplicate fulfil or a wrong one
+
+        }
+
 
         let participants:ITransferParticipants;
         try {
@@ -1127,7 +1259,7 @@ export class TransfersAggregate {
         } catch (err: unknown) {
             let errorEvent:DomainErrorEventMsg;
             let errorCode:string;
-            
+
             if(err instanceof HubNotFoundError) {
                 errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
                 errorEvent = new TransferHubNotFoundFailedEvt({
@@ -1225,6 +1357,7 @@ export class TransfersAggregate {
                 transfer.errorCode = errorCode;
             } else {
                 this._logger.error("Unable to handle getParticipantsInfo error - _fulfilTransferStart");
+                timerEndFn({success:"false"});
                 return;
             }
 
@@ -1241,10 +1374,13 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
+
+
 
         try{
             participantTransferAccounts = this._getTransferParticipantsAccounts(participants, transfer);
@@ -1293,6 +1429,7 @@ export class TransfersAggregate {
                 transfer.errorCode = errorCode;
             } else {
                 this._logger.error("Unable to handle _getTransferParticipantsAccounts error - _fulfilTransferStart");
+                timerEndFn({success:"false"});
                 return;
             }
 
@@ -1309,40 +1446,40 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
-        // set transfer in cache
-        // this._transfersCache.set(transfer.transferId, transfer);
-
-        this._abBatchRequests.push({
-            requestType: AccountsBalancesHighLevelRequestTypes.cancelReservationAndCommit,
+        const req:IAnbCancelReservationAndCommitRequest = {
+            requestType: AnbHighLevelRequestTypes.cancelReservationAndCommit,
             requestId: randomUUID(),
             payerPositionAccountId: participantTransferAccounts.payerPosAccount.id,
             payeePositionAccountId: participantTransferAccounts.payeePosAccount.id,
             hubJokeAccountId: participantTransferAccounts.hubAccount.id,
             transferId: transfer.transferId,
             transferAmount: transfer.amount,
-            currencyCode: transfer.currencyCode,
-            payerNetDebitCap: null,
-            payerLiquidityAccountId: null
-        });
+            currencyCode: transfer.currencyCode
+        };
+
+        this._abBatchRequests.push(req);
 
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTransfer() - completed for transferId: ${message.payload.transferId}`);
+        timerEndFn({success:"true"});
     }
 
     private async _fulfilTTransferContinue(
-        abResponse: IAccountsBalancesHighLevelResponse,
-        request: IAccountsBalancesHighLevelRequest,
+        abResponse: IAnbHighLevelResponse,
+        request: IAnbHighLevelRequest,
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer | null
     ): Promise<void> {
+        const timerEndFn = this._histo.startTimer({ callName: "fulfilTTransferContinue()"});
         const fulfiledAtTime = Date.now();
-        
+
         if (!transfer) {
-			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding transfer with id: ${request.transferId} for _fulfilTTransferContinue IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.TRANSFER_NOT_FOUND;
             let errorEvent = new TransferNotFoundEvt({
@@ -1363,8 +1500,9 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            this._propagateState(originalCmdMsg, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
@@ -1379,7 +1517,7 @@ export class TransfersAggregate {
             transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
             transfer.errorCode = errorCode;
-            this._transfersCache.set(transfer.transferId, transfer);
+            this._cacheTransfer(transfer);
 
 			const errorMessage = `Unable to commit transfer for transferId: ${request.transferId}`;
             this._logger.info(errorMessage);
@@ -1401,14 +1539,15 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            this._propagateState(originalCmdMsg, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
         }
 
         // TODO if failed, queue a cancelReservation request to this._abCancelationBatchRequests and add the error event to the events queue
         // this._abCancelationBatchRequests.push({
-        //     requestType: AccountsBalancesHighLevelRequestTypes.cancelReservation,
+        //     requestType: AnbHighLevelRequestTypes.cancelReservation,
         //     ...
 
         // TODO validate type
@@ -1421,7 +1560,7 @@ export class TransfersAggregate {
         transfer.completedTimestamp = message.payload.completedTimestamp;
         transfer.extensionList = message.payload.extensionList;
 
-        this._transfersCache.set(transfer.transferId, transfer);
+        this._cacheTransfer(transfer);
 
         if(!transfer.bulkTransferId) {
             const event = new TransferFulfiledEvt({
@@ -1434,19 +1573,16 @@ export class TransfersAggregate {
                 amount: transfer.amount,
                 currencyCode: transfer.currencyCode,
                 settlementModel: transfer.settlementModel,
-                notifyPayee: true,
+                notifyPayee: message.payload.notifyPayee,
                 fulfiledAt: fulfiledAtTime
             });
 
-            // carry over opaque state fields
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
-
-            this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
-
+            this._propagateState(message, event);
             this._outputEvents.push(event);
         }
 
         if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
+        timerEndFn({success:"true"});
     }
 
     private async _rejectTransfer(message: RejectTransferCmd):Promise<void> {
@@ -1466,7 +1602,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1480,7 +1616,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1592,8 +1728,8 @@ export class TransfersAggregate {
                 return;
             }
 
-            this._transfersCache.set(transfer.transferId, transfer);
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._cacheTransfer(transfer);
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1613,7 +1749,7 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1635,7 +1771,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1648,8 +1784,7 @@ export class TransfersAggregate {
 
             const event = new TransferRejectRequestProcessedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
-
+            this._propagateState(message, event);
             this._logger.debug("_rejectTransfer completed for transferId: " + transfer.transferId);
 
             this._outputEvents.push(event);
@@ -1658,12 +1793,13 @@ export class TransfersAggregate {
 	}
 
     private async _queryTransfer(message: QueryTransferCmd):Promise<void> {
-		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
-        
+        const timerEndFn = this._histo.startTimer({ callName: "_queryTransfer()"});
+		this._logger.isDebugEnabled() && this._logger.debug(`queryTransfer() - Got QueryTransferCmd msg for transferId: ${message.payload.transferId}`);
+
 		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
 		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
         const transferId = message.payload.transferId;
-        
+
         if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - before getParticipants...");
 
         try{
@@ -1756,10 +1892,12 @@ export class TransfersAggregate {
                 });
             } else {
                 this._logger.error("Unable to handle _getParticipantsInfo error - _queryTransfer");
+                timerEndFn({success:"false"});
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            timerEndFn({success:"false"});
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1780,8 +1918,9 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
 		}
 
@@ -1794,8 +1933,9 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
+            timerEndFn({success:"false"});
             return;
 		}
 
@@ -1809,17 +1949,18 @@ export class TransfersAggregate {
 
 		const event = new TransferQueryResponseEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
-
         this._logger.debug("_queryTransfer completed for transferId: " + transfer.transferId);
 
+        this._propagateState(message, event);
         this._outputEvents.push(event);
-        if(this._logger.isDebugEnabled()) this._logger.debug(`_queryTransfer() - completed for transferId: ${transfer.transferId}`);
+        timerEndFn({success:"false"});
+        this._logger.isDebugEnabled() && this._logger.debug(`_queryTransfer() - completed for transferId: ${transfer.transferId}`);
 	}
 
     private async _getParticipantsInfo(payerFspId: string, payeeFspId: string, transferId: string): Promise<ITransferParticipants> {
         // TODO get all participants in a single call with participantsClient.getParticipantsByIds()
 
+        const timerEndFn = this._histo.startTimer({ callName: "_getParticipantsInfo() 3x"});
         const foundHub = await this._participantAdapter.getParticipantInfo(HUB_ID);
 
         if (!foundHub) {
@@ -1887,6 +2028,7 @@ export class TransfersAggregate {
             throw new PayeeParticipantNotActiveError(errorMessage);
 		}
 
+        timerEndFn({success:"true"});
         return {
             hub: foundHub,
             payer: foundPayer,
@@ -1894,40 +2036,39 @@ export class TransfersAggregate {
         };
     }
 
-
     private _getTransferParticipantsAccounts(transferParticipants: ITransferParticipants, transfer: ITransfer): ITransferAccounts {
 
         const {hub, payer: transferPayerParticipant, payee: transferPayeeParticipant} = transferParticipants;
 
-        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.HUB && value.currencyCode === transfer.currencyCode);
+        const hubAccount = hub.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === "HUB_RECONCILIATION" && value.currencyCode === transfer.currencyCode);
         if(!hubAccount) {
 			const errorMessage = "Hub account not found for transfer " + transfer.transferId;
             this._logger.error(errorMessage);
             throw new HubAccountNotFoundError(errorMessage);
         }
 
-        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payerPosAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === "POSITION" && value.currencyCode === transfer.currencyCode);
         if(!payerPosAccount) {
 			const errorMessage = `Payer position account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerPositionAccountNotFoundError(errorMessage);
         }
 
-        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payerLiqAccount = transferPayerParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === "LIQUIDITY" && value.currencyCode === transfer.currencyCode);
         if(!payerLiqAccount) {
 			const errorMessage = `Payer liquidity account not found: transferId: ${transfer.transferId}, payer: ${transfer.payerFspId}`;
             this._logger.error(errorMessage);
             throw new PayerLiquidityAccountNotFoundError(errorMessage);
         }
 
-        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.POSITION && value.currencyCode === transfer.currencyCode);
+        const payeePosAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === "POSITION" && value.currencyCode === transfer.currencyCode);
         if(!payeePosAccount) {
 			const errorMessage = `Payee position account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);
             throw new PayeePositionAccountNotFoundError(errorMessage);
         }
 
-        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === AccountType.SETTLEMENT && value.currencyCode === transfer.currencyCode);
+        const payeeLiqAccount = transferPayeeParticipant.participantAccounts.find((value: IParticipantAccount) => (value.type as string) === "LIQUIDITY" && value.currencyCode === transfer.currencyCode);
         if(!payeeLiqAccount) {
 			const errorMessage = `Payee liquidity account not found: transferId: ${transfer.transferId}, payee: ${transfer.payeeFspId}`;
             this._logger.error(errorMessage);
@@ -1957,19 +2098,18 @@ export class TransfersAggregate {
 
             const participantTransferAccounts = this._getTransferParticipantsAccounts(participants, transfer);
 
-            this._abCancelationBatchRequests.push({
-                requestType: AccountsBalancesHighLevelRequestTypes.cancelReservation,
+            const req: IAnbCancelReservationRequest = {
+                requestType: AnbHighLevelRequestTypes.cancelReservation,
                 requestId: randomUUID(),
                 payerPositionAccountId: participantTransferAccounts.payerPosAccount.id,
-                payerLiquidityAccountId: participantTransferAccounts.payerLiqAccount.id,
                 hubJokeAccountId: participantTransferAccounts.hubAccount.id,
                 transferId: transfer.transferId,
                 transferAmount: transfer.amount,
-                currencyCode: transfer.currencyCode,
-                payerNetDebitCap: null,
-                payeePositionAccountId: null,
-            });
-            
+                currencyCode: transfer.currencyCode
+            };
+
+            this._abCancellationBatchRequests.push(req);
+
             transfer.updatedAt = Date.now();
             transfer.transferState = TransferState.ABORTED;
             transfer.errorCode = errorCode;
@@ -2006,7 +2146,7 @@ export class TransfersAggregate {
 		};
 
         try{
-            this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
+            await this._bulkTransfersRepo.addBulkTransfer(bulkTransfer);
         } catch(err:unknown){
             const error = (err as Error).message;
             const errorMessage = `Error adding bulk transfer ${bulkTransferId} to database: ${error}`;
@@ -2016,7 +2156,7 @@ export class TransfersAggregate {
                 bulkTransferId: bulkTransfer.bulkTransferId,
                 errorCode: errorCode
             });
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2035,7 +2175,7 @@ export class TransfersAggregate {
                 expiration: message.payload.expiration,
                 condition: individualTransfer.condition,
                 extensionList: individualTransfer.extensionList,
-                payerIdType: individualTransfer.payerIdType, 
+                payerIdType: individualTransfer.payerIdType,
                 payeeIdType: individualTransfer.payeeIdType,
                 transferType: individualTransfer.transferType,
                 prepare: message.fspiopOpaqueState
@@ -2043,18 +2183,18 @@ export class TransfersAggregate {
 
             await this._prepareTransferStart(transferCmd);
         }
-        
+
         if(this._logger.isDebugEnabled()) this._logger.debug("_prepareBulkTransferStart() - complete");
     }
 
     private async _prepareBulkTransferContinue(
-        abResponse: IAccountsBalancesHighLevelResponse,
-        request: IAccountsBalancesHighLevelRequest,
+        abResponse: IAnbHighLevelResponse,
+        request: IAnbHighLevelRequest,
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer
     ): Promise<void> {
         await this._prepareTransferContinue(abResponse, request, originalCmdMsg, transfer);
-        
+
         // TODO validate type
         const message = originalCmdMsg;// as PrepareBulkTransferCmd;
 
@@ -2071,13 +2211,13 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
 
         if(!bulkTransfer) {
-			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.BULK_TRANSFER_NOT_FOUND;
             const errorEvent = new BulkTransferNotFoundEvt({
@@ -2085,11 +2225,11 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
-        
+
         bulkTransfer?.transfersPreparedProcessedIds.push(transfer.transferId);
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
 
@@ -2097,7 +2237,7 @@ export class TransfersAggregate {
             bulkTransfer.updatedAt = Date.now();
             bulkTransfer.status = BulkTransferState.PENDING;
             this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
-            
+
             const transfers:ITransfer[] = [];
 
             /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
@@ -2115,12 +2255,12 @@ export class TransfersAggregate {
                     transferId: bulkTransfer.bulkTransferId,
                     errorCode: errorCode
                 });
-    
-                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+
+                this._propagateState(message, errorEvent);
                 this._outputEvents.push(errorEvent);
                 return;
             }
-            
+
             const payload: BulkTransferPreparedEvtPayload = {
                 bulkTransferId: message.payload.bulkTransferId,
                 bulkQuoteId: message.payload.bulkQuoteId,
@@ -2142,11 +2282,10 @@ export class TransfersAggregate {
 
             const event = new BulkTransferPreparedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, event);
+            this._outputEvents.push(event);
 
             if(this._logger.isDebugEnabled()) this._logger.debug(`prepareBulkTransferContinue() - completed for transferId: ${transfer.transferId}`);
-
-            this._outputEvents.push(event);
         }
     }
 
@@ -2167,13 +2306,13 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
 
         if(!bulkTransfer) {
-			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${bulkTransferId} for checkLiquidAndReserve IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.BULK_TRANSFER_NOT_FOUND;
             const errorEvent = new BulkTransferNotFoundEvt({
@@ -2181,11 +2320,11 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
-        
+
         bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.ACCEPTED;
         this._bulkTransfersCache.set(bulkTransfer.bulkTransferId, bulkTransfer);
@@ -2209,11 +2348,11 @@ export class TransfersAggregate {
     }
 
     private async _fulfilBulkTransferContinue(
-        abResponse: IAccountsBalancesHighLevelResponse,
-        request: IAccountsBalancesHighLevelRequest,
+        abResponse: IAnbHighLevelResponse,
+        request: IAnbHighLevelRequest,
         originalCmdMsg:IDomainMessage,
         transfer: ITransfer
-    ): Promise<void> {        
+    ): Promise<void> {
         // TODO validate type
         const message = originalCmdMsg;// as PrepareBulkTransferCmd;
 
@@ -2230,13 +2369,13 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
 
         if(!bulkTransfer) {
-			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAccountsBalancesHighLevelResponse`;
+			const errorMessage = `Could not find corresponding bulk transfer with id: ${transfer.bulkTransferId} for checkLiquidAndReserve IAnbHighLevelResponse`;
 			this._logger.error(errorMessage);
             const errorCode = TransferErrorCodeNames.BULK_TRANSFER_NOT_FOUND;
             const errorEvent = new BulkTransferNotFoundEvt({
@@ -2244,7 +2383,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2274,23 +2413,22 @@ export class TransfersAggregate {
 
 
             // carry over opaque state fields
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
-
             this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
 
+            this._propagateState(message, event);
             this._outputEvents.push(event);
 
-            this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+            await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
             this._bulkTransfersCache.clear();
             if(this._logger.isDebugEnabled()) this._logger.debug(`fulfilTTransferContinue() - completed for transferId: ${transfer.transferId}`);
         }
     }
-    
+
     private async _rejectBulkTransfer(message: RejectBulkTransferCmd):Promise<void> {
 		this._logger.debug(`rejectBulkTransfer() - Got bulkTransferRejectRequestedEvt msg for transferId: ${message.payload.bulkTransferId}`);
-        
+
         const bulkTransferId = message.payload.bulkTransferId;
-                
+
         let bulkTransfer: IBulkTransfer | null = null;
         try {
             bulkTransfer = await this._getBulkTransfer(bulkTransferId as string);
@@ -2304,7 +2442,7 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2318,11 +2456,11 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
-        
+
         let transfers:ITransfer[] = [];
         try {
 			transfers = await this._transfersRepo.getTransfersByBulkId(message.payload.bulkTransferId);
@@ -2336,11 +2474,11 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
-        
+
         for(let i=0 ; i<transfers.length ; i+=1) {
             const individualTransfer = transfers[i];
 
@@ -2356,8 +2494,8 @@ export class TransfersAggregate {
         bulkTransfer.updatedAt = Date.now();
         bulkTransfer.status = BulkTransferState.REJECTED;
         // bulkTransfer.errorCode = message.payload.errorInformation; TODO
-        this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
-        
+        await this._bulkTransfersRepo.updateBulkTransfer(bulkTransfer);
+
 		const payload: BulkTransferRejectRequestProcessedEvtPayload = {
 			bulkTransferId: message.payload.bulkTransferId,
 			errorInformation: message.payload.errorInformation
@@ -2365,21 +2503,18 @@ export class TransfersAggregate {
 
 		const event = new BulkTransferRejectRequestProcessedEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
-
-        this._logger.debug("_rejectBulkTransfer completed for bulkTransferId: " + message.payload.bulkTransferId);
-
+        this._propagateState(message, event);
         this._outputEvents.push(event);
         if(this._logger.isDebugEnabled()) this._logger.debug(`_rejectBulkTransfer() - completed for bulkTransferId: ${message.payload.bulkTransferId}`);
 	}
 
     private async _queryBulkTransfer(message: QueryBulkTransferCmd):Promise<void> {
         this._logger.debug(`queryBulkTransfer() - Got transferBulkQueryRequestEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
-        
+
 		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
 		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
         const bulkTransferId = message.payload.bulkTransferId;
-        
+
         let bulkTransfer: IBulkTransfer | null = null;
         try {
             bulkTransfer = await this._getBulkTransfer(bulkTransferId as string);
@@ -2393,7 +2528,7 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2407,7 +2542,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2507,7 +2642,7 @@ export class TransfersAggregate {
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2528,7 +2663,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -2543,7 +2678,7 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            this._propagateState(message, errorEvent);
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -2565,25 +2700,24 @@ export class TransfersAggregate {
 
 		const event = new BulkTransferQueryResponseEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
-
-        this._logger.debug("_queryTransfer completed for bulkTransferId: " + bulkTransferId);
-
+        this._propagateState(message, event);
         this._outputEvents.push(event);
         if(this._logger.isDebugEnabled()) this._logger.debug(`_queryBulkTransfer() - completed for bulkTransferId: ${bulkTransferId}`);
 	}
 
-    private _generateSha256(object:{[key: string]: string | number}):string {
-		const hashSha256 = createHash("sha256")
+    private _generateSha256(payload: PrepareTransferCmdPayload): string {
+        const timerEndFn = this._histo.startTimer({callName: "_generateSha256()"});
 
-		// updating data
-		.update(JSON.stringify(object))
+        const hashInput: string = `${payload.transferId}_${payload.payerFsp}_${payload.payeeFsp}_${payload.amount}_${payload.expiration}`;
 
-		// Encoding to be used
-		.digest("base64");
+        // updating data with base64 encoding
+        const hashSha256 = createHash("sha256").update(hashInput).digest("base64");
 
-		// remove trailing '=' as per specification
-		return hashSha256.slice(0, -1);
-	}
+        // remove trailing '=' as per specification
+        const ret = hashSha256.slice(0, -1);
+
+        timerEndFn({success: "true"});
+        return ret;
+    }
 
 }
