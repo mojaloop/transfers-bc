@@ -230,8 +230,8 @@ export class Service {
 
             const messageConsumer = new MLKafkaJsonConsumer(
                 {
-                    kafkaBrokerList: KAFKA_URL,
-                    kafkaGroupId: `${BC_NAME}_${APP_NAME}_authz_client`
+                    ...kafkaProducerCommonOptions,
+                    kafkaGroupId: `${INSTANCE_ID}_authz_client`
                 }, logger.createChild("authorizationClientConsumer")
             );
 
@@ -258,7 +258,7 @@ export class Service {
             logger,
             AUTH_N_TOKEN_ISSUER_NAME,
             AUTH_N_TOKEN_AUDIENCE,
-            new MLKafkaJsonConsumer({kafkaBrokerList: KAFKA_URL, autoOffsetReset: "earliest", kafkaGroupId: INSTANCE_ID}, logger) // for jwt list - no groupId
+            new MLKafkaJsonConsumer({...kafkaProducerCommonOptions, autoOffsetReset: "earliest", kafkaGroupId: `${INSTANCE_ID}_tokenHelper`}, logger) // for jwt list - no groupId
         );
         await this.tokenHelper.init();
 
