@@ -71,7 +71,8 @@ export const mockedTransfer1 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedTransfer2 : ITransfer = {
@@ -93,7 +94,8 @@ export const mockedTransfer2 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedTransfer3 : ITransfer = {
@@ -115,7 +117,8 @@ export const mockedTransfer3 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedTransfer4 : ITransfer = {
@@ -137,7 +140,8 @@ export const mockedTransfer4 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedTransfer5 : ITransfer = {
@@ -159,7 +163,8 @@ export const mockedTransfer5 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: null,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 
@@ -574,7 +579,8 @@ export const mockedBulkTransfer1 : IBulkTransfer = {
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.RECEIVED,
 	errorCode: null,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedBulkTransfer2 : IBulkTransfer = {
@@ -598,7 +604,8 @@ export const mockedBulkTransfer2 : IBulkTransfer = {
     transfersFulfiledProcessedIds: [],
     status: BulkTransferState.PROCESSING,
 	errorCode: null,
-	fspiopOpaqueState: null
+    inboundProtocolType: "FSPIOP_v1_1",
+    inboundProtocolOpaqueState: null,
 };
 
 export const mockedTransferPreparePayload = {
@@ -625,7 +632,9 @@ export const mockedTransferFulfilPayload = {
 };
 
 export const mockedTransferQueryPayload = {
-    transferId: "1357924680"
+    transferId: "1357924680",
+    requesterFspId: "bluebank",
+    destinationFspId: "greenbank"
 };
 
 
@@ -722,7 +731,9 @@ export const mockedBulkTransferRejectedPayload = {
 };
 
 export const mockedBulkTransferQueryPayload = {
-    bulkTransferId: "1357924680"
+    bulkTransferId: "1357924680",
+	requesterFspId: "bluebank",
+    destinationFspId: "greenbank"
 };
 
 export const mockedTransferTimeoutPayload = {

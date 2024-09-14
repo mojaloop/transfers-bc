@@ -98,12 +98,14 @@ import {
     CommitBulkTransferFulfilCmd,
     RejectBulkTransferCmd,
     QueryBulkTransferCmd, 
-    PrepareBulkTransferCmdPayload
+    PrepareBulkTransferCmdPayload,
+    QueryTransferCmdPayload
 } from '../../src';
 import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
 import { waitForExpect } from '@mojaloop/transfers-bc-shared-mocks-lib';
 import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodeNames, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
+import { QueryBulkTransferCmdPayload } from '../../dist';
 
 logger.setLogLevel(LogLevel.DEBUG);
 
@@ -146,6 +148,13 @@ const validTransferPutPayload = {
     "extensionList": null
 };
 
+const validTransferGetPayload: QueryTransferCmdPayload = {
+    transferId: "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
+    requesterFspId: "bluebank",
+    destinationFspId: "greenbank",
+};
+
+
 const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
     "bulkTransferId": "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
     "bulkQuoteId": "0fbee1f3-c58e-5afe-8cdd-6e65eea2fca9",
@@ -165,6 +174,12 @@ const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
         }
     ],
     "expiration": 1715939691772,
+};
+
+const validBulkTransferGetPayload: QueryBulkTransferCmdPayload = {
+    bulkTransferId: "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
+    requesterFspId: "bluebank",
+    destinationFspId: "greenbank",
 };
 
 const validBulkTransferPutPayload = {
@@ -238,7 +253,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payeeIdType: "IBAN",
             transferType: "DEPOSIT",
             errorCode:  null,
-            fspiopOpaqueState: null
+            inboundProtocolType: "FSPIOP_v1_1",
+            inboundProtocolOpaqueState: null,
         }
 
         const now = Date.now();
@@ -264,7 +280,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
             transfersFulfiledProcessedIds: [],
             status: BulkTransferState.RECEIVED,
             errorCode: null,
-            fspiopOpaqueState: null
+            inboundProtocolType: "FSPIOP_v1_1",
+            inboundProtocolOpaqueState: null,
         }
 
     })
@@ -3330,7 +3347,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when payer participant is not found processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3345,7 +3362,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayerNotFoundFailedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_FOUND,
-                "payerFspId": command.payload.payerFsp, 
+                "payerFspId": command.payload.requesterFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3353,7 +3370,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when payer participant has id mismatch processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3369,7 +3386,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayerIdMismatchEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_ID_MISMATCH,
-                "payerFspId": command.payload.payerFsp, 
+                "payerFspId": command.payload.requesterFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3377,7 +3394,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
    
     test("should throw when payer participant is not approved processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3393,7 +3410,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayerNotApprovedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_APPROVED,
-                "payerFspId": command.payload.payerFsp, 
+                "payerFspId": command.payload.requesterFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3401,7 +3418,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when payer participant is not active processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3417,7 +3434,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayerNotActiveEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_ACTIVE,
-                "payerFspId": command.payload.payerFsp, 
+                "payerFspId": command.payload.requesterFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3425,7 +3442,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when payee participant is not found processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3441,7 +3458,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayeeNotFoundFailedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_FOUND,
-                "payeeFspId": command.payload.payeeFsp, 
+                "payeeFspId": command.payload.destinationFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3449,7 +3466,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when payee participant has id mismatch processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3466,7 +3483,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayeeIdMismatchEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_ID_MISMATCH,
-                "payeeFspId": command.payload.payeeFsp, 
+                "payeeFspId": command.payload.destinationFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3474,7 +3491,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when payee participant is not approved processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3491,7 +3508,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayeeNotApprovedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_APPROVED,
-                "payeeFspId": command.payload.payeeFsp, 
+                "payeeFspId": command.payload.destinationFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3499,7 +3516,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         
     test("should throw when payee participant is not active processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3516,7 +3533,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayeeNotActiveEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_ACTIVE,
-                "payeeFspId": command.payload.payeeFsp, 
+                "payeeFspId": command.payload.destinationFspId, 
                 "transferId": command.payload.transferId
             }
         })]);
@@ -3524,7 +3541,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when trying to find transfer when processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3551,7 +3568,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when get transfer is null processing QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3578,10 +3595,14 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should successfully process QueryTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const requesterFspId = "bluebank";
+        const destinationFspId = "greenbank";
+        const command: CommandMsg = createCommand(validTransferGetPayload, QueryTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
 
         const cmd = new QueryTransferCmd({
             transferId: validTransferPostContinuePayload.transferId,
+            requesterFspId: requesterFspId,
+            destinationFspId: destinationFspId
         });
 
         jest.spyOn(messageProducer, "send");
@@ -3684,7 +3705,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when payer participant is not found processing QueryBulkTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validBulkTransferGetPayload, QueryBulkTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3702,7 +3723,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayerNotFoundFailedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYER_PARTICIPANT_NOT_FOUND,
-                "payerFspId": command.payload.payerFsp, 
+                "payerFspId": command.payload.requesterFspId, 
                 "transferId": command.payload.bulkTransferId
             }
         })]);
@@ -3710,7 +3731,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when payee participant is not found processing QueryBulkTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validBulkTransferGetPayload, QueryBulkTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3729,7 +3750,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             "msgName": TransferPayeeNotFoundFailedEvt.name,
             "payload": {
                 "errorCode": TransferErrorCodeNames.PAYEE_PARTICIPANT_NOT_FOUND, 
-                "payeeFspId": command.payload.payeeFsp, 
+                "payeeFspId": command.payload.destinationFspId, 
                 "transferId": command.payload.bulkTransferId
             }
         })]);
@@ -3737,7 +3758,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should throw when trying to find bulk transfer when processing QueryBulkTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validBulkTransferGetPayload, QueryBulkTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3767,7 +3788,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should throw when get bulk transfer is null processing QueryBulkTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validBulkTransferGetPayload, QueryBulkTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3797,15 +3818,19 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should successfully process QueryBulkTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validBulkTransferPostPayload, QueryBulkTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const requesterFspId = "bluebank";
+        const destinationFspId = "greenbank";
+        const command: CommandMsg = createCommand(validBulkTransferGetPayload, QueryBulkTransferCmd.name, { fspiopOpaqueState: { requesterFspId: requesterFspId, destinationFspId: destinationFspId } });
         const cmd = new QueryBulkTransferCmd({
-            bulkTransferId: validBulkTransferPostPayload.bulkTransferId,
+            bulkTransferId: validBulkTransferGetPayload.bulkTransferId,
+            requesterFspId: requesterFspId,
+            destinationFspId: destinationFspId
         });
         
         jest.spyOn(messageProducer, "send");
 
         jest.spyOn(bulkTransfersRepo, "getBulkTransferById")
-            .mockResolvedValue({ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId });
+            .mockResolvedValue({ ...validBulkTransfer, bulkTransferId: validBulkTransferGetPayload.bulkTransferId });
 
         jest.spyOn(participantService, "getParticipantInfo")
             .mockResolvedValueOnce(mockedHubParticipant)
@@ -3813,7 +3838,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             .mockResolvedValueOnce(mockedPayeeParticipant);
 
         jest.spyOn(transfersRepo, "getTransfersByBulkId")
-            .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferPostPayload.bulkTransferId } as unknown as ITransfer]);
+            .mockResolvedValue([{ ...validBulkTransfer, bulkTransferId: validBulkTransferGetPayload.bulkTransferId } as unknown as ITransfer]);
 
         // Act
         await aggregate.processCommandBatch([command]);
@@ -3858,7 +3883,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
 
     test("should not do anything if transfer is null processing TimeoutTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3875,7 +3900,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should not do anything if transfer is null processing TimeoutTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3892,7 +3917,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should not do anything if found transfer is COMMITTED processing TimeoutTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } });
 
         jest.spyOn(messageProducer, "send");
 
@@ -3908,7 +3933,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
     
     test("should not do anything if found transfer is ABORTED processing TimeoutTransferCmd command", async () => {
         // Arrange
-        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { requesterFspId: "bluebank", destinationFspId: "greenbank" });
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, TimeoutTransferCmd.name, { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" }});
 
         jest.spyOn(messageProducer, "send");
 

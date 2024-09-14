@@ -130,6 +130,8 @@ export class RejectTransferCmd extends CommandMsg {
 
 export type QueryTransferCmdPayload = {
 	transferId: string;
+	requesterFspId: string;
+    destinationFspId: string;
 }
 
 export class QueryTransferCmd extends CommandMsg {
@@ -285,6 +287,8 @@ export class RejectBulkTransferCmd extends CommandMsg {
 
 export type QueryBulkTransferCmdPayload = {
 	bulkTransferId: string;
+	requesterFspId: string;
+    destinationFspId: string;
 }
 
 export class QueryBulkTransferCmd extends CommandMsg {

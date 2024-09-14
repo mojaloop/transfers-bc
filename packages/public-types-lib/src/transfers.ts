@@ -77,7 +77,8 @@ export interface ITransfer {
 	}[];
 
 	// Protocol Specific
-	fspiopOpaqueState: any;
+    inboundProtocolType: string;
+    inboundProtocolOpaqueState: any | null;
 }
 
 export interface ITransferParticipants {
@@ -117,7 +118,8 @@ export interface IBulkTransfer {
 	errorCode: string | null;
 
 	// Protocol Specific
-	fspiopOpaqueState: any;
+    inboundProtocolType: string;
+    inboundProtocolOpaqueState: any | null;
 }
 
 export declare type TransfersSearchResults = {

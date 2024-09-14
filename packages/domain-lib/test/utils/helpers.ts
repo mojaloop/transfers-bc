@@ -63,9 +63,10 @@ export function createTransferFulfiledEvtPayload(mockedTransfer: ITransfer): Tra
     };
 }
 
-export function createCommand(payload: object|null, messageName: string|null, fspiopOpaqueState: object|null, msgType: MessageTypes = MessageTypes.COMMAND): CommandMsg {
+export function createCommand(payload: object|null, messageName: string|null, inboundProtocolOpaqueState: object|null, msgType: MessageTypes = MessageTypes.COMMAND): CommandMsg {
     return {
-        fspiopOpaqueState,
+        inboundProtocolType: "FSPIOP_v1_1",
+        inboundProtocolOpaqueState,
         msgId: "fake msg id",
         msgKey: "fake msg key",
         msgTopic: "fake msg topic",

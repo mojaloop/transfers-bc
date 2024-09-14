@@ -119,15 +119,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedTransferPreparePayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                } 
+            }
         };
 
         const receivedMessages = [
@@ -135,7 +137,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: TransferPrepareRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState 
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState 
             },
         ];
 
@@ -149,7 +151,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: PrepareTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -160,16 +162,18 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedTransferFulfilPayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            },
-            fullfilment: "abc"
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                },
+                fullfilment: "abc"
+            }
         };
 
         const receivedMessages = [
@@ -177,7 +181,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: TransferFulfilRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState 
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState 
             },
         ];
 
@@ -191,7 +195,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: CommitTransferFulfilCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -202,15 +206,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedTransferQueryPayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const receivedMessages = [
@@ -218,7 +224,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: TransferQueryReceivedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             },
         ];
 
@@ -232,7 +238,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: QueryTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -243,15 +249,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedTransferRejectPayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const receivedMessages = [
@@ -259,7 +267,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: TransferRejectRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState 
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState 
             },
         ];
 
@@ -273,7 +281,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: RejectTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -284,15 +292,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedBulkTransferPreparePayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const receivedMessages = [
@@ -300,7 +310,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: BulkTransferPrepareRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             },
         ];
 
@@ -314,7 +324,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: PrepareBulkTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -325,14 +335,16 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedBulkTransferFulfilPayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
             }
         };
 
@@ -341,7 +353,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: BulkTransferFulfilRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             },
         ];
 
@@ -355,7 +367,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: CommitBulkTransferFulfilCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -366,15 +378,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedBulkTransferQueryPayload,
         };
 
-        const fspiopOpaqueState = { 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
             committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const receivedMessages = [
@@ -382,7 +396,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: BulkTransferQueryReceivedEvt.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             },
         ];
 
@@ -396,7 +410,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: QueryBulkTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
@@ -408,15 +422,17 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             ...mockedBulkTransferRejectedPayload,
         };
 
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const receivedMessages = [
@@ -424,7 +440,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: BulkTransferRejectRequestedEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState 
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState 
             },
         ];
 
@@ -438,27 +454,29 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: RejectBulkTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });
 
     it('should process TransferTimeoutEvt successfully', async () => {
         // Arrange
-        const fspiopOpaqueState = { 
-            committedSendTimestamp: 123456789, 
-            prepareSendTimestamp: 123456789,
-            extensionList: {
-                extension: [
-                    { key: "exampleKey1", value: "exampleValue1" },
-                    { key: "exampleKey2", value: "exampleValue2" }
-                ]
-            } 
+        const inboundProtocolOpaqueState = { 
+            fspiopOpaqueState: { 
+                committedSendTimestamp: 123456789, 
+                prepareSendTimestamp: 123456789,
+                extensionList: {
+                    extension: [
+                        { key: "exampleKey1", value: "exampleValue1" },
+                        { key: "exampleKey2", value: "exampleValue2" }
+                    ]
+                }
+            }
         };
 
         const payload = {
             ...mockedTransferTimeoutPayload,
-            timeout: fspiopOpaqueState
+            timeout: inboundProtocolOpaqueState.fspiopOpaqueState
         };
 
         const receivedMessages = [
@@ -466,7 +484,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
                 msgType: MessageTypes.DOMAIN_EVENT, 
                 msgName: TransferTimeoutEvt.name, 
                 payload: payload, 
-                fspiopOpaqueState: fspiopOpaqueState 
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState 
             },
         ];
 
@@ -480,7 +498,7 @@ describe('Event Handler - Unit Tests for TransfersBC Event Handler', () => {
             expect.objectContaining({
                 msgName: TimeoutTransferCmd.name,
                 payload: payload,
-                fspiopOpaqueState: fspiopOpaqueState
+                inboundProtocolOpaqueState: inboundProtocolOpaqueState
             })
         ]);
     });

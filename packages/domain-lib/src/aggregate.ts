@@ -42,7 +42,6 @@ import {IAuditClient} from "@mojaloop/auditing-bc-public-types-lib";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
 import {
     CommandMsg,
-    DomainErrorEventMsg,
     DomainEventMsg,
     IDomainMessage,
     IMessageProducer,
@@ -358,7 +357,8 @@ export class TransfersAggregate {
                 payerFspId: requesterFspId,
                 errorCode: errorCode
             });
-            errorEvent.fspiopOpaqueState = cmd.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = cmd.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = cmd.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
         }
     }
@@ -392,7 +392,8 @@ export class TransfersAggregate {
 				transferId: request.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = originalCmdMsg.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = originalCmdMsg.inboundProtocolOpaqueState;
 
             this._outputEvents.push(errorEvent);
 		}
@@ -491,7 +492,8 @@ export class TransfersAggregate {
 				transferId: message.payload.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -506,7 +508,8 @@ export class TransfersAggregate {
 			// 		payerFspId: message.payload.payerFsp,
 			// 		errorDescription: errorMessage
 			// 	});
-            //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            //     errorEvent.inboundProtocolType = message.inboundProtocolType;
+            //     errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             //     this._outputEvents.push(errorEvent);
             //     return;
 			// }
@@ -538,7 +541,8 @@ export class TransfersAggregate {
                                 errorCode: errorCode
                             });
 
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            errorEvent.inboundProtocolType = message.inboundProtocolType;
+                            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
                         }
@@ -554,7 +558,8 @@ export class TransfersAggregate {
 
                         const event = new TransferPrepareRequestTimedoutEvt(payload);
 
-                        event.fspiopOpaqueState = message.fspiopOpaqueState;
+                        event.inboundProtocolType = message.inboundProtocolType;
+                        event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                         this._outputEvents.push(event);
                     }
 
@@ -580,7 +585,8 @@ export class TransfersAggregate {
                                 errorCode: errorCode
                             });
 
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            errorEvent.inboundProtocolType = message.inboundProtocolType;
+                            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
                         }
@@ -603,7 +609,8 @@ export class TransfersAggregate {
                                 errorCode: errorCode
                             });
 
-                            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                            errorEvent.inboundProtocolType = message.inboundProtocolType;
+                            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                             this._outputEvents.push(errorEvent);
                             return;
                         }
@@ -621,7 +628,8 @@ export class TransfersAggregate {
 
                         const event = new TransferFulfilCommittedRequestedTimedoutEvt(payload);
 
-                        event.fspiopOpaqueState = message.fspiopOpaqueState;
+                        event.inboundProtocolType = message.inboundProtocolType;
+                        event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                         this._outputEvents.push(event);
                     }
 
@@ -661,7 +669,8 @@ export class TransfersAggregate {
 				transferId: message.payload.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -676,7 +685,8 @@ export class TransfersAggregate {
 			// 		payerFspId: message.payload.payerFsp,
 			// 		errorDescription: errorMessage
 			// 	});
-            //     errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            //     errorEvent.inboundProtocolType = message.inboundProtocolType;
+            //     errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             //     this._outputEvents.push(errorEvent);
             //     return;
 			// }
@@ -699,7 +709,8 @@ export class TransfersAggregate {
 
 					const event = new TransferQueryResponseEvt(payload);
 
-					event.fspiopOpaqueState = message.fspiopOpaqueState;
+                    event.inboundProtocolType = message.inboundProtocolType;
+                    event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                     this._outputEvents.push(event);
 					return;
 				}
@@ -728,7 +739,8 @@ export class TransfersAggregate {
 				payeeCurrency: message.payload.currencyCode,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -749,16 +761,17 @@ export class TransfersAggregate {
             hash: hash,
             completedTimestamp: null,
             settlementModel: settlementModel,
-            payerIdType: message.payload.payerIdType, 
+            payerIdType: message.payload.payerIdType,
             payeeIdType: message.payload.payeeIdType,
             transferType: message.payload.transferType,
             extensions: message.payload.extensions,
             errorCode: null,
-            fspiopOpaqueState: null,
+            inboundProtocolType: message.inboundProtocolType,
+            inboundProtocolOpaqueState: message.inboundProtocolOpaqueState,
         };
 
-        if(message.fspiopOpaqueState) {
-            transfer.fspiopOpaqueState = message.fspiopOpaqueState;
+        if(message.inboundProtocolOpaqueState) {
+            transfer.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
         }
 
         if(this._logger.isDebugEnabled()) this._logger.debug("prepareTransferStart() - before getParticipants...");
@@ -767,7 +780,7 @@ export class TransfersAggregate {
         try{
             participants = await this._getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
 
             if(err instanceof HubNotFoundError) {
                 const errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
@@ -870,7 +883,8 @@ export class TransfersAggregate {
             }
 
             this._transfersCache.set(transfer.transferId, transfer);
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -879,7 +893,7 @@ export class TransfersAggregate {
         try{
             participantAccounts = this._getTransferParticipantsAccounts(participants, transfer);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
 
             if(err instanceof HubAccountNotFoundError) {
                 const errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
@@ -925,7 +939,8 @@ export class TransfersAggregate {
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -950,7 +965,8 @@ export class TransfersAggregate {
                 transfer.expirationTimestamp,
                 {
                     payload: transfer,
-                    fspiopOpaqueState: message.fspiopOpaqueState
+                    inboundProtocolType: message.inboundProtocolType,
+                    inboundProtocolOpaqueState: message.inboundProtocolOpaqueState,
                 }
             );
         } catch (err: unknown) {
@@ -962,7 +978,8 @@ export class TransfersAggregate {
 				transferId: message.payload.transferId,
 				errorCode: errorCode
 			});
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1015,7 +1032,8 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = originalCmdMsg.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = originalCmdMsg.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1046,7 +1064,8 @@ export class TransfersAggregate {
             transfer.errorCode = errorCode;
             this._transfersCache.set(transfer.transferId, transfer);
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = originalCmdMsg.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = originalCmdMsg.inboundProtocolOpaqueState;
 			this._outputEvents.push(errorEvent);
             return;
         }
@@ -1073,7 +1092,8 @@ export class TransfersAggregate {
 
             const event = new TransferPreparedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.inboundProtocolType = message.inboundProtocolType;
+            event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
             if(this._logger.isDebugEnabled()) this._logger.debug(`prepareTransferContinue() - completed for transferId: ${transfer.transferId}`);
 
@@ -1099,7 +1119,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1127,21 +1148,22 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
 
-        // NOTE: We override the previous fspiopOpaqueState with the most updated fspiopOpaqueState from the payee
-        if(message.fspiopOpaqueState) {
-            transfer.fspiopOpaqueState = { ...transfer.fspiopOpaqueState, ...message.fspiopOpaqueState };
+        // NOTE: We override the previous inboundProtocolOpaqueState with the most updated inboundProtocolOpaqueState from the payee
+        if(message.inboundProtocolOpaqueState) {
+            transfer.inboundProtocolOpaqueState = { ...transfer.inboundProtocolOpaqueState, ...message.inboundProtocolOpaqueState };
         }
 
         // TODO: Once we have a new protocol, take a new look at this
         // Validation
-        if(transfer.fspiopOpaqueState) {
+        if(message.inboundProtocolType === "FSPIOP_v1_1") {
             try {
-                const isValid = this._interopFspiopValidator.validateFulfilmentOpaqueState(message.fspiopOpaqueState, transfer.fspiopOpaqueState);
+                const isValid = this._interopFspiopValidator.validateFulfilmentOpaqueState(message.inboundProtocolOpaqueState, transfer.inboundProtocolOpaqueState);
                 
                 if(!isValid) {
                     const errorMessage = `Fulfilment with transferId: ${message.payload.transferId} is invalid`;
@@ -1167,12 +1189,14 @@ export class TransfersAggregate {
                             errorCode: errorCode
                         });
 
-                        errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                        errorEvent.inboundProtocolType = message.inboundProtocolType;
+                        errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                         this._outputEvents.push(errorEvent);
                         return;
                     }
 
-                    errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                    errorEvent.inboundProtocolType = message.inboundProtocolType;
+                    errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                     this._outputEvents.push(errorEvent);
                     return;
                 }
@@ -1187,7 +1211,8 @@ export class TransfersAggregate {
                     errorCode: errorCode
                 });
 
-                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                errorEvent.inboundProtocolType = message.inboundProtocolType;
+                errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                 this._outputEvents.push(errorEvent);
                 return;
             }
@@ -1198,7 +1223,7 @@ export class TransfersAggregate {
         try {
             participants = await this._getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
             let errorCode:string;
             
             if(err instanceof HubNotFoundError) {
@@ -1314,7 +1339,8 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1322,7 +1348,7 @@ export class TransfersAggregate {
         try{
             participantTransferAccounts = this._getTransferParticipantsAccounts(participants, transfer);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
             let errorCode:string;
 
             if(err instanceof HubAccountNotFoundError) {
@@ -1382,7 +1408,8 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1436,7 +1463,8 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = originalCmdMsg.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = originalCmdMsg.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1474,7 +1502,8 @@ export class TransfersAggregate {
                 });
             }
 
-            errorEvent.fspiopOpaqueState = originalCmdMsg.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = originalCmdMsg.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = originalCmdMsg.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1508,7 +1537,8 @@ export class TransfersAggregate {
             });
 
             // carry over opaque state fields
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.inboundProtocolType = message.inboundProtocolType;
+            event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
             this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
 
@@ -1535,7 +1565,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1549,7 +1580,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1559,7 +1591,7 @@ export class TransfersAggregate {
         try{
             await this._getParticipantsInfo(transfer.payerFspId, transfer.payeeFspId, transfer.transferId);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
 
             if(err instanceof HubNotFoundError) {
                 const errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
@@ -1662,7 +1694,8 @@ export class TransfersAggregate {
             }
 
             this._transfersCache.set(transfer.transferId, transfer);
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1682,7 +1715,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1704,7 +1738,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1717,8 +1752,9 @@ export class TransfersAggregate {
 
             const event = new TransferRejectRequestProcessedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
-
+            event.inboundProtocolType = message.inboundProtocolType;
+            event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
+     
             this._logger.debug("_rejectTransfer completed for transferId: " + transfer.transferId);
 
             this._outputEvents.push(event);
@@ -1729,8 +1765,8 @@ export class TransfersAggregate {
     private async _queryTransfer(message: QueryTransferCmd):Promise<void> {
 		this._logger.debug(`queryTransfer() - Got transferQueryRequestEvt msg for transferId: ${message.payload.transferId}`);
         
-		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
-		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
+		const requesterFspId = message.payload.requesterFspId;
+		const destinationFspId = message.payload.destinationFspId;
         const transferId = message.payload.transferId;
         
         if(this._logger.isDebugEnabled()) this._logger.debug("_queryTransfer() - before getParticipants...");
@@ -1738,7 +1774,7 @@ export class TransfersAggregate {
         try{
             await this._getParticipantsInfo(requesterFspId, destinationFspId, message.payload.transferId);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
 
             if(err instanceof HubNotFoundError) {
                 const errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
@@ -1828,7 +1864,8 @@ export class TransfersAggregate {
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -1849,7 +1886,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1863,7 +1901,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -1876,7 +1915,8 @@ export class TransfersAggregate {
 
 		const event = new TransferQueryResponseEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
+        event.inboundProtocolType = message.inboundProtocolType;
+        event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
         this._logger.debug("_queryTransfer completed for transferId: " + transfer.transferId);
 
@@ -2069,7 +2109,8 @@ export class TransfersAggregate {
             transfersFulfiledProcessedIds: [],
             status: BulkTransferState.RECEIVED,
             errorCode: null,
-            fspiopOpaqueState: null
+            inboundProtocolType: message.inboundProtocolType,
+            inboundProtocolOpaqueState: message.inboundProtocolOpaqueState,
         };
 
         try{
@@ -2083,7 +2124,8 @@ export class TransfersAggregate {
                 bulkTransferId: bulkTransfer.bulkTransferId,
                 errorCode: errorCode
             });
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2135,7 +2177,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2149,7 +2192,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2180,7 +2224,8 @@ export class TransfersAggregate {
                     errorCode: errorCode
                 });
     
-                errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+                errorEvent.inboundProtocolType = message.inboundProtocolType;
+                errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
                 this._outputEvents.push(errorEvent);
                 return;
             }
@@ -2202,7 +2247,8 @@ export class TransfersAggregate {
 
             const event = new BulkTransferPreparedEvt(payload);
 
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.inboundProtocolType = message.inboundProtocolType;
+            event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
             if(this._logger.isDebugEnabled()) this._logger.debug(`prepareBulkTransferContinue() - completed for transferId: ${transfer.transferId}`);
 
@@ -2227,7 +2273,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2241,7 +2288,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2287,7 +2335,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2301,7 +2350,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2330,7 +2380,8 @@ export class TransfersAggregate {
 
 
             // carry over opaque state fields
-            event.fspiopOpaqueState = message.fspiopOpaqueState;
+            event.inboundProtocolType = message.inboundProtocolType;
+            event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
             this._logger.debug("transferPreparedReceivedEvt completed for transferId: " + transfer.transferId);
 
@@ -2360,7 +2411,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2374,7 +2426,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2392,7 +2445,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -2420,7 +2474,8 @@ export class TransfersAggregate {
 
 		const event = new BulkTransferRejectRequestProcessedEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
+        event.inboundProtocolType = message.inboundProtocolType;
+        event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
         this._logger.debug("_rejectBulkTransfer completed for bulkTransferId: " + message.payload.bulkTransferId);
 
@@ -2431,8 +2486,8 @@ export class TransfersAggregate {
     private async _queryBulkTransfer(message: QueryBulkTransferCmd):Promise<void> {
         this._logger.debug(`queryBulkTransfer() - Got transferBulkQueryRequestEvt msg for bulkTransferId: ${message.payload.bulkTransferId}`);
         
-		const requesterFspId = message.fspiopOpaqueState?.requesterFspId ?? null;
-		const destinationFspId = message.fspiopOpaqueState?.destinationFspId ?? null;
+        const requesterFspId = message.payload.requesterFspId;
+		const destinationFspId = message.payload.destinationFspId;
         const bulkTransferId = message.payload.bulkTransferId;
         
         let bulkTransfer: IBulkTransfer | null = null;
@@ -2448,7 +2503,8 @@ export class TransfersAggregate {
                 errorCode: errorCode
             });
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2462,7 +2518,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2472,7 +2529,7 @@ export class TransfersAggregate {
         try{
             await this._getParticipantsInfo(requesterFspId, destinationFspId, message.payload.bulkTransferId);
         } catch (err: unknown) {
-            let errorEvent:DomainErrorEventMsg;
+            let errorEvent:DomainEventMsg;
 
             if(err instanceof HubNotFoundError) {
                 const errorCode = TransferErrorCodeNames.HUB_NOT_FOUND;
@@ -2562,7 +2619,8 @@ export class TransfersAggregate {
                 return;
             }
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
         }
@@ -2583,7 +2641,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -2598,7 +2657,8 @@ export class TransfersAggregate {
 				errorCode: errorCode
 			});
 
-            errorEvent.fspiopOpaqueState = message.fspiopOpaqueState;
+            errorEvent.inboundProtocolType = message.inboundProtocolType;
+            errorEvent.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
             this._outputEvents.push(errorEvent);
             return;
 		}
@@ -2617,7 +2677,8 @@ export class TransfersAggregate {
 
 		const event = new BulkTransferQueryResponseEvt(payload);
 
-		event.fspiopOpaqueState = message.fspiopOpaqueState;
+        event.inboundProtocolType = message.inboundProtocolType;
+        event.inboundProtocolOpaqueState = message.inboundProtocolOpaqueState;
 
         this._logger.debug("_queryTransfer completed for bulkTransferId: " + bulkTransferId);
 
