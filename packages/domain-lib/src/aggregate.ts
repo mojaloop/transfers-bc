@@ -155,6 +155,7 @@ import {
     TransferFulfilmentValidationFailedEvt
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { BulkTransfer, Transfer } from "./entities";
+import { deepMerge } from "./utils";
 
 const HUB_ID = "hub"; // move to shared lib
 
@@ -1156,7 +1157,7 @@ export class TransfersAggregate {
 
         // NOTE: We override the previous inboundProtocolOpaqueState with the most updated inboundProtocolOpaqueState from the payee
         if(message.inboundProtocolOpaqueState) {
-            transfer.inboundProtocolOpaqueState = { ...transfer.inboundProtocolOpaqueState, ...message.inboundProtocolOpaqueState };
+            transfer.inboundProtocolOpaqueState = deepMerge(transfer.inboundProtocolOpaqueState, message.inboundProtocolOpaqueState);
         }
 
         // TODO: Once we have a new protocol, take a new look at this
