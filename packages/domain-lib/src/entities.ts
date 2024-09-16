@@ -62,7 +62,8 @@ export class Transfer implements ITransfer {
 	}[];
 	
 	// Protocol Specific
-	fspiopOpaqueState: any;
+    inboundProtocolType: string;
+    inboundProtocolOpaqueState: any | null;
 }
 
 /** BulkTransfer entity **/
@@ -93,5 +94,6 @@ export class BulkTransfer implements IBulkTransfer {
 	errorCode: string | null;
 	
 	// Protocol Specific
-	fspiopOpaqueState: any;
+    inboundProtocolType: string;
+    inboundProtocolOpaqueState: any | null;
 }

@@ -345,7 +345,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			extensions: transfer.extensions ?? null,
 			errorCode: transfer.errorInformation ?? null,
 			// Protocol Specific
-			fspiopOpaqueState: transfer.fspiopOpaqueState ?? null,
+			inboundProtocolType: transfer.inboundProtocolType ?? null,
+			inboundProtocolOpaqueState: transfer.inboundProtocolOpaqueState ?? null,
 		};
 
 		return transferMapped;

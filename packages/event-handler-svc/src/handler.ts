@@ -129,14 +129,14 @@ export class TransfersEventHandler{
                     }
 
                     // metrics
-                    if(!message.fspiopOpaqueState) continue;
+                    if(message.inboundProtocolType !== "FSPIOP_v1_1") continue;
                     const now = Date.now();
-                    if(message.msgName === TransferPrepareRequestedEvt.name && message.fspiopOpaqueState.prepareSendTimestamp){
-                        this._transferDurationHisto.observe({"leg": "prepare"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
-                    }else if(message.msgName === TransferFulfilRequestedEvt.name && message.fspiopOpaqueState.committedSendTimestamp ){
-                        this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.fspiopOpaqueState.committedSendTimestamp);
-                        if(message.fspiopOpaqueState.prepareSendTimestamp){
-                            this._transferDurationHisto.observe({"leg": "total"}, now - message.fspiopOpaqueState.prepareSendTimestamp);
+                    if(message.msgName === TransferPrepareRequestedEvt.name && message.inboundProtocolOpaqueState.fspiopOpaqueState.prepareSendTimestamp){
+                        this._transferDurationHisto.observe({"leg": "prepare"}, now - message.inboundProtocolOpaqueState.fspiopOpaqueState.prepareSendTimestamp);
+                    }else if(message.msgName === TransferFulfilRequestedEvt.name && message.inboundProtocolOpaqueState.fspiopOpaqueState.committedSendTimestamp ){
+                        this._transferDurationHisto.observe({"leg": "fulfil"}, now - message.inboundProtocolOpaqueState.fspiopOpaqueState.committedSendTimestamp);
+                        if(message.inboundProtocolOpaqueState.fspiopOpaqueState.prepareSendTimestamp){
+                            this._transferDurationHisto.observe({"leg": "total"}, now - message.inboundProtocolOpaqueState.fspiopOpaqueState.prepareSendTimestamp);
                         }
                     }
                 }
@@ -209,7 +209,8 @@ export class TransfersEventHandler{
 			extensions: evt.payload.extensions
 		};
 		const cmd = new PrepareTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
@@ -221,7 +222,8 @@ export class TransfersEventHandler{
 			notifyPayee: evt.payload.notifyPayee,
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
@@ -231,26 +233,31 @@ export class TransfersEventHandler{
 			errorInformation: evt.payload.errorInformation,
 		};
 		const cmd = new RejectTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
 	private _prepareEventToQueryCommand(evt: TransferQueryReceivedEvt): QueryTransferCmd {
 		const cmdPayload: QueryTransferCmdPayload = {
 			transferId: evt.payload.transferId,
+			requesterFspId: evt.payload.requesterFspId,
+			destinationFspId: evt.payload.destinationFspId,
 		};
 		const cmd = new QueryTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
     private _prepareEventToTimeoutCommand(evt: TransferTimeoutEvt): TimeoutTransferCmd {
 		const cmdPayload: TimeoutTransferCmdPayload = {
 			transferId: evt.payload.transferId,
-			timeout: evt.fspiopOpaqueState
+			timeout: evt.inboundProtocolOpaqueState.fspiopOpaqueState
 		};
 		const cmd = new TimeoutTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
     
@@ -264,7 +271,8 @@ export class TransfersEventHandler{
 			expiration: evt.payload.expiration,
 		};
 		const cmd = new PrepareBulkTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
@@ -276,7 +284,8 @@ export class TransfersEventHandler{
 			individualTransferResults: evt.payload.individualTransferResults,
 		};
 		const cmd = new CommitBulkTransferFulfilCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
@@ -286,16 +295,20 @@ export class TransfersEventHandler{
 			errorInformation: evt.payload.errorInformation,
 		};
 		const cmd = new RejectBulkTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 
 	private _prepareEventToQueryBulkCommand(evt: BulkTransferQueryReceivedEvt): QueryBulkTransferCmd {
 		const cmdPayload: QueryBulkTransferCmdPayload = {
 			bulkTransferId: evt.payload.bulkTransferId,
+			requesterFspId: evt.payload.requesterFspId,
+			destinationFspId: evt.payload.destinationFspId,
 		};
 		const cmd = new QueryBulkTransferCmd(cmdPayload);
-		cmd.fspiopOpaqueState = evt.fspiopOpaqueState;
+		cmd.inboundProtocolType = evt.inboundProtocolType;
+		cmd.inboundProtocolOpaqueState = evt.inboundProtocolOpaqueState;
 		return cmd;
 	}
 

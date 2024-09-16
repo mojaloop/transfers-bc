@@ -211,7 +211,8 @@ export class MongoBulkTransfersRepo implements IBulkTransfersRepository {
             completedTimestamp: bulkTransfer.completedTimestamp ?? null,
             errorCode: bulkTransfer.errorInformation ?? null,
             // Protocol Specific
-			fspiopOpaqueState: bulkTransfer.fspiopOpaqueState ?? null,
+			inboundProtocolType: bulkTransfer.inboundProtocolType ?? null,
+			inboundProtocolOpaqueState: bulkTransfer.inboundProtocolOpaqueState ?? null,
         };
         return bulkTransferMapped;
     }

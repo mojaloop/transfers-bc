@@ -145,5 +145,5 @@ export interface ISchedulingServiceAdapter {
 }
 
 export interface IInteropFspiopValidator {
-    validateFulfilmentOpaqueState(fspiopOpaqueState: any, transfer: ITransfer): boolean;
+    validateFulfilmentOpaqueState(inboundProtocolOpaqueState: any, transfer: ITransfer): boolean;
 }
