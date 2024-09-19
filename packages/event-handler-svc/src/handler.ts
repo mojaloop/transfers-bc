@@ -164,7 +164,7 @@ export class TransfersEventHandler{
             const transferCmd = this._prepareEventToPrepareCommand(message as TransferPrepareRequestedEvt);
             return transferCmd;
         }else if(message.msgName === TransferFulfilRequestedEvt.name){
-            const transferCmd = this._fulfilEventToFulfilCommand(message as TransferFulfilRequestedEvt);
+            const transferCmd = this._prepareEventToFulfilCommand(message as TransferFulfilRequestedEvt);
             return transferCmd;
         }else if(message.msgName === TransferRejectRequestedEvt.name){
             const transferCmd = this._prepareEventToRejectCommand(message as TransferRejectRequestedEvt);
@@ -214,12 +214,13 @@ export class TransfersEventHandler{
 		return cmd;
 	}
 
-	private _fulfilEventToFulfilCommand(evt: TransferFulfilRequestedEvt): CommitTransferFulfilCmd {
+	private _prepareEventToFulfilCommand(evt: TransferFulfilRequestedEvt): CommitTransferFulfilCmd {
 		const cmdPayload: CommitTransferFulfilCmdPayload = {
 			transferId: evt.payload.transferId,
 			transferState: evt.payload.transferState,
 			completedTimestamp: evt.payload.completedTimestamp,
 			notifyPayee: evt.payload.notifyPayee,
+			extensions: evt.payload.extensions,
 		};
 		const cmd = new CommitTransferFulfilCmd(cmdPayload);
 		cmd.inboundProtocolType = evt.inboundProtocolType;
@@ -269,6 +270,7 @@ export class TransfersEventHandler{
 			payeeFsp: evt.payload.payeeFsp,
             individualTransfers: evt.payload.individualTransfers,
 			expiration: evt.payload.expiration,
+			extensions: evt.payload.extensions,
 		};
 		const cmd = new PrepareBulkTransferCmd(cmdPayload);
 		cmd.inboundProtocolType = evt.inboundProtocolType;
@@ -282,6 +284,7 @@ export class TransfersEventHandler{
 			completedTimestamp: evt.payload.completedTimestamp,
 			bulkTransferState: evt.payload.bulkTransferState,
 			individualTransferResults: evt.payload.individualTransferResults,
+			extensions: evt.payload.extensions,
 		};
 		const cmd = new CommitBulkTransferFulfilCmd(cmdPayload);
 		cmd.inboundProtocolType = evt.inboundProtocolType;

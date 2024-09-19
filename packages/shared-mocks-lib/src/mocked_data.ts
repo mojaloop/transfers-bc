@@ -71,6 +71,7 @@ export const mockedTransfer1 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	errorInformation: null,
     inboundProtocolType: "FSPIOP_v1_1",
     inboundProtocolOpaqueState: null,
 };
@@ -94,6 +95,7 @@ export const mockedTransfer2 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	errorInformation: null,
     inboundProtocolType: "FSPIOP_v1_1",
     inboundProtocolOpaqueState: null,
 };
@@ -117,6 +119,7 @@ export const mockedTransfer3 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	errorInformation: null,
     inboundProtocolType: "FSPIOP_v1_1",
     inboundProtocolOpaqueState: null,
 };
@@ -140,6 +143,7 @@ export const mockedTransfer4 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: TransferErrorCodes.TRANSFER_EXPIRED,
+	errorInformation: null,
     inboundProtocolType: "FSPIOP_v1_1",
     inboundProtocolOpaqueState: null,
 };
@@ -163,8 +167,9 @@ export const mockedTransfer5 : ITransfer = {
 	transferType: "DEPOSIT",
 	extensions: [],
 	errorCode: null,
-    inboundProtocolType: "FSPIOP_v1_1",
-    inboundProtocolOpaqueState: null,
+	errorInformation: null,
+	inboundProtocolType: "FSPIOP_v1_1",
+	inboundProtocolOpaqueState: null,
 };
 
 

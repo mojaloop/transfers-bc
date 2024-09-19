@@ -706,6 +706,7 @@ export class TransfersAggregate {
 						transferId: getTransferRep.transferId,
 						transferState: getTransferRep.transferState,
 						completedTimestamp: getTransferRep.completedTimestamp,
+						extensions: getTransferRep.extensions,
 					};
 
 					const event = new TransferQueryResponseEvt(payload);
@@ -767,6 +768,7 @@ export class TransfersAggregate {
             transferType: message.payload.transferType,
             extensions: message.payload.extensions,
             errorCode: null,
+            errorInformation: null,
             inboundProtocolType: message.inboundProtocolType,
             inboundProtocolOpaqueState: message.inboundProtocolOpaqueState,
         };
@@ -1089,6 +1091,7 @@ export class TransfersAggregate {
                 expiration: message.payload.expiration,
                 settlementModel: transfer.settlementModel,
                 preparedAt: preparedAtTime,
+                extensions: transfer.extensions,
             };
 
             const event = new TransferPreparedEvt(payload);
@@ -1534,7 +1537,8 @@ export class TransfersAggregate {
                 currencyCode: transfer.currencyCode,
                 settlementModel: transfer.settlementModel,
                 notifyPayee: true,
-                fulfiledAt: fulfiledAtTime
+                fulfiledAt: fulfiledAtTime,
+                extensions: transfer.extensions
             });
 
             // carry over opaque state fields
@@ -1912,6 +1916,7 @@ export class TransfersAggregate {
 			transferId: transfer.transferId,
 			transferState: transfer.transferState,
 			completedTimestamp: transfer.completedTimestamp,
+			extensions: transfer.extensions,
 		};
 
 		const event = new TransferQueryResponseEvt(payload);
@@ -2244,6 +2249,7 @@ export class TransfersAggregate {
                         currencyCode: transferResult.currencyCode,
                     };
                 }),
+                extensions: message.payload.extensions
             };
 
             const event = new BulkTransferPreparedEvt(payload);
@@ -2307,6 +2313,7 @@ export class TransfersAggregate {
                 transferState: message.payload.bulkTransferState,
                 completedTimestamp: message.payload.completedTimestamp,
                 notifyPayee: false,
+                extensions: message.payload.extensions
             });
 
             await this._fulfilTransferStart(transferCmd);
@@ -2377,6 +2384,7 @@ export class TransfersAggregate {
                 bulkTransferState: message.payload.bulkTransferState,
                 completedTimestamp: message.payload.completedTimestamp,
                 individualTransferResults: message.payload.individualTransferResults,
+                extensions: message.payload.extensions,
             });
 
 
@@ -2670,7 +2678,11 @@ export class TransfersAggregate {
             individualTransferResults: transfers.map((transferResult: ITransfer) => {
                 return {
                     transferId: transferResult.transferId,
-                    errorInformation: transferResult.errorCode as unknown as IErrorInformation,
+                    errorInformation: transferResult.errorInformation && {
+                        errorCode: transferResult.errorInformation.errorCode,
+                        errorDescription: transferResult.errorInformation.errorDescription,
+                        extensions: transferResult.errorInformation.extensions,
+                    }
                 };
             }),
             bulkTransferState: bulkTransfer.status,

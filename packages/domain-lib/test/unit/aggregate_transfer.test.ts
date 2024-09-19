@@ -119,33 +119,33 @@ jest.mock('crypto', () => ({
 let aggregate: TransfersAggregate;
 
 const validTransferPostPayload = {
-    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "payerFsp": "bluebank",
-    "payeeFsp": "greenbank",
-    "amount": "1",
-    "currencyCode": "USD",
-    "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-    "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-    "expiration": 1715939691772
+    transferId: "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    payerFsp: "bluebank",
+    payeeFsp: "greenbank",
+    amount: "1",
+    currencyCode: "USD",
+    ilpPacket: "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+    condition: "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+    expiration: 1715939691772
 };
 
 const validTransferPostContinuePayload = {
-    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "payerFsp": "bluebank",
-    "payeeFsp": "greenbank",
-    "amount": "1",
-    "currencyCode": "USD",
-    "ilpPacket": "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
-    "condition": "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
-    "expiration": 1715939691772
+    transferId: "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    payerFsp: "bluebank",
+    payeeFsp: "greenbank",
+    amount: "1",
+    currencyCode: "USD",
+    ilpPacket: "AYICbQAAAAAAAAPoHGcuYmx1ZWJhbmsubXNpc2RuLmJsdWVfYWNjXzGCAkRleUowY21GdWMyRmpkR2x2Ymtsa0lqb2lPV1kxWkRrM09EUXRNMkUxTnkwMU9EWTFMVGxoWVRBdE4yUmtaVGMzT1RFMU5EZ3hJaXdpY1hWdmRHVkpaQ0k2SW1ZMU5UaGtORFE0TFRCbU1UQXROREF4TmkwNE9ESXpMVEU1TjJObU5qZ3haamhrWmlJc0luQmhlV1ZsSWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2lZbXgxWlY5aFkyTmZNU0lzSW1aemNFbGtJam9pWW14MVpXSmhibXNpZlgwc0luQmhlV1Z5SWpwN0luQmhjblI1U1dSSmJtWnZJanA3SW5CaGNuUjVTV1JVZVhCbElqb2lUVk5KVTBST0lpd2ljR0Z5ZEhsSlpHVnVkR2xtYVdWeUlqb2laM0psWlc1ZllXTmpYekVpTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+    condition: "STksBXN1-J5HnG_4owlzKnbmzCfiOlrKDPgiR-QZ7Kg",
+    expiration: 1715939691772
 };
 
 const validTransferPutPayload = {
-    "transferId": "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "completedTimestamp": 1715939691772,
-    "transferState": "COMMITTED",
-    "fulfilment": null,
-    "extensionList": null
+    transferId: "1fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    completedTimestamp: 1715939691772,
+    transferState: "COMMITTED",
+    fulfilment: null,
+    extensionList: null
 };
 
 const validTransferGetPayload: QueryTransferCmdPayload = {
@@ -156,16 +156,16 @@ const validTransferGetPayload: QueryTransferCmdPayload = {
 
 
 const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
-    "bulkTransferId": "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
-    "bulkQuoteId": "0fbee1f3-c58e-5afe-8cdd-6e65eea2fca9",
-    "payeeFsp": "greenbank",
-    "payerFsp": "bluebank",
-    "individualTransfers": [
+    bulkTransferId: "0fbee1f3-c58e-9afe-8cdd-7e65eea2fca9",
+    bulkQuoteId: "0fbee1f3-c58e-5afe-8cdd-6e65eea2fca9",
+    payeeFsp: "greenbank",
+    payerFsp: "bluebank",
+    individualTransfers: [
         {
-            "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
-            "transferAmount": {
-                "currency": "USD",
-                "amount": "10"
+            transferId: "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+            transferAmount: {
+                currency: "USD",
+                amount: "10"
             },
             payerIdType: '',
             payeeIdType: '',
@@ -173,7 +173,8 @@ const validBulkTransferPostPayload: PrepareBulkTransferCmdPayload = {
             extensions: [],
         }
     ],
-    "expiration": 1715939691772,
+    expiration: 1715939691772,
+    extensions: [],
 };
 
 const validBulkTransferGetPayload: QueryBulkTransferCmdPayload = {
@@ -187,28 +188,28 @@ const validBulkTransferPutPayload = {
 	completedTimestamp: 1695659531251,
 	bulkTransferState: BulkTransferState.PROCESSING,
     individualTransferResults: [{
-        "transferId": "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
+        transferId: "0fbee2f3-c58e-5afe-8cdd-6e95eea2fca9",
         fulfilment: null,
         errorInformation: null,
-        extensionList: null
+        extensions: [],
     }]
 };
 
 const validRejectTransferPostPayload = {
-    "transferId": "2fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "errorInformation": {
-        "errorCode": "123456",
-        "errorDescription": "random error description",
-        "extensionList": null
+    transferId: "2fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    errorInformation: {
+        errorCode: "123456",
+        errorDescription: "random error description",
+        extensions: [],
     }
 };
 
 const validRejectBulkTransferPostPayload = {
-    "bulkTransferId": "3fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
-    "errorInformation": {
-        "errorCode": "123456",
-        "errorDescription": "random error description",
-        "extensionList": null
+    bulkTransferId: "3fbaf1a5-d82b-5bbf-9ffe-9d85fed9cfd8",
+    errorInformation: {
+        errorCode: "123456",
+        errorDescription: "random error description",
+        extensions: [],
     }
 };
 
@@ -253,6 +254,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payeeIdType: "IBAN",
             transferType: "DEPOSIT",
             errorCode:  null,
+            errorInformation: null,
             inboundProtocolType: "FSPIOP_v1_1",
             inboundProtocolOpaqueState: null,
         }
@@ -434,7 +436,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "payload": {
                     "completedTimestamp": validTransfer.completedTimestamp,
                     "transferId": validTransfer.transferId,
-                    "transferState": validTransfer.transferState
+                    "transferState": validTransfer.transferState,
+                    "extensions": validTransfer.extensions
                 }
             })]);
         });
@@ -463,7 +466,8 @@ describe("Domain - Unit Tests for Command Handler", () => {
                 "payload": {
                     "completedTimestamp": validTransfer.completedTimestamp,
                     "transferId": validTransfer.transferId,
-                    "transferState": validTransfer.transferState
+                    "transferState": validTransfer.transferState,
+                    "extensions": validTransfer.extensions
                 }
             })]);
         });
@@ -2241,6 +2245,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             transferState: validTransferPutPayload.transferState,
             completedTimestamp: validTransferPutPayload.completedTimestamp,
             notifyPayee: false,
+            extensions: [],
         });
 
         jest.spyOn(messageProducer, "send");
@@ -2530,6 +2535,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             payerFsp: validBulkTransferPostPayload.payerFsp,
             individualTransfers: validBulkTransferPostPayload.individualTransfers,
             expiration: validBulkTransferPostPayload.expiration,
+            extensions: [],
         })
 
         jest.spyOn(messageProducer, "send");
@@ -2576,6 +2582,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
             completedTimestamp: validBulkTransferPutPayload.completedTimestamp,
             bulkTransferState: validBulkTransferPutPayload.bulkTransferState as BulkTransferState.PROCESSING,
             individualTransferResults: validBulkTransferPutPayload.individualTransferResults,
+            extensions: [],
         });
 
         jest.spyOn(messageProducer, "send");

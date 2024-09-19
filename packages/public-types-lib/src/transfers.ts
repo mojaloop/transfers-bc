@@ -39,16 +39,19 @@ import { IParticipant, IParticipantAccount } from "@mojaloop/participant-bc-publ
 import { BulkTransferState, TransferState } from "./enums";
 
 export interface IExtensionList {
-  extension: {
-      key: string;
-      value: string;
-  }[];
+	extension: {
+		key: string;
+		value: string;
+	}[];
 }
 
 export interface IErrorInformation {
-  errorCode: string;
-  errorDescription: string;
-  extensionList: IExtensionList | null;
+	errorCode: string;
+	errorDescription: string;
+	extensions: {
+		key: string;
+		value: string;
+	}[];
 }
 
 export interface ITransfer {
@@ -62,7 +65,8 @@ export interface ITransfer {
 	expirationTimestamp: number;
 	transferState: TransferState;
 	completedTimestamp: number | null;
-	errorCode: string | null;
+	errorCode: string | null; // TODO: check if we still need this field
+	errorInformation: IErrorInformation | null;
 
 	// populated from the settlements lib during prepare
 	settlementModel: string;
