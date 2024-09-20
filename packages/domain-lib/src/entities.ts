@@ -32,7 +32,7 @@
 
 "use strict";
 
-import { ITransfer, TransferState, IExtensionList, IBulkTransfer, BulkTransferState } from "@mojaloop/transfers-bc-public-types-lib";
+import { ITransfer, TransferState, IExtensionList, IBulkTransfer, BulkTransferState, IErrorInformation } from "@mojaloop/transfers-bc-public-types-lib";
 
 /** Transfer entity **/
 export class Transfer implements ITransfer {
@@ -48,6 +48,7 @@ export class Transfer implements ITransfer {
 	transferState: TransferState;
 	completedTimestamp: number | null;
 	errorCode: string | null;
+	errorInformation: IErrorInformation | null;
 	
 	// populated from the settlements lib during prepare
 	settlementModel: string;

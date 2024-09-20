@@ -343,7 +343,8 @@ export class MongoTransfersRepo implements ITransfersRepository {
 			payeeIdType: transfer.payeeIdType ?? null,
 			transferType: transfer.transferType ?? null,
 			extensions: transfer.extensions ?? null,
-			errorCode: transfer.errorInformation ?? null,
+			errorCode: transfer.errorInformation ?? null, // TODO: check if we still need this
+			errorInformation: transfer.errorInformation ?? null,
 			// Protocol Specific
 			inboundProtocolType: transfer.inboundProtocolType ?? null,
 			inboundProtocolOpaqueState: transfer.inboundProtocolOpaqueState ?? null,

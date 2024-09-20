@@ -77,6 +77,10 @@ export type CommitTransferFulfilCmdPayload = {
 	transferState: string,
 	completedTimestamp: number | null,
 	notifyPayee: boolean;
+	extensions: {
+		key: string;
+		value: string;
+	}[];
 }
 
 
@@ -105,6 +109,10 @@ export type RejectTransferCmdPayload = {
 	errorInformation: {
 		errorCode: string;
 		errorDescription: string;
+		extensions: {
+			key: string;
+			value: string;
+		}[];
 	};
 }
 
@@ -203,6 +211,10 @@ export type PrepareBulkTransferCmdPayload = {
 		}[];
     }[];
     expiration: number;
+	extensions: {
+		key: string;
+		value: string;
+	}[];
 }
 export class PrepareBulkTransferCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -231,11 +243,23 @@ export type CommitBulkTransferFulfilCmdPayload = {
     individualTransferResults: {
         transferId: string;
         fulfilment: string | null;
+		extensions: {
+			key: string;
+			value: string;
+		}[];
         errorInformation: {
             errorCode: string;
             errorDescription: string;
+			extensions: {
+				key: string;
+				value: string;
+			}[];
         } | null;
     }[];
+	extensions: {
+		key: string;
+		value: string;
+	}[];
 }
 export class CommitBulkTransferFulfilCmd extends CommandMsg {
 	boundedContextName: string = TRANSFERS_BOUNDED_CONTEXT_NAME;
@@ -262,6 +286,10 @@ export type RejectBulkTransferCmdPayload = {
 	errorInformation: {
 		errorCode: string;
 		errorDescription: string;
+		extensions: {
+			key: string;
+			value: string;
+		}[];
 	};
 }
 
