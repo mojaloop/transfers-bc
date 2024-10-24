@@ -253,31 +253,33 @@ export class TransfersAggregate {
                 }
                 execStarts_timerEndFn({success:"true"});
 
-                if(this._abBatchRequests.length<=0){
-                    // return Promise.resolve();
-                    resolve();
-                    return;
-                }
+                // if(this._abBatchRequests.length<=0){
+                //     // return Promise.resolve();
+                //     resolve();
+                //     return;
+                // }
 
                 // if(this._abBatchRequests.length !== cmdMessages.length)
                 //     // eslint-disable-next-line no-debugger
                 //     debugger;
 
                 // send to A&B
-                const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
-                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()");
-                this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
-                if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()");
-                execAB_timerEndFn({success:"true"});
+                if (this._abBatchRequests.length > 0) {
+                    const execAB_timerEndFn = this._histo.startTimer({ callName: "executeAandbProcessHighLevelBatch"});
+                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - before accountsAndBalancesAdapter.processHighLevelBatch()");
+                    this._abBatchResponses = await this._accountAndBalancesAdapter.processHighLevelBatch(this._abBatchRequests);
+                    if(this._logger.isDebugEnabled()) this._logger.debug("processCommandBatch() - after accountsAndBalancesAdapter.processHighLevelBatch()");
+                    execAB_timerEndFn({success:"true"});
 
-                // peek first and check count to establish no errors - or any other way to determine error
+                    // peek first and check count to establish no errors - or any other way to determine error
 
-                // execute continues
-                const executeContinues_timerEndFn = this._histo.startTimer({ callName: "executeContinues"});
-                for (const abResponse of this._abBatchResponses) {
-                    await this._processAccountsAndBalancesResponse(abResponse);
+                    // execute continues
+                    const executeContinues_timerEndFn = this._histo.startTimer({ callName: "executeContinues"});
+                    for (const abResponse of this._abBatchResponses) {
+                        await this._processAccountsAndBalancesResponse(abResponse);
+                    }
+                    executeContinues_timerEndFn({success:"true"});
                 }
-                executeContinues_timerEndFn({success:"true"});
 
                 // if the continues queued cancellations, send then now
                 if(this._abCancelationBatchRequests.length){
