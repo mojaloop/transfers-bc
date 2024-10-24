@@ -3935,7 +3935,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledTimes(0);
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
     });
     
     test("should not do anything if found transfer is ABORTED processing TimeoutTransferCmd command", async () => {
@@ -3951,7 +3951,7 @@ describe("Domain - Unit Tests for Command Handler", () => {
         await aggregate.processCommandBatch([command]);
 
         // Assert
-        expect(messageProducer.send).toHaveBeenCalledTimes(0);
+        expect(messageProducer.send).toHaveBeenCalledWith([]);
     });
 
 });
