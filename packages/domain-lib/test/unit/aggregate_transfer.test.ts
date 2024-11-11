@@ -71,7 +71,10 @@ import {
     TransferPayerNotActiveEvt,
     TransferPayeeIdMismatchEvt,
     TransferPayeeNotApprovedEvt,
-    TransferPayeeNotActiveEvt
+    TransferPayeeNotActiveEvt,
+    TransferFulfilCommittedRequestedTimedoutEvt,
+    TransferPrepareRequestTimedoutEvt,
+    TransferFulfilmentValidationFailedEvt,
 } from "@mojaloop/platform-shared-lib-public-messages-lib";
 import { mockedHubParticipant, mockedPayeeParticipant, mockedPayerParticipant } from "@mojaloop/transfers-bc-shared-mocks-lib";
 import { createCommand } from "../utils/helpers";
@@ -93,6 +96,7 @@ import {
     QueryTransferCmd,
     RejectTransferCmd,
     TimeoutTransferCmd,
+    TimeoutTransferCmdPayload,
     PrepareBulkTransferCmd,
     TransfersAggregate,
     CommitBulkTransferFulfilCmd,
@@ -101,11 +105,22 @@ import {
     PrepareBulkTransferCmdPayload,
     QueryTransferCmdPayload
 } from '../../src';
-import { AccountsBalancesHighLevelRequestTypes } from '@mojaloop/accounts-and-balances-bc-public-types-lib';
+import { 
+    AccountsBalancesHighLevelRequestTypes, 
+    IAccountsBalancesHighLevelResponse, 
+    IAccountsBalancesHighLevelRequest 
+} from '@mojaloop/accounts-and-balances-bc-public-types-lib';
 import { LogLevel } from '@mojaloop/logging-bc-public-types-lib';
 import { waitForExpect } from '@mojaloop/transfers-bc-shared-mocks-lib';
 import { AccountType, BulkTransferState, IBulkTransfer, ITransfer, TransferErrorCodeNames, TransferState } from '@mojaloop/transfers-bc-public-types-lib';
 import { QueryBulkTransferCmdPayload } from '../../dist';
+import {
+    CheckLiquidityAndReserveFailedError,
+    InvalidMessagePayloadError,
+    InvalidMessageTypeError,
+} from "../../src/errors";
+import { deepMerge } from '../../src/utils';
+
 
 logger.setLogLevel(LogLevel.DEBUG);
 
@@ -3954,4 +3969,438 @@ describe("Domain - Unit Tests for Command Handler", () => {
         expect(messageProducer.send).toHaveBeenCalledWith([]);
     });
 
+    test("should throw error when accounts and balances high level request and response IDs are different", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        const response = {
+            requestType: AccountsBalancesHighLevelRequestTypes.checkLiquidAndReserve,
+            requestId: "non-existent", 
+            success: false,
+            errorMessage: "random error message"
+        };
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch").mockResolvedValueOnce([response]);
+
+        // Act and Assert
+        try {
+            await aggregate.processCommandBatch([command]);
+        } catch(err: unknown) {
+            expect(err).toBeInstanceOf(CheckLiquidityAndReserveFailedError);
+        }
+    });
+
+    test("should throw error when original command is not found during high level response processing", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(accountsAndBalancesService, "processHighLevelBatch").mockImplementationOnce(
+            (requests: IAccountsBalancesHighLevelRequest[]) => {
+                for (const request of requests) {
+                    request.transferId = "non-existent";
+                }
+                return Promise.resolve(requests as unknown as IAccountsBalancesHighLevelResponse[]);
+            }
+        );
+
+        // Act and Assert
+        try {
+            await aggregate.processCommandBatch([command]);
+        } catch(err: unknown) {
+            expect(err).toBeInstanceOf(Error);
+        }
+    });
+
+    test("should throw error when command doesn't have a payload", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(null, PrepareTransferCmd.name, null);
+
+        // Act and Assert
+        try {
+            await aggregate.processCommandBatch([command]);
+        } catch(err: unknown) {
+            expect(err).toBeInstanceOf(InvalidMessagePayloadError);
+        }
+    });
+
+    test("should throw error when command doesn't have msgName", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostPayload, PrepareTransferCmd.name, null);
+        (command as any).msgName = undefined;
+
+        // Act and Assert
+        try {
+            await aggregate.processCommandBatch([command]);
+        } catch(err: unknown) {
+            expect(err).toBeInstanceOf(InvalidMessageTypeError);
+        }
+    });
+
+    test("should be able to timeout the transfer with RESERVED state", async () => {
+        // Arrange
+        let now = new Date().getTime();
+        // Decrease current time by 1 min = 60000 milisec
+        now -= (60 * 1000);
+        validTransfer.expirationTimestamp = now;
+        validTransfer.transferState = TransferState.RESERVED;
+
+        // Arrange
+        const validTimeoutTransferPayload: TimeoutTransferCmdPayload = {
+			transferId: validTransfer.transferId,
+			timeout: {
+                headers: {
+                    "example-header": "example-value"
+                },
+                payload: "example-value"
+            }
+		};
+        const command2: CommandMsg = createCommand(
+            validTimeoutTransferPayload, 
+            TimeoutTransferCmd.name, 
+            { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } }
+        );
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockResolvedValue(validTransfer);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockImplementation(() => {
+            return Promise.resolve();
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command2]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferFulfilCommittedRequestedTimedoutEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.TRANSFER_EXPIRED, 
+                "transferId": validTransfer.transferId
+            })
+        })]);
+    });
+
+    test("should handle error when _cancelTransfer throws it during RESERVED transfer timeout process", async () => {
+        // Arrange
+        let now = new Date().getTime();
+        // Decrease current time by 1 min = 60000 milisec
+        now -= (60 * 1000);
+        validTransfer.expirationTimestamp = now;
+        validTransfer.transferState = TransferState.RESERVED;
+
+        // Arrange
+        const validTimeoutTransferPayload: TimeoutTransferCmdPayload = {
+			transferId: validTransfer.transferId,
+			timeout: {
+                headers: {
+                    "example-header": "example-value"
+                },
+                payload: "example-value"
+            }
+		};
+        const command2: CommandMsg = createCommand(
+            validTimeoutTransferPayload, 
+            TimeoutTransferCmd.name, 
+            { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } }
+        );
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockResolvedValueOnce(validTransfer);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command2]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferCancelReservationFailedEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION, 
+                "transferId": validTransfer.transferId
+            })
+        })]);
+    });
+
+    test("should handle error when updateTransfer throws it during RESERVED transfer timeout process", async () => {
+        // Arrange
+        let now = new Date().getTime();
+        // Decrease current time by 1 min = 60000 milisec
+        now -= (60 * 1000);
+        validTransfer.expirationTimestamp = now;
+        validTransfer.transferState = TransferState.RESERVED;
+
+        // Arrange
+        const validTimeoutTransferPayload: TimeoutTransferCmdPayload = {
+			transferId: validTransfer.transferId,
+			timeout: {
+                headers: {
+                    "example-header": "example-value"
+                },
+                payload: "example-value"
+            }
+		};
+        const command2: CommandMsg = createCommand(
+            validTimeoutTransferPayload, 
+            TimeoutTransferCmd.name, 
+            { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } }
+        );
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockResolvedValue(validTransfer);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockImplementationOnce(() => {
+            return Promise.resolve();
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command2]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToUpdateEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER, 
+                "transferId": validTransfer.transferId
+            })
+        })]);
+    });
+
+    test("should be able to timeout the transfer with RECEIVED state", async () => {
+        // Arrange
+        let now = new Date().getTime();
+        // Increase current time by 1 min = 60000 milisec
+        now += (60 * 1000);
+        validTransfer.expirationTimestamp = now;
+        validTransfer.transferState = TransferState.RECEIVED;
+
+        // Arrange
+        const validTimeoutTransferPayload: TimeoutTransferCmdPayload = {
+			transferId: validTransfer.transferId,
+			timeout: {
+                headers: {
+                    "example-header": "example-value"
+                },
+                payload: "example-value"
+            }
+		};
+        const command2: CommandMsg = createCommand(
+            validTimeoutTransferPayload, 
+            TimeoutTransferCmd.name, 
+            { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } }
+        );
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockResolvedValue(validTransfer);
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockImplementation(() => {
+            return Promise.resolve();
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command2]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferPrepareRequestTimedoutEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.TRANSFER_EXPIRED, 
+                "transferId": validTransfer.transferId
+            })
+        })]);
+    });
+
+    test("should handle error when updateTransfer throws it during RECEIVED transfer timeout process", async () => {
+        // Arrange
+        let now = new Date().getTime();
+        // Increase current time by 1 min = 60000 milisec
+        now += (60 * 1000);
+        validTransfer.expirationTimestamp = now;
+        validTransfer.transferState = TransferState.RECEIVED;
+
+        // Arrange
+        const validTimeoutTransferPayload: TimeoutTransferCmdPayload = {
+			transferId: validTransfer.transferId,
+			timeout: {
+                headers: {
+                    "example-header": "example-value"
+                },
+                payload: "example-value"
+            }
+		};
+        const command2: CommandMsg = createCommand(
+            validTimeoutTransferPayload, 
+            TimeoutTransferCmd.name, 
+            { fspiopOpaqueState: { requesterFspId: "bluebank", destinationFspId: "greenbank" } }
+        );
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockResolvedValue(validTransfer);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command2]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferUnableToUpdateEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_UPDATE_TRANSFER, 
+                "transferId": validTransfer.transferId
+            })
+        })]);
+    });
+
+    test("should be able to deep merge properties", async () => {
+        // Arrange
+        const inboundProtocolOpaqueState = {
+            "key1": "value1",
+            "key2": "value2"
+        };
+
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        command.inboundProtocolOpaqueState = {
+            "key1": "value1"
+        };
+
+        validTransfer.inboundProtocolOpaqueState = {
+            "key2": "value2"
+        };
+
+        // Act
+        validTransfer.inboundProtocolOpaqueState = deepMerge(validTransfer.inboundProtocolOpaqueState, command.inboundProtocolOpaqueState);
+
+        // Assert
+        expect(validTransfer.inboundProtocolOpaqueState).toEqual(inboundProtocolOpaqueState);
+    });
+
+    test("should throw error when command message is not valid for FSPIOP_v1_1 in _fulfilTransferStart", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        command.inboundProtocolType = "FSPIOP_v1_1";
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockImplementation(() => {
+            return Promise.resolve(validTransfer);
+        });
+
+        jest.spyOn(transfersRepo, "updateTransfer").mockImplementation(() => {
+            return Promise.resolve();
+        });
+
+        jest.spyOn(interopFspiopValidator, "validateFulfilmentOpaqueState").mockReturnValueOnce(false);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferFulfilmentValidationFailedEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_VALIDATE_TRANSFER_FULFILMENT, 
+                "transferId": command.payload.transferId
+            })
+        })]);
+    });
+
+    test("should handle error when _cancelTransfer throws it during FSPIOP_v1_1 validation in _fulfilTransferStart", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        command.inboundProtocolType = "FSPIOP_v1_1";
+
+        jest.spyOn(participantService, "getParticipantInfo")
+            .mockResolvedValueOnce(mockedHubParticipant)
+            .mockResolvedValueOnce(mockedPayerParticipant)
+            .mockResolvedValueOnce(mockedPayeeParticipant);
+
+        jest.spyOn(transfersRepo, "getTransferById").mockImplementation(() => {
+            return Promise.resolve(validTransfer);
+        });
+
+        jest.spyOn(interopFspiopValidator, "validateFulfilmentOpaqueState").mockReturnValueOnce(false);
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferCancelReservationFailedEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_CANCEL_TRANSFER_RESERVATION, 
+                "transferId": command.payload.transferId
+            })
+        })]);
+    });
+
+    test("should handle error when FSPIOP_v1_1 validation throws it during _fulfilTransferStart", async () => {
+        // Arrange
+        const command: CommandMsg = createCommand(validTransferPostContinuePayload, CommitTransferFulfilCmd.name, null);
+        command.inboundProtocolType = "FSPIOP_v1_1";
+
+        jest.spyOn(transfersRepo, "getTransferById").mockImplementationOnce(() => {
+            return Promise.resolve(validTransfer);
+        });
+
+        jest.spyOn(interopFspiopValidator, "validateFulfilmentOpaqueState").mockImplementationOnce(() => {
+            throw new Error();
+        });
+
+        jest.spyOn(messageProducer, "send");
+
+        // Act
+        await aggregate.processCommandBatch([command]);
+
+        // Assert
+        expect(messageProducer.send).toHaveBeenCalledWith([expect.objectContaining({
+            "msgName": TransferFulfilmentValidationFailedEvt.name,
+            "payload": expect.objectContaining({
+                "errorCode": TransferErrorCodeNames.UNABLE_TO_VALIDATE_TRANSFER_FULFILMENT, 
+                "transferId": command.payload.transferId
+            })
+        })]);
+    });
 });

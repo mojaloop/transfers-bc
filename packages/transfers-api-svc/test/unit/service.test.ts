@@ -50,8 +50,6 @@ const mockedTransfersRepository: ITransfersRepository = new MemoryTransferRepo(l
 
 const mockedBulkTransfersRepository: IBulkTransfersRepository = new MemoryBulkTransferRepo(logger);
 
-const mockedConfigProvider: IConfigProvider = new MemoryConfigProvider(logger);
-
 const metricsMock: IMetrics = new MetricsMock();
 
 const configurationClientInitSpy = jest.fn();

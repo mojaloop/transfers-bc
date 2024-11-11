@@ -225,7 +225,7 @@ export class TransfersAggregate {
     async processCommandBatch(cmdMessages: CommandMsg[]): Promise<void> {
         // TODO make sure we're not processing another batch already
         // eslint-disable-next-line no-async-promise-executor
-        return new Promise<void>(async (resolve) => {
+        return new Promise<void>(async (resolve, reject) => {
             this._abBatchRequests = [];
             this._abCancelationBatchRequests = [];
             this._abBatchResponses = [];
@@ -294,7 +294,7 @@ export class TransfersAggregate {
             } catch (err: unknown) {
                 const error = (err as Error).message;
                 this._logger.error(err, error);
-                throw error;
+                reject(err);
             } finally {
                 // flush in mem repositories
                 await this._flush();
@@ -304,12 +304,16 @@ export class TransfersAggregate {
 
                 // eslint-disable-next-line no-unsafe-finally
                 // return Promise.resolve();
-                resolve();
             }
+
+            resolve();
         });
     }
 
     private async _processCommand(cmd: CommandMsg): Promise<void> {
+        // validate message
+        this._ensureValidMessage(cmd);
+
         // cache command for later retrieval in continue methods - do this first!
         if(cmd.payload.bulkTransferId) {
             let transfers = [];
@@ -326,9 +330,6 @@ export class TransfersAggregate {
         } else {
             this._batchCommands.set(cmd.payload.transferId, cmd);
         }
-
-        // validate message
-        this._ensureValidMessage(cmd);
 
         if (cmd.msgName === PrepareTransferCmd.name) {
             return this._prepareTransferStart(cmd as PrepareTransferCmd);
