@@ -1,7 +1,13 @@
-# transfers-bc
+# [DEPRECATED] transfers-bc
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+**Deprecation Notice**: This repo was deprecated as of October 2025. It is no longer maintained, and is no longer referenced by any releases of Mojaloop.
+
+For a list of active Mojaloop repos, please refer to [Mojaloop documentation](https://docs.mojaloop.io) or [Mojaloop GitHub Org](https://github.com/mojaloop).
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+
 **EXPERIMENTAL** vNext Transfers Bounded Context
-
-
 [![Git Commit](https://img.shields.io/github/last-commit/mojaloop/transfers-bc.svg?style=flat)](https://github.com/mojaloop/transfers-bc/commits/master)
 [![Git Releases](https://img.shields.io/github/release/mojaloop/transfers-bc.svg?style=flat)](https://github.com/mojaloop/transfers-bc/releases)
 [![Docker pulls](https://img.shields.io/docker/pulls/mojaloop/transfers-bc.svg?style=flat)](https://hub.docker.com/r/mojaloop/transfers-bc)
